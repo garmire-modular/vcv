@@ -1,0 +1,49 @@
+{
+  "Chromance": {
+    "module": "Chromance",
+    "slug": "Chromance",
+    "hp": 10,
+    "mode": "Generate",
+    "anchor": "charcoal",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#1A1A1A",
+        "tier": "LOW",
+        "weight": 50,
+        "heightMm": 44.45
+      },
+      {
+        "hex": "#56B4E9",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#CC79A7",
+        "tier": "LOW",
+        "weight": 18,
+        "heightMm": 16.002
+      }
+    ],
+    "colors": [
+      "#1A1A1A",
+      "#56B4E9",
+      "#CC79A7"
+    ],
+    "weights": [
+      50,
+      32,
+      18
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T18:52:08.535Z"
+  }
+}
