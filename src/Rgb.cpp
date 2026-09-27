@@ -128,9 +128,9 @@ struct RgbWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.24, 40.00)), module, Rgb::GREEN_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.24, 58.41)), module, Rgb::BLUE_PARAM));
 
-		// Live Color Preview Rounded Rectangle (25.40mm x 3.81mm [0.15in] at center Y = 71.58mm)
-		RgbColorPreviewWidget* preview = createWidget<RgbColorPreviewWidget>(mm2px(Vec(2.54, 69.675)));
-		preview->box.size = mm2px(Vec(25.40, 3.81));
+		// Live Color Preview Rounded Rectangle (19.05mm x 3.81mm [0.15in] at center Y = 71.58mm)
+		RgbColorPreviewWidget* preview = createWidget<RgbColorPreviewWidget>(mm2px(Vec(5.715, 69.675)));
+		preview->box.size = mm2px(Vec(19.05, 3.81));
 		preview->module = module;
 		addChild(preview);
 

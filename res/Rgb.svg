@@ -6,8 +6,8 @@
   <!-- Delineator Line 1 (Above Color Preview Swatch at Y = 66.00mm) -->
   <line x1="2.54" y1="66.00" x2="27.94" y2="66.00" stroke="#999999" stroke-width="0.176"/>
 
-  <!-- Color Display Swatch (25.40mm x 3.81mm [0.15in] at center Y = 71.58mm) -->
-  <rect x="2.54" y="69.675" width="25.40" height="3.81" rx="1.0" ry="1.0" fill="#ff0000" stroke="#2c2c2c" stroke-width="0.3"/>
+  <!-- Color Display Swatch (19.05mm x 3.81mm [0.15in] at center Y = 71.58mm) -->
+  <rect x="5.715" y="69.675" width="19.05" height="3.81" rx="1.0" ry="1.0" fill="#ff0000" stroke="#2c2c2c" stroke-width="0.3"/>
 
   <!-- Delineator Line 2 (Above Attenuverters at Y = 76.00mm) -->
   <line x1="2.54" y1="76.00" x2="27.94" y2="76.00" stroke="#999999" stroke-width="0.176"/>
