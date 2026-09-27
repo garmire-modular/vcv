@@ -45,6 +45,9 @@ modules = [
     ('SwitchXL', 76, 240),
     ('RouteXL', 76, 240),
     ('SumMixXL', 76, 240),
+    ('Andxy', 28, 240),
+    ('Orxy', 28, 240),
+    ('Xorxy', 28, 240),
 ]
 
 for slug, width, height in modules:

@@ -36,3 +36,6 @@ extern Model* modelSumMult;
 extern Model* modelSwitchXL;
 extern Model* modelRouteXL;
 extern Model* modelSumMixXL;
+extern Model* modelAndxy;
+extern Model* modelOrxy;
+extern Model* modelXorxy;

@@ -1,7 +1,7 @@
 {
   "slug": "Garmire",
   "name": "Garmire",
-  "version": "2.22.0",
+  "version": "2.23.0",
   "license": "GPL-3.0-or-later",
   "brand": "Garmire",
   "author": "Garmire",
@@ -323,6 +323,39 @@
         "Visual",
         "Utility",
         "Ring Modulator",
+        "Logic"
+      ]
+    },
+    {
+      "slug": "Andxy",
+      "name": "Andxy",
+      "description": "Dual X/Y boolean AND / NAND logic module with Schmitt-trigger noise-immune comparator",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Logic"
+      ]
+    },
+    {
+      "slug": "Orxy",
+      "name": "Orxy",
+      "description": "Dual X/Y boolean OR / NOR logic module with Schmitt-trigger noise-immune comparator",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Logic"
+      ]
+    },
+    {
+      "slug": "Xorxy",
+      "name": "Xorxy",
+      "description": "Dual X/Y boolean XOR / XNOR logic module with Schmitt-trigger noise-immune comparator",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
         "Logic"
       ]
     }

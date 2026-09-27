@@ -35,4 +35,7 @@ void init(Plugin* p) {
 	p->addModel(modelSwitchXL);
 	p->addModel(modelRouteXL);
 	p->addModel(modelSumMixXL);
+	p->addModel(modelAndxy);
+	p->addModel(modelOrxy);
+	p->addModel(modelXorxy);
 }
