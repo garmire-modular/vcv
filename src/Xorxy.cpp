@@ -96,10 +96,16 @@ struct XorxyModule : Module {
 			bool xorX = highX1[c] != highX2[c];
 			bool xorY = highY1[c] != highY2[c];
 
-			outputs[XOR_X_OUTPUT].setVoltage(xorX ? 10.f : 0.f, c);
-			outputs[XOR_Y_OUTPUT].setVoltage(xorY ? 10.f : 0.f, c);
-			outputs[XNOR_X_OUTPUT].setVoltage(!xorX ? 10.f : 0.f, c);
-			outputs[XNOR_Y_OUTPUT].setVoltage(!xorY ? 10.f : 0.f, c);
+			// Rapid switching: Condition met -> Input 2; Condition not met -> Input 1
+			float outXorX = xorX ? vX2 : vX1;
+			float outXorY = xorY ? vY2 : vY1;
+			float outXnorX = !xorX ? vX2 : vX1;
+			float outXnorY = !xorY ? vY2 : vY1;
+
+			outputs[XOR_X_OUTPUT].setVoltage(clamp(outXorX, -12.f, 12.f), c);
+			outputs[XOR_Y_OUTPUT].setVoltage(clamp(outXorY, -12.f, 12.f), c);
+			outputs[XNOR_X_OUTPUT].setVoltage(clamp(outXnorX, -12.f, 12.f), c);
+			outputs[XNOR_Y_OUTPUT].setVoltage(clamp(outXnorY, -12.f, 12.f), c);
 		}
 	}
 };

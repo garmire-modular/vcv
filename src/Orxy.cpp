@@ -96,10 +96,16 @@ struct OrxyModule : Module {
 			bool orX = highX1[c] || highX2[c];
 			bool orY = highY1[c] || highY2[c];
 
-			outputs[OR_X_OUTPUT].setVoltage(orX ? 10.f : 0.f, c);
-			outputs[OR_Y_OUTPUT].setVoltage(orY ? 10.f : 0.f, c);
-			outputs[NOR_X_OUTPUT].setVoltage(!orX ? 10.f : 0.f, c);
-			outputs[NOR_Y_OUTPUT].setVoltage(!orY ? 10.f : 0.f, c);
+			// Rapid switching: Condition met -> Input 2; Condition not met -> Input 1
+			float outOrX = orX ? vX2 : vX1;
+			float outOrY = orY ? vY2 : vY1;
+			float outNorX = !orX ? vX2 : vX1;
+			float outNorY = !orY ? vY2 : vY1;
+
+			outputs[OR_X_OUTPUT].setVoltage(clamp(outOrX, -12.f, 12.f), c);
+			outputs[OR_Y_OUTPUT].setVoltage(clamp(outOrY, -12.f, 12.f), c);
+			outputs[NOR_X_OUTPUT].setVoltage(clamp(outNorX, -12.f, 12.f), c);
+			outputs[NOR_Y_OUTPUT].setVoltage(clamp(outNorY, -12.f, 12.f), c);
 		}
 	}
 };

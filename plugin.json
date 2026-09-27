@@ -329,7 +329,7 @@
     {
       "slug": "Andxy",
       "name": "Andxy",
-      "description": "Dual X/Y boolean AND / NAND logic module with Schmitt-trigger noise-immune comparator",
+      "description": "Dual X/Y rapid switching boolean AND / NAND router passing Input 2 when condition is met and Input 1 otherwise",
       "tags": [
         "Visual",
         "Utility",
@@ -340,7 +340,7 @@
     {
       "slug": "Orxy",
       "name": "Orxy",
-      "description": "Dual X/Y boolean OR / NOR logic module with Schmitt-trigger noise-immune comparator",
+      "description": "Dual X/Y rapid switching boolean OR / NOR router passing Input 2 when condition is met and Input 1 otherwise",
       "tags": [
         "Visual",
         "Utility",
@@ -351,7 +351,7 @@
     {
       "slug": "Xorxy",
       "name": "Xorxy",
-      "description": "Dual X/Y boolean XOR / XNOR logic module with Schmitt-trigger noise-immune comparator",
+      "description": "Dual X/Y rapid switching boolean XOR / XNOR router passing Input 2 when condition is met and Input 1 otherwise",
       "tags": [
         "Visual",
         "Utility",

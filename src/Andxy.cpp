@@ -96,10 +96,16 @@ struct AndxyModule : Module {
 			bool andX = highX1[c] && highX2[c];
 			bool andY = highY1[c] && highY2[c];
 
-			outputs[AND_X_OUTPUT].setVoltage(andX ? 10.f : 0.f, c);
-			outputs[AND_Y_OUTPUT].setVoltage(andY ? 10.f : 0.f, c);
-			outputs[NAND_X_OUTPUT].setVoltage(!andX ? 10.f : 0.f, c);
-			outputs[NAND_Y_OUTPUT].setVoltage(!andY ? 10.f : 0.f, c);
+			// Rapid switching: Condition met -> Input 2; Condition not met -> Input 1
+			float outAndX = andX ? vX2 : vX1;
+			float outAndY = andY ? vY2 : vY1;
+			float outNandX = !andX ? vX2 : vX1;
+			float outNandY = !andY ? vY2 : vY1;
+
+			outputs[AND_X_OUTPUT].setVoltage(clamp(outAndX, -12.f, 12.f), c);
+			outputs[AND_Y_OUTPUT].setVoltage(clamp(outAndY, -12.f, 12.f), c);
+			outputs[NAND_X_OUTPUT].setVoltage(clamp(outNandX, -12.f, 12.f), c);
+			outputs[NAND_Y_OUTPUT].setVoltage(clamp(outNandY, -12.f, 12.f), c);
 		}
 	}
 };
