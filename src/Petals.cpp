@@ -86,16 +86,21 @@ struct Petals : Module {
 			float rScaledX = r;
 			float thetaX = theta;
 			if (nX > 1.f) {
-				float phaseX = std::fmod((theta + (float)M_PI) / (2.f * (float)M_PI) * nX, nX);
+				float normTheta = (theta + (float)M_PI) / (2.f * (float)M_PI);
+				float phaseX = std::fmod(normTheta * nX, nX);
 				if (phaseX < 0.f) phaseX += nX;
-				float depthX = (nX - phaseX) / 4.f;
-				if (depthX < 0.f) depthX = 0.f;
+				int kX = (int)std::floor(phaseX);
 
-				// Spiraling scale: original scales down up to 4 petals; once >4, first 4 scale down further inward
-				float spiralScaleX = 1.f / (1.f + 0.35f * depthX);
+				int lX = kX / 4;
+				int topLayerX = (int)std::floor((nX - 1.f) / 4.f);
+				int deltaLX = std::max(0, topLayerX - lX);
+
+				float spiralScaleX = 1.f / (1.f + 0.35f * deltaLX);
+				float baseScaleX = 1.f / (1.f + 0.05f * (nX - 1.f));
 				float scaleX = (xSegm - (xSegm > 0.f ? 1.f : -1.f)) * (0.4f / (1.f + 0.05f * nX));
+
 				thetaX = theta + scaleX * std::sin(theta * xSegm);
-				rScaledX = r * spiralScaleX;
+				rScaledX = r * baseScaleX * spiralScaleX;
 			}
 
 			// Rose / Ranunculus spiraling radius transformation for Y
@@ -103,15 +108,21 @@ struct Petals : Module {
 			float rScaledY = r;
 			float thetaY = theta;
 			if (nY > 1.f) {
-				float phaseY = std::fmod((theta + (float)M_PI) / (2.f * (float)M_PI) * nY, nY);
+				float normTheta = (theta + (float)M_PI) / (2.f * (float)M_PI);
+				float phaseY = std::fmod(normTheta * nY, nY);
 				if (phaseY < 0.f) phaseY += nY;
-				float depthY = (nY - phaseY) / 4.f;
-				if (depthY < 0.f) depthY = 0.f;
+				int kY = (int)std::floor(phaseY);
 
-				float spiralScaleY = 1.f / (1.f + 0.35f * depthY);
+				int lY = kY / 4;
+				int topLayerY = (int)std::floor((nY - 1.f) / 4.f);
+				int deltaLY = std::max(0, topLayerY - lY);
+
+				float spiralScaleY = 1.f / (1.f + 0.35f * deltaLY);
+				float baseScaleY = 1.f / (1.f + 0.05f * (nY - 1.f));
 				float scaleY = (ySegm - (ySegm > 0.f ? 1.f : -1.f)) * (0.4f / (1.f + 0.05f * nY));
+
 				thetaY = theta + scaleY * std::sin(theta * ySegm);
-				rScaledY = r * spiralScaleY;
+				rScaledY = r * baseScaleY * spiralScaleY;
 			}
 
 			float outX = rScaledX * std::cos(thetaX);
