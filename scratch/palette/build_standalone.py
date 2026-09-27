@@ -55,7 +55,7 @@ html_content = f'''<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FAC 73 Module Palette Manager</title>
+  <title>Module Palette Manager</title>
   <style>
     @font-face {{
       font-family: 'Node';
@@ -665,7 +665,7 @@ html_content = f'''<!DOCTYPE html>
     }}
 
     function init() {{
-      const cached = localStorage.getItem('fac73_palette_json');
+      const cached = localStorage.getItem('palette_manager_json');
       if (cached) {{
         try {{
           savedPalettes = JSON.parse(cached);
@@ -877,14 +877,14 @@ html_content = f'''<!DOCTYPE html>
 
       const svgEl = container.querySelector('svg');
       if (svgEl) {{
-        const prior = svgEl.querySelector('#fac73-badge');
+        const prior = svgEl.querySelector('#palette-badge');
         if (prior) prior.remove();
 
         const centerY = 64.25;
         const yStartMm = centerY - (BADGE_HEIGHT_MM / 2) + BADGE_Y_OFFSET;
 
         const badgeG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        badgeG.setAttribute('id', 'fac73-badge');
+        badgeG.setAttribute('id', 'palette-badge');
 
         const totalW = currentPalette.weights.reduce((a, b) => a + b, 0);
         let curYMm = yStartMm;
@@ -1053,7 +1053,7 @@ html_content = f'''<!DOCTYPE html>
       savedPalettes[slug] = paletteEntry;
 
       // 1. Save to localStorage immediately
-      localStorage.setItem('fac73_palette_json', JSON.stringify(savedPalettes, null, 2));
+      localStorage.setItem('palette_manager_json', JSON.stringify(savedPalettes, null, 2));
 
       // 2. If a local file handle is active (File System Access API), write directly to disk!
       if (fileHandle) {{
