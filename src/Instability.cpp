@@ -45,23 +45,23 @@ struct Instability : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		// Main Knobs
-		configParam(FREQ_DRIFT_PARAM, 0.f, 1.f, 0.2f, "Frequency Drift Rate", "%", 0.f, 100.f);
-		configParam(PHASE_DRIFT_PARAM, 0.f, 1.f, 0.2f, "Phase Drift Rate", "%", 0.f, 100.f);
-		configParam(AMP_DRIFT_PARAM, 0.f, 1.f, 0.2f, "Amplitude Drift Rate", "%", 0.f, 100.f);
+		configParam(FREQ_DRIFT_PARAM, 0.f, 1.f, 0.2f, "Frequency drift rate", "%", 0.f, 100.f);
+		configParam(PHASE_DRIFT_PARAM, 0.f, 1.f, 0.2f, "Phase drift rate", "%", 0.f, 100.f);
+		configParam(AMP_DRIFT_PARAM, 0.f, 1.f, 0.2f, "Amplitude drift rate", "%", 0.f, 100.f);
 
 		// Attenuverters (-1 to +1, default 0.0)
-		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Freq drift rate CV depth", "%", 0.f, 100.f);
+		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency drift rate CV depth", "%", 0.f, 100.f);
 		configParam(PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Phase drift rate CV depth", "%", 0.f, 100.f);
-		configParam(AMP_TRIM_PARAM, -1.f, 1.f, 0.f, "Amp drift rate CV depth", "%", 0.f, 100.f);
+		configParam(AMP_TRIM_PARAM, -1.f, 1.f, 0.f, "Amplitude drift rate CV depth", "%", 0.f, 100.f);
 
 		// CV Rate Inputs
-		configInput(FREQ_INPUT, "Frequency Drift Rate CV");
-		configInput(PHASE_INPUT, "Phase Drift Rate CV");
-		configInput(AMP_INPUT, "Amplitude Drift Rate CV");
+		configInput(FREQ_INPUT, "Frequency drift rate CV");
+		configInput(PHASE_INPUT, "Phase drift rate CV");
+		configInput(AMP_INPUT, "Amplitude drift rate CV");
 
 		// Signal I/O
-		configInput(SIGNAL_INPUT, "Signal Input");
-		configOutput(SIGNAL_OUTPUT, "Signal / Drift CV Output");
+		configInput(SIGNAL_INPUT, "Signal");
+		configOutput(SIGNAL_OUTPUT, "Signal / drift CV");
 
 		for (int i = 0; i < 16; i++) {
 			state[i].driftFreq.init(1001u + i * 333u);
@@ -117,30 +117,37 @@ struct InstabilityWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Instability.svg")));
 
-		// Screws
+		// 6HP Screws
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		// Knobs (X = 15.24mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.24, 21.59)), module, Instability::FREQ_DRIFT_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.24, 40.00)), module, Instability::PHASE_DRIFT_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.24, 58.41)), module, Instability::AMP_DRIFT_PARAM));
+		// Main Controls
+		// Row 1: FREQ (7.62 mm) & PHASE (22.86 mm) (Center Y = 21.59 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 21.59)), module, Instability::FREQ_DRIFT_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 21.59)), module, Instability::PHASE_DRIFT_PARAM));
 
-		// Trimpots (Row Y = 83.00mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(6.00, 83.00)), module, Instability::FREQ_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(15.24, 83.00)), module, Instability::PHASE_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(24.48, 83.00)), module, Instability::AMP_TRIM_PARAM));
+		// Row 2: AMP (15.24 mm) (Center Y = 43.00 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.24, 43.00)), module, Instability::AMP_DRIFT_PARAM));
 
-		// CV Rate Inputs (Top Jack Row Y = 105.41mm, aligned with Scale/Position Row 2)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(6.00, 105.41)), module, Instability::FREQ_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.24, 105.41)), module, Instability::PHASE_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(24.48, 105.41)), module, Instability::AMP_INPUT));
+		// Attenuverter Trimpots
+		// Trimpot Row 1: FREQ (7.62 mm) & PHASE (22.86 mm) (Center Y = 69.00 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(7.62, 69.00)), module, Instability::FREQ_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.86, 69.00)), module, Instability::PHASE_TRIM_PARAM));
 
-		// Signal I/O (Bottom Jack Row Y = 116.84mm, aligned with Scale/Position Row 3)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 116.84)), module, Instability::SIGNAL_INPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 116.84)), module, Instability::SIGNAL_OUTPUT));
+		// Trimpot Row 2: AMP (15.24 mm) (Center Y = 81.00 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(15.24, 81.00)), module, Instability::AMP_TRIM_PARAM));
+
+		// Bottom I/O Jacks
+		// Row 1: FREQ CV (7.62 mm) & PHASE CV (22.86 mm) (Center Y = 99.00 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 99.00)), module, Instability::FREQ_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 99.00)), module, Instability::PHASE_INPUT));
+
+		// Row 2: AMP CV (15.24 mm) (Center Y = 108.50 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.24, 108.50)), module, Instability::AMP_INPUT));
+
+		// Row 3: Signal I/O (Center Y = 118.00 mm): Signal IN (7.62), Signal OUT (22.86)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 118.00)), module, Instability::SIGNAL_INPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 118.00)), module, Instability::SIGNAL_OUTPUT));
 	}
 };
 
