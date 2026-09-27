@@ -43,9 +43,9 @@ struct OklchRgb : Module {
 		configParam(HUE_PARAM, 0.f, 1.f, 0.f, "Hue", "\xc2\xb0", 0.f, 360.f);
 
 		// Attenuverters (-1 to +1, default 0.0)
-		configParam(LIGHT_TRIM_PARAM, -1.f, 1.f, 0.f, "Lightness CV Depth", "%", 0.f, 100.f);
-		configParam(CHROMA_TRIM_PARAM, -1.f, 1.f, 0.f, "Chroma CV Depth", "%", 0.f, 100.f);
-		configParam(HUE_TRIM_PARAM, -1.f, 1.f, 0.f, "Hue CV Depth", "%", 0.f, 100.f);
+		configParam(LIGHT_TRIM_PARAM, -1.f, 1.f, 0.f, "Lightness CV depth", "%", 0.f, 100.f);
+		configParam(CHROMA_TRIM_PARAM, -1.f, 1.f, 0.f, "Chroma CV depth", "%", 0.f, 100.f);
+		configParam(HUE_TRIM_PARAM, -1.f, 1.f, 0.f, "Hue CV depth", "%", 0.f, 100.f);
 
 		// Inputs
 		configInput(LIGHT_INPUT, "Lightness CV");

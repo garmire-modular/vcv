@@ -47,9 +47,9 @@ struct HsvRgb : Module {
 		configSwitch(MODE_PARAM, 0.f, 1.f, 0.f, "Color Model", {"HSV", "HSL"});
 
 		// Attenuverters (-1 to +1, default 0.0)
-		configParam(HUE_TRIM_PARAM, -1.f, 1.f, 0.f, "Hue CV Depth", "%", 0.f, 100.f);
-		configParam(SAT_TRIM_PARAM, -1.f, 1.f, 0.f, "Saturation CV Depth", "%", 0.f, 100.f);
-		configParam(VAL_TRIM_PARAM, -1.f, 1.f, 0.f, "Value CV Depth", "%", 0.f, 100.f);
+		configParam(HUE_TRIM_PARAM, -1.f, 1.f, 0.f, "Hue CV depth", "%", 0.f, 100.f);
+		configParam(SAT_TRIM_PARAM, -1.f, 1.f, 0.f, "Saturation CV depth", "%", 0.f, 100.f);
+		configParam(VAL_TRIM_PARAM, -1.f, 1.f, 0.f, "Value CV depth", "%", 0.f, 100.f);
 
 		// Inputs
 		configInput(HUE_INPUT, "Hue CV");

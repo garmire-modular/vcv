@@ -1,7 +1,7 @@
 {
   "slug": "Garmire",
   "name": "Garmire",
-  "version": "2.23.0",
+  "version": "2.24.0",
   "license": "GPL-3.0-or-later",
   "brand": "Garmire",
   "author": "Garmire",
@@ -357,6 +357,16 @@
         "Utility",
         "Dual",
         "Logic"
+      ]
+    },
+    {
+      "slug": "ChopXL",
+      "name": "Chop XL",
+      "description": "6-channel alternating segment multiplexer slicing trajectories between two XYRGBI input sets with count, length, position, and variety controls",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Switch"
       ]
     }
   ]

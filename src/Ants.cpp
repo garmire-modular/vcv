@@ -44,10 +44,10 @@ struct Ants : Module {
 		configParam(VARIETY_PARAM, 0.f, 1.f, 0.f, "Length Variety Dispersion", "%", 0.f, 100.f);
 
 		// Attenuverters (default 0%)
-		configParam(COUNT_TRIM_PARAM, -1.f, 1.f, 0.f, "Count CV Attenuverter", "%", 0.f, 100.f);
-		configParam(LENGTH_TRIM_PARAM, -1.f, 1.f, 0.f, "Length CV Attenuverter", "%", 0.f, 100.f);
-		configParam(POSITION_TRIM_PARAM, -1.f, 1.f, 0.f, "Position CV Attenuverter", "%", 0.f, 100.f);
-		configParam(VARIETY_TRIM_PARAM, -1.f, 1.f, 0.f, "Variety CV Attenuverter", "%", 0.f, 100.f);
+		configParam(COUNT_TRIM_PARAM, -1.f, 1.f, 0.f, "Count CV depth", "%", 0.f, 100.f);
+		configParam(LENGTH_TRIM_PARAM, -1.f, 1.f, 0.f, "Length CV depth", "%", 0.f, 100.f);
+		configParam(POSITION_TRIM_PARAM, -1.f, 1.f, 0.f, "Position CV depth", "%", 0.f, 100.f);
+		configParam(VARIETY_TRIM_PARAM, -1.f, 1.f, 0.f, "Variety CV depth", "%", 0.f, 100.f);
 
 		// Inputs
 		configInput(X_INPUT, "X Signal");

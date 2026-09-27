@@ -1,0 +1,195 @@
+import os
+import re
+import sys
+
+# Ensure MSYS2 DLLs are found for cairosvg / libcairo
+msys_bin = r'C:\msys64\mingw64\bin'
+if os.path.exists(msys_bin):
+    os.environ['PATH'] = msys_bin + os.path.pathsep + os.environ.get('PATH', '')
+    if hasattr(os, 'add_dll_directory'):
+        try:
+            os.add_dll_directory(msys_bin)
+        except Exception:
+            pass
+
+from fontTools.ttLib import TTFont
+from fontTools.pens.svgPathPen import SVGPathPen
+import pathops
+import cairosvg
+from PIL import Image, ImageDraw
+
+def get_simplified_glyph_path(font, char):
+    cmap = font.getBestCmap()
+    gname = cmap[ord(char)] if cmap and ord(char) in cmap else char
+    gset = font.getGlyphSet()
+    
+    path = pathops.Path()
+    pen = pathops.PathPen(path)
+    gset[gname].draw(pen)
+    
+    simplified = pathops.simplify(path)
+    svg_pen = SVGPathPen(None)
+    simplified.draw(svg_pen)
+    
+    path_d = svg_pen.getCommands()
+    path_d = re.sub(r'(\d+\.\d+)', lambda m: f'{float(m.group(1)):.1f}', path_d)
+    path_d = re.sub(r'([MLCQZHVmlcqzhv])', r' \1 ', path_d)
+    path_d = re.sub(r'\s+', ' ', path_d).strip()
+    return path_d
+
+def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
+    cmap = font.getBestCmap()
+    hmtx = font['hmtx']
+    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text]
+    total_w = sum(widths)
+    start_x = center_x - total_w / 2.0
+    res = []
+    if comment:
+        res.append(f'  <!-- Label: "{comment}" -->')
+    curr = start_x
+    for c, w in zip(text, widths):
+        if c != ' ':
+            pd = get_simplified_glyph_path(font, c)
+            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({scale:.6f}, {-scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
+        curr += w
+    return "\n".join(res)
+
+def main():
+    node_font = TTFont('res/Node.otf')
+    qs_font = TTFont('res/Quicksand-Medium.ttf')
+    qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
+
+    # 12 HP Dimensions: 60.96 mm x 128.50 mm
+    panel_w = 60.96
+    panel_h = 128.50
+    title_text = "chop xl"
+    version_str = "v2.24.0"
+
+    scale_title = 0.0042
+    cmap = node_font.getBestCmap()
+    hmtx = node_font['hmtx']
+    total_w = sum(hmtx[cmap[ord(c)]][0] * scale_title for c in title_text)
+    start_x = (panel_w - total_w) / 2.0
+
+    title_block = [f'  <!-- Label: "{title_text}" -->']
+    curr_x = start_x
+    for c in title_text:
+        w = hmtx[cmap[ord(c)]][0] * scale_title
+        if c != ' ':
+            path_d = get_simplified_glyph_path(node_font, c)
+            title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale_title:.6f}, {-scale_title:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
+        curr_x += w
+
+    version_block = [
+        render_qs_text(qs_reg_font, version_str, panel_w / 2.0, 10.414, 0.001400, "#aaaaaa", version_str)
+    ]
+
+    svg_parts = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.2f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.2f}">',
+        f'  <!-- Panel Background: 12 HP ({panel_w:.2f} mm) -->',
+        f'  <rect width="{panel_w:.2f}" height="{panel_h:.2f}" fill="#7c7c7c"/>',
+        '',
+        '  <!-- Delineator Line 1 (Above Attenuverters at Y = 32.00mm) -->',
+        f'  <line x1="2.54" y1="32.00" x2="{panel_w - 2.54:.2f}" y2="32.00" stroke="#999999" stroke-width="0.176"/>',
+        '',
+        '  <!-- Delineator Line 2 (Above Channel Headers at Y = 58.00mm) -->',
+        f'  <line x1="2.54" y1="58.00" x2="{panel_w - 2.54:.2f}" y2="58.00" stroke="#999999" stroke-width="0.176"/>',
+        '',
+        '  <!-- Delineator Line 3 (Between Headers & IN 1 at Y = 66.50mm) -->',
+        f'  <line x1="2.54" y1="66.50" x2="{panel_w - 2.54:.2f}" y2="66.50" stroke="#999999" stroke-width="0.176"/>',
+        '',
+        '  <!-- Delineator Line 4 (Between IN 1 & IN 2 at Y = 86.50mm) -->',
+        f'  <line x1="2.54" y1="86.50" x2="{panel_w - 2.54:.2f}" y2="86.50" stroke="#999999" stroke-width="0.176"/>',
+        '',
+        '  <!-- Delineator Line 5 (Between IN 2 & OUT at Y = 106.50mm) -->',
+        f'  <line x1="2.54" y1="106.50" x2="{panel_w - 2.54:.2f}" y2="106.50" stroke="#999999" stroke-width="0.176"/>',
+        ''
+    ]
+    svg_parts.extend(title_block)
+    svg_parts.extend(version_block)
+
+    # 4 Control Columns (x = 7.62, 22.86, 38.10, 53.34 mm)
+    ctrl_x = [7.62, 22.86, 38.10, 53.34]
+    ctrl_names = ["COUNT", "LENGTH", "POSITION", "VARIETY"]
+
+    # Row 1: Knobs (center Y = 22.00 mm, label baseline Y = 14.50 mm)
+    for name, cx in zip(ctrl_names, ctrl_x):
+        svg_parts.append(render_qs_text(qs_font, name, cx, 14.50, 0.002200, "#1c1c1c", f"Knob: {name}"))
+
+    # Row 2: Attenuverter Trimpots (center Y = 38.00 mm)
+    # Row 3: CV Inputs (center Y = 49.50 mm)
+    trim_labels = ["COUNT", "LENGTH", "POS", "VAR"]
+    for t_label, cx in zip(trim_labels, ctrl_x):
+        svg_parts.append(render_qs_text(qs_font, t_label, cx, 34.50, 0.001800, "#2c2c2c", f"Trim: {t_label}"))
+
+    # Zone 4: Signal I/O Section (6 Columns: X, Y, R, G, B, I)
+    col_x = [6.73 + i * 9.50 for i in range(6)]
+    chan_names = ["X", "Y", "R", "G", "B", "I"]
+
+    # Top Column Headers for the 6 channels in dedicated header band (baseline Y = 63.00 mm)
+    for c_name, cx in zip(chan_names, col_x):
+        svg_parts.append(render_qs_text(qs_font, c_name, cx, 63.00, 0.002400, "#1c1c1c", f"Channel: {c_name}"))
+
+    # 3 Signal Jack Rows with uniform 20mm pitch:
+    # Row 1: Input 1 (center Y = 76.50 mm, single centered label "IN 1" at baseline Y = 70.50 mm)
+    # Row 2: Input 2 (center Y = 96.50 mm, single centered label "IN 2" at baseline Y = 90.50 mm)
+    # Row 3: Output  (center Y = 116.50 mm, single centered label "OUT" at baseline Y = 110.50 mm)
+    sig_rows = [
+        ("IN 1", 76.50, 70.50),
+        ("IN 2", 96.50, 90.50),
+        ("OUT",  116.50, 110.50)
+    ]
+
+    all_jacks = []
+    # Add CV jacks
+    for cx in ctrl_x:
+        all_jacks.append((cx, 49.50, 4.15))
+
+    # Add signal jacks and single centered row labels
+    for r_label, r_y, lbl_y in sig_rows:
+        svg_parts.append(render_qs_text(qs_font, r_label, panel_w / 2.0, lbl_y, 0.002600, "#1c1c1c", f"Row: {r_label}"))
+        for cx in col_x:
+            all_jacks.append((cx, r_y, 4.15))
+
+    # Trimpot centers
+    all_trims = [(cx, 38.00, 3.25) for cx in ctrl_x]
+    # Knob centers
+    all_knobs = [(cx, 22.00, 5.00) for cx in ctrl_x]
+
+    svg_parts.append('</svg>')
+
+    os.makedirs('res', exist_ok=True)
+    svg_path = 'res/ChopXL.svg'
+    with open(svg_path, 'w', encoding='utf-8') as f:
+        f.write("\n".join(svg_parts) + "\n")
+    print(f"Generated {svg_path} successfully (12 HP).")
+
+    # Render verification bitmap (12HP = 114x240 px in MetaModule, render at 4x)
+    verify_png = 'scratch/chopxl_verify.png'
+    cairosvg.svg2png(url=svg_path, write_to=verify_png, output_width=114 * 4, output_height=240 * 4)
+
+    im = Image.open(verify_png)
+    draw = ImageDraw.Draw(im)
+    r_px = (114 * 4) / panel_w
+
+    # Overlay knobs in orange
+    for cx, cy, rad in all_knobs:
+        px, py, r = cx * r_px, cy * r_px, rad * r_px
+        draw.ellipse([px - r, py - r, px + r, py + r], outline='#ff9100', width=2)
+
+    # Overlay trimpots in green
+    for cx, cy, rad in all_trims:
+        px, py, r = cx * r_px, cy * r_px, rad * r_px
+        draw.ellipse([px - r, py - r, px + r, py + r], outline='#00e676', width=2)
+
+    # Overlay jacks in cyan
+    for cx, cy, rad in all_jacks:
+        px, py, r = cx * r_px, cy * r_px, rad * r_px
+        draw.ellipse([px - r, py - r, px + r, py + r], outline='#00e5ff', width=2)
+
+    im.save(verify_png)
+    print(f"Rendered verification bitmap with ports: {verify_png}")
+
+if __name__ == '__main__':
+    main()

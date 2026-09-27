@@ -38,4 +38,5 @@ void init(Plugin* p) {
 	p->addModel(modelAndxy);
 	p->addModel(modelOrxy);
 	p->addModel(modelXorxy);
+	p->addModel(modelChopXL);
 }

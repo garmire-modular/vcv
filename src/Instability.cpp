@@ -50,9 +50,9 @@ struct Instability : Module {
 		configParam(AMP_DRIFT_PARAM, 0.f, 1.f, 0.2f, "Amplitude Drift Rate", "%", 0.f, 100.f);
 
 		// Attenuverters (-1 to +1, default 0.0)
-		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Freq Drift Rate CV Depth", "%", 0.f, 100.f);
-		configParam(PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Phase Drift Rate CV Depth", "%", 0.f, 100.f);
-		configParam(AMP_TRIM_PARAM, -1.f, 1.f, 0.f, "Amp Drift Rate CV Depth", "%", 0.f, 100.f);
+		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Freq drift rate CV depth", "%", 0.f, 100.f);
+		configParam(PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Phase drift rate CV depth", "%", 0.f, 100.f);
+		configParam(AMP_TRIM_PARAM, -1.f, 1.f, 0.f, "Amp drift rate CV depth", "%", 0.f, 100.f);
 
 		// CV Rate Inputs
 		configInput(FREQ_INPUT, "Frequency Drift Rate CV");

@@ -35,6 +35,7 @@ SOURCES += src/SumMixXL.cpp
 SOURCES += src/Andxy.cpp
 SOURCES += src/Orxy.cpp
 SOURCES += src/Xorxy.cpp
+SOURCES += src/ChopXL.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res

@@ -33,8 +33,8 @@ struct Steps : Module {
 		configParam(STEPS_Y_PARAM, 0.f, 5.f, 0.f, "Y Steps Crush", "%", 0.f, 100.f / 5.f);
 
 		// Steps CV Attenuverters (-1 to +1, default 0.0)
-		configParam(STEPS_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X Steps CV Attenuverter", "%", 0.f, 100.f);
-		configParam(STEPS_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y Steps CV Attenuverter", "%", 0.f, 100.f);
+		configParam(STEPS_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X steps CV depth", "%", 0.f, 100.f);
+		configParam(STEPS_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y steps CV depth", "%", 0.f, 100.f);
 
 		// Inputs
 		configInput(X_INPUT, "X Signal");

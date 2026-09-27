@@ -57,12 +57,12 @@ struct Quake : Module {
 		configParam(SPEED_Y_PARAM, 0.1f, 500.f, 10.f, "Y Speed", " Hz");
 
 		// Amount CV Attenuverters (-1 to +1, default 0.0)
-		configParam(AMOUNT_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X Amount CV Attenuverter", "%", 0.f, 100.f);
-		configParam(AMOUNT_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y Amount CV Attenuverter", "%", 0.f, 100.f);
+		configParam(AMOUNT_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X amount CV depth", "%", 0.f, 100.f);
+		configParam(AMOUNT_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y amount CV depth", "%", 0.f, 100.f);
 
 		// Speed CV Attenuverters (-1 to +1, default 0.0)
-		configParam(SPEED_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X Speed CV Attenuverter", "%", 0.f, 100.f);
-		configParam(SPEED_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y Speed CV Attenuverter", "%", 0.f, 100.f);
+		configParam(SPEED_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X speed CV depth", "%", 0.f, 100.f);
+		configParam(SPEED_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y speed CV depth", "%", 0.f, 100.f);
 
 		// Inputs
 		configInput(X_INPUT, "X Signal");

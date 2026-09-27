@@ -39,3 +39,4 @@ extern Model* modelSumMixXL;
 extern Model* modelAndxy;
 extern Model* modelOrxy;
 extern Model* modelXorxy;
+extern Model* modelChopXL;

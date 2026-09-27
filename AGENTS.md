@@ -171,3 +171,9 @@ To maintain a minimal, professional visual aesthetic and avoid visual clutter, a
    - Place a **single, horizontally centered label** centered across the entire row/span of controls.
    - Channel / column identity is established solely by the top column headers (e.g., `IN 1`, `IN 2`, `SW`, `OUT` or `X`, `Y`), while row / parameter function is established by the single centered label.
 
+4. **Attenuverter Parameter Labels & Tooltips Standard**:
+   - All attenuverter parameters in source code must be configured with tooltips in the standard format:
+     - For channel-specific attenuverters: `"X <parameter> CV depth"` or `"Y <parameter> CV depth"` (e.g., `"X smooth CV depth"`, `"Y slope CV depth"`, `"X crest CV depth"`). The channel prefix `X`/`Y` and `CV` are uppercase; the parameter name and `depth` are lowercase.
+     - For non-channel or single-parameter attenuverters: `"<Parameter> CV depth"` (e.g., `"Count CV depth"`, `"Length CV depth"`, `"Rotation CV depth"`). Sentence case with `CV` uppercase and `depth` lowercase.
+   - Do NOT use `"Attenuverter"`, `"CV Attenuverter"`, `"Depth"`, or title-cased `"CV Depth"`.
+

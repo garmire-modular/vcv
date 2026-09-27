@@ -47,12 +47,12 @@ struct Trough : Module {
 		configParam(TILT_Y_PARAM, -5.f, 5.f, 0.f, "Y Tilt Offset", " V");
 
 		// Trough CV Attenuverters (-1 to +1, default 0.0)
-		configParam(TROUGH_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X Trough CV Depth", "%", 0.f, 100.f);
-		configParam(TROUGH_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y Trough CV Depth", "%", 0.f, 100.f);
+		configParam(TROUGH_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X trough CV depth", "%", 0.f, 100.f);
+		configParam(TROUGH_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y trough CV depth", "%", 0.f, 100.f);
 
 		// Tilt CV Attenuverters (-1 to +1, default 0.0)
-		configParam(TILT_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X Tilt CV Depth", "%", 0.f, 100.f);
-		configParam(TILT_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y Tilt CV Depth", "%", 0.f, 100.f);
+		configParam(TILT_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X tilt CV depth", "%", 0.f, 100.f);
+		configParam(TILT_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y tilt CV depth", "%", 0.f, 100.f);
 
 		// Inputs
 		configInput(X_INPUT, "X Signal");

@@ -100,10 +100,10 @@ struct Copycat : Module {
 		configSwitch(REFLECT_Y_PARAM, 0.f, 1.f, 0.f, "Reflect Y Axis", {"Off", "On"});
 
 		// Attenuverters (default 0%)
-		configParam(COPIES_TRIM_PARAM, -1.f, 1.f, 0.f, "Copies CV Attenuverter", "%", 0.f, 100.f);
-		configParam(SCALE_TRIM_PARAM, -1.f, 1.f, 0.f, "Scale CV Attenuverter", "%", 0.f, 100.f);
-		configParam(SHIFT_TRIM_PARAM, -1.f, 1.f, 0.f, "Shift CV Attenuverter", "%", 0.f, 100.f);
-		configParam(ROTATE_TRIM_PARAM, -1.f, 1.f, 0.f, "Rotation CV Attenuverter", "%", 0.f, 100.f);
+		configParam(COPIES_TRIM_PARAM, -1.f, 1.f, 0.f, "Copies CV depth", "%", 0.f, 100.f);
+		configParam(SCALE_TRIM_PARAM, -1.f, 1.f, 0.f, "Scale CV depth", "%", 0.f, 100.f);
+		configParam(SHIFT_TRIM_PARAM, -1.f, 1.f, 0.f, "Shift CV depth", "%", 0.f, 100.f);
+		configParam(ROTATE_TRIM_PARAM, -1.f, 1.f, 0.f, "Rotation CV depth", "%", 0.f, 100.f);
 
 		// Inputs
 		configInput(X_INPUT, "X Signal");

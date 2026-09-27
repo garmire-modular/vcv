@@ -38,25 +38,25 @@ struct Smooth : Module {
 	Smooth() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-		// Frequency Cutoff parameters (0% to 100%)
-		configParam(X_FREQ_PARAM, 0.f, 1.f, 0.f, "X smooth cutoff frequency", "%", 0.f, 100.f);
-		configParam(Y_FREQ_PARAM, 0.f, 1.f, 0.f, "Y smooth cutoff frequency", "%", 0.f, 100.f);
+		// Smooth amount parameters (0% to 100%)
+		configParam(X_FREQ_PARAM, 0.f, 1.f, 0.f, "X smooth", "%", 0.f, 100.f);
+		configParam(Y_FREQ_PARAM, 0.f, 1.f, 0.f, "Y smooth", "%", 0.f, 100.f);
 
 		// Slope parameters (1-pole -6dB/oct to 8-pole -48dB/oct)
-		configParam(X_SLOPE_PARAM, 1.f, 8.f, 1.f, "X filter slope (poles)", " poles");
-		configParam(Y_SLOPE_PARAM, 1.f, 8.f, 1.f, "Y filter slope (poles)", " poles");
+		configParam(X_SLOPE_PARAM, 1.f, 8.f, 1.f, "X slope", " poles");
+		configParam(Y_SLOPE_PARAM, 1.f, 8.f, 1.f, "Y slope", " poles");
 
 		// Attenuverter parameters
-		configParam(X_FREQ_CV_ATTEN_PARAM, -1.f, 1.f, 0.f, "X cutoff CV depth", "%", 0.f, 100.f);
-		configParam(Y_FREQ_CV_ATTEN_PARAM, -1.f, 1.f, 0.f, "Y cutoff CV depth", "%", 0.f, 100.f);
+		configParam(X_FREQ_CV_ATTEN_PARAM, -1.f, 1.f, 0.f, "X smooth CV depth", "%", 0.f, 100.f);
+		configParam(Y_FREQ_CV_ATTEN_PARAM, -1.f, 1.f, 0.f, "Y smooth CV depth", "%", 0.f, 100.f);
 		configParam(X_SLOPE_CV_ATTEN_PARAM, -1.f, 1.f, 0.f, "X slope CV depth", "%", 0.f, 100.f);
 		configParam(Y_SLOPE_CV_ATTEN_PARAM, -1.f, 1.f, 0.f, "Y slope CV depth", "%", 0.f, 100.f);
 
 		// Inputs
 		configInput(X_INPUT, "X");
 		configInput(Y_INPUT, "Y");
-		configInput(X_FREQ_CV_INPUT, "X cutoff CV");
-		configInput(Y_FREQ_CV_INPUT, "Y cutoff CV");
+		configInput(X_FREQ_CV_INPUT, "X smooth CV");
+		configInput(Y_FREQ_CV_INPUT, "Y smooth CV");
 		configInput(X_SLOPE_CV_INPUT, "X slope CV");
 		configInput(Y_SLOPE_CV_INPUT, "Y slope CV");
 

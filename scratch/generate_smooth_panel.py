@@ -99,21 +99,19 @@ def main():
     # Row 2 Knob Centered SLOPE label (Y = 34.500, scale = 0.003000 - MATCHED SIZE!)
     svg_parts.append(render_qs_text(qs_font, "SLOPE", 15.24, 34.500, 0.003000, "#1c1c1c", "SLOPE"))
 
-    # Trimpot Row 1 SMOOTH CV labels (Y = 56.500, scale = 0.002000)
-    svg_parts.append(render_qs_text(qs_font, "SMOOTH CV", 7.62, 56.500, 0.002000, "#2c2c2c", "X SMOOTH CV"))
-    svg_parts.append(render_qs_text(qs_font, "SMOOTH CV", 22.86, 56.500, 0.002000, "#2c2c2c", "Y SMOOTH CV"))
+    # Trimpot Row 1 SMOOTH label (Y = 56.500, scale = 0.002000)
+    svg_parts.append(render_qs_text(qs_font, "SMOOTH", 15.24, 56.500, 0.002000, "#2c2c2c", "SMOOTH"))
 
-    # Trimpot Row 2 SLOPE CV labels (Y = 68.500, scale = 0.002000)
-    svg_parts.append(render_qs_text(qs_font, "SLOPE CV", 7.62, 68.500, 0.002000, "#2c2c2c", "X SLOPE CV"))
-    svg_parts.append(render_qs_text(qs_font, "SLOPE CV", 22.86, 68.500, 0.002000, "#2c2c2c", "Y SLOPE CV"))
+    # Trimpot Row 2 SLOPE label (Y = 68.500, scale = 0.002000)
+    svg_parts.append(render_qs_text(qs_font, "SLOPE", 15.24, 68.500, 0.002000, "#2c2c2c", "SLOPE"))
 
     # Jack Row 1: X, Y (Y = 84.000, scale = 0.003000), IN (Y = 88.000, scale = 0.002400)
     svg_parts.append(render_qs_text(qs_font, "X", 7.62, 84.000, 0.003000, "#1c1c1c", "X"))
     svg_parts.append(render_qs_text(qs_font, "Y", 22.86, 84.000, 0.003000, "#1c1c1c", "Y"))
     svg_parts.append(render_qs_text(qs_font, "IN", 15.24, 88.000, 0.002400, "#2c2c2c", "IN"))
 
-    # Jack Row 2: AMT. (Y = 97.500, scale = 0.002400)
-    svg_parts.append(render_qs_text(qs_font, "AMT.", 15.24, 97.500, 0.002400, "#2c2c2c", "AMT."))
+    # Jack Row 2: SMOOTH (Y = 97.500, scale = 0.002400)
+    svg_parts.append(render_qs_text(qs_font, "SMOOTH", 15.24, 97.500, 0.002400, "#2c2c2c", "SMOOTH"))
 
     # Jack Row 3: SLOPE (Y = 107.000, scale = 0.002400)
     svg_parts.append(render_qs_text(qs_font, "SLOPE", 15.24, 107.000, 0.002400, "#2c2c2c", "SLOPE"))

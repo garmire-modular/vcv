@@ -140,12 +140,12 @@ struct Chromance : Module {
 		configParam(AMP_PARAM, 0.f, 1.f, 1.f, "Oscillator Level", "%", 0.f, 100.f);
 
 		// CV Attenuverters default to 0% (0.0)
-		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV Depth", "%", 0.f, 100.f);
-		configParam(FINE_TRIM_PARAM, -1.f, 1.f, 0.f, "Fine Tune CV Depth", "%", 0.f, 100.f);
-		configParam(MULTDIV_TRIM_PARAM, -1.f, 1.f, 0.f, "Mult/Div CV Depth", "%", 0.f, 100.f);
-		configParam(PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Phase CV Depth", "%", 0.f, 100.f);
-		configParam(WAVE_TRIM_PARAM, -1.f, 1.f, 0.f, "Waveform CV Depth", "%", 0.f, 100.f);
-		configParam(AMP_TRIM_PARAM, -1.f, 1.f, 0.f, "Level CV Depth", "%", 0.f, 100.f);
+		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV depth", "%", 0.f, 100.f);
+		configParam(FINE_TRIM_PARAM, -1.f, 1.f, 0.f, "Fine tune CV depth", "%", 0.f, 100.f);
+		configParam(MULTDIV_TRIM_PARAM, -1.f, 1.f, 0.f, "Mult/div CV depth", "%", 0.f, 100.f);
+		configParam(PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Phase CV depth", "%", 0.f, 100.f);
+		configParam(WAVE_TRIM_PARAM, -1.f, 1.f, 0.f, "Waveform CV depth", "%", 0.f, 100.f);
+		configParam(AMP_TRIM_PARAM, -1.f, 1.f, 0.f, "Level CV depth", "%", 0.f, 100.f);
 
 		// S&H / T&H Switch: 0 = Off (Top, default), 1 = S&H (Middle), 2 = T&H (Bottom)
 		configSwitch(SH_MODE_PARAM, 0.f, 2.f, 0.f, "S&H / T&H Mode", {"Off (Top)", "Sample & Hold (Middle)", "Track & Hold (Bottom)"});

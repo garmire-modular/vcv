@@ -42,12 +42,12 @@ struct Crest : Module {
 		configParam(TILT_Y_PARAM, -5.f, 5.f, 0.f, "Y Tilt", " V");
 
 		// Crest CV Attenuverters (-1 to +1, default 0.0)
-		configParam(CREST_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X Crest CV Attenuverter", "%", 0.f, 100.f);
-		configParam(CREST_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y Crest CV Attenuverter", "%", 0.f, 100.f);
+		configParam(CREST_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X crest CV depth", "%", 0.f, 100.f);
+		configParam(CREST_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y crest CV depth", "%", 0.f, 100.f);
 
 		// Tilt CV Attenuverters (-1 to +1, default 0.0)
-		configParam(TILT_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X Tilt CV Attenuverter", "%", 0.f, 100.f);
-		configParam(TILT_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y Tilt CV Attenuverter", "%", 0.f, 100.f);
+		configParam(TILT_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X tilt CV depth", "%", 0.f, 100.f);
+		configParam(TILT_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y tilt CV depth", "%", 0.f, 100.f);
 
 		// Inputs
 		configInput(X_INPUT, "X Signal");

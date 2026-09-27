@@ -42,9 +42,9 @@ struct Rgb : Module {
 		configParam(BLUE_PARAM, 0.f, 1.f, 0.f, "Blue Voltage", "%", 0.f, 100.f);
 
 		// Attenuverters (-1 to +1, default 0.0)
-		configParam(RED_TRIM_PARAM, -1.f, 1.f, 0.f, "Red CV Depth", "%", 0.f, 100.f);
-		configParam(GREEN_TRIM_PARAM, -1.f, 1.f, 0.f, "Green CV Depth", "%", 0.f, 100.f);
-		configParam(BLUE_TRIM_PARAM, -1.f, 1.f, 0.f, "Blue CV Depth", "%", 0.f, 100.f);
+		configParam(RED_TRIM_PARAM, -1.f, 1.f, 0.f, "Red CV depth", "%", 0.f, 100.f);
+		configParam(GREEN_TRIM_PARAM, -1.f, 1.f, 0.f, "Green CV depth", "%", 0.f, 100.f);
+		configParam(BLUE_TRIM_PARAM, -1.f, 1.f, 0.f, "Blue CV depth", "%", 0.f, 100.f);
 
 		// Inputs
 		configInput(RED_INPUT, "Red CV");

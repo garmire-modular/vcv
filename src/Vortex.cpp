@@ -44,10 +44,10 @@ struct Vortex : Module {
 		configParam(Y_COUNT_PARAM, 1.f, 8.f, 1.f, "Y Vortex Count", "", 0.f, 1.f);
 
 		// CV Attenuverters (-1.0 to +1.0)
-		configParam(X_DEPTH_TRIM_PARAM, -1.f, 1.f, 0.f, "X Depth CV Attenuverter", "%", 0.f, 100.f);
-		configParam(Y_DEPTH_TRIM_PARAM, -1.f, 1.f, 0.f, "Y Depth CV Attenuverter", "%", 0.f, 100.f);
-		configParam(X_COUNT_TRIM_PARAM, -1.f, 1.f, 0.f, "X Count CV Attenuverter", "%", 0.f, 100.f);
-		configParam(Y_COUNT_TRIM_PARAM, -1.f, 1.f, 0.f, "Y Count CV Attenuverter", "%", 0.f, 100.f);
+		configParam(X_DEPTH_TRIM_PARAM, -1.f, 1.f, 0.f, "X depth CV depth", "%", 0.f, 100.f);
+		configParam(Y_DEPTH_TRIM_PARAM, -1.f, 1.f, 0.f, "Y depth CV depth", "%", 0.f, 100.f);
+		configParam(X_COUNT_TRIM_PARAM, -1.f, 1.f, 0.f, "X count CV depth", "%", 0.f, 100.f);
+		configParam(Y_COUNT_TRIM_PARAM, -1.f, 1.f, 0.f, "Y count CV depth", "%", 0.f, 100.f);
 
 		// Inputs
 		configInput(X_INPUT, "X Signal");
