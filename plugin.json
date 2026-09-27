@@ -194,7 +194,7 @@
     {
       "slug": "Steps",
       "name": "Steps (X/Y)",
-      "description": "Dual X/Y laser trajectory unquantized continuous bit-crusher transformer",
+      "description": "Dual X/Y laser trajectory unquantized continuous step quantizer and resolution reducer",
       "tags": [
         "Visual",
         "Utility",

@@ -28,23 +28,23 @@ struct Steps : Module {
 	Steps() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-		// Steps Crush params (0 to 5, default 0.0)
-		configParam(STEPS_X_PARAM, 0.f, 5.f, 0.f, "X Steps Crush", "%", 0.f, 100.f / 5.f);
-		configParam(STEPS_Y_PARAM, 0.f, 5.f, 0.f, "Y Steps Crush", "%", 0.f, 100.f / 5.f);
+		// Steps params (0 to 5, default 0.0)
+		configParam(STEPS_X_PARAM, 0.f, 5.f, 0.f, "X steps", "%", 0.f, 100.f / 5.f);
+		configParam(STEPS_Y_PARAM, 0.f, 5.f, 0.f, "Y steps", "%", 0.f, 100.f / 5.f);
 
 		// Steps CV Attenuverters (-1 to +1, default 0.0)
 		configParam(STEPS_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X steps CV depth", "%", 0.f, 100.f);
 		configParam(STEPS_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y steps CV depth", "%", 0.f, 100.f);
 
 		// Inputs
-		configInput(X_INPUT, "X Signal");
-		configInput(Y_INPUT, "Y Signal (Normalizes from X)");
-		configInput(STEPS_X_CV_INPUT, "X Steps CV");
-		configInput(STEPS_Y_CV_INPUT, "Y Steps CV (Normalizes from X)");
+		configInput(X_INPUT, "X");
+		configInput(Y_INPUT, "Y");
+		configInput(STEPS_X_CV_INPUT, "X steps CV");
+		configInput(STEPS_Y_CV_INPUT, "Y steps CV");
 
 		// Outputs
-		configOutput(X_OUTPUT, "X Signal");
-		configOutput(Y_OUTPUT, "Y Signal");
+		configOutput(X_OUTPUT, "X");
+		configOutput(Y_OUTPUT, "Y");
 	}
 
 	static float unquantizedBitCrush(float vIn, float bits) {

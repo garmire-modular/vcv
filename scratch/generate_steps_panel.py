@@ -97,17 +97,16 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "X", 7.62, 13.070, 0.003000, "#1c1c1c", "X"))
     svg_parts.append(render_qs_text(qs_font, "Y", 22.86, 13.070, 0.003000, "#1c1c1c", "Y"))
 
-    # Trimpot Row 1 AMT CV labels (Y = 68.500, scale = 0.002000)
-    svg_parts.append(render_qs_text(qs_font, "AMT CV", 7.62, 68.500, 0.002000, "#2c2c2c", "X AMT CV"))
-    svg_parts.append(render_qs_text(qs_font, "AMT CV", 22.86, 68.500, 0.002000, "#2c2c2c", "Y AMT CV"))
+    # Trimpot Row: Single centered "STEPS" (Trimpot center Y = 73.00, label Y = 68.500)
+    svg_parts.append(render_qs_text(qs_font, "STEPS", 15.24, 68.500, 0.002000, "#2c2c2c", "STEPS CV Attenuverter Label"))
 
     # Jack Row 1: X, Y (Y = 84.000, scale = 0.003000), IN (Y = 88.000, scale = 0.002400)
     svg_parts.append(render_qs_text(qs_font, "X", 7.62, 84.000, 0.003000, "#1c1c1c", "X"))
     svg_parts.append(render_qs_text(qs_font, "Y", 22.86, 84.000, 0.003000, "#1c1c1c", "Y"))
     svg_parts.append(render_qs_text(qs_font, "IN", 15.24, 88.000, 0.002400, "#2c2c2c", "IN"))
 
-    # Jack Row 2: AMT. (Y = 97.500, scale = 0.002400)
-    svg_parts.append(render_qs_text(qs_font, "AMT.", 15.24, 97.500, 0.002400, "#2c2c2c", "AMT."))
+    # Jack Row 2: CV (Y = 97.500, scale = 0.002400)
+    svg_parts.append(render_qs_text(qs_font, "CV", 15.24, 97.500, 0.002400, "#2c2c2c", "CV"))
 
     # Jack Row 3: OUT (Y = 116.500, scale = 0.002400)
     svg_parts.append(render_qs_text(qs_font, "OUT", 15.24, 116.500, 0.002400, "#2c2c2c", "OUT"))
