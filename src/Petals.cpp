@@ -67,9 +67,6 @@ struct Petals : Module {
 		bool yInputConnected = inputs[Y_INPUT].isConnected();
 		bool cvYConnected = inputs[Y_SEGM_CV_INPUT].isConnected();
 
-		// Normalization: if Y knob is untouched at default 1.0 and no Y CV is connected, normal Y to X
-		float effectiveYParam = (ySegmParam == 1.f && !cvYConnected) ? xSegmParam : ySegmParam;
-
 		for (int c = 0; c < numChannels; c++) {
 			float inX = inputs[X_INPUT].getPolyVoltage(c);
 			float inY = yInputConnected ? inputs[Y_INPUT].getPolyVoltage(c) : inX;
@@ -78,7 +75,7 @@ struct Petals : Module {
 			float ySegmCV = cvYConnected ? inputs[Y_SEGM_CV_INPUT].getPolyVoltage(c) : xSegmCV;
 
 			float xSegm = clamp(xSegmParam + xSegmCV * xSegmTrim * 8.f, -16.f, 16.f);
-			float ySegm = clamp(effectiveYParam + ySegmCV * ySegmTrim * 8.f, -16.f, 16.f);
+			float ySegm = clamp(ySegmParam + ySegmCV * ySegmTrim * 8.f, -16.f, 16.f);
 
 			// Polar transformation
 			float r = std::sqrt(inX * inX + inY * inY);
