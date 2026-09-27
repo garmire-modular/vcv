@@ -28,6 +28,7 @@ SOURCES += src/Vortex.cpp
 SOURCES += src/Trough.cpp
 SOURCES += src/Switch.cpp
 SOURCES += src/Route.cpp
+SOURCES += src/SumMult.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res

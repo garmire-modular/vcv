@@ -32,3 +32,4 @@ extern Model* modelVortex;
 extern Model* modelTrough;
 extern Model* modelSwitch;
 extern Model* modelRoute;
+extern Model* modelSumMult;

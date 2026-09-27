@@ -31,4 +31,5 @@ void init(Plugin* p) {
 	p->addModel(modelTrough);
 	p->addModel(modelSwitch);
 	p->addModel(modelRoute);
+	p->addModel(modelSumMult);
 }

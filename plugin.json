@@ -1,7 +1,7 @@
 {
   "slug": "Garmire",
   "name": "Garmire",
-  "version": "2.20.0",
+  "version": "2.21.0",
   "license": "GPL-3.0-or-later",
   "brand": "Garmire",
   "author": "Garmire",
@@ -278,6 +278,18 @@
         "Utility",
         "Dual",
         "Switch",
+        "Logic"
+      ]
+    },
+    {
+      "slug": "SumMult",
+      "name": "Sum/Mult",
+      "description": "Dual X/Y precision adder and four-quadrant multiplier for simultaneous sum and product trajectory modulation",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Ring Modulator",
         "Logic"
       ]
     }
