@@ -23,6 +23,7 @@ scratch/osci_harness/results/
 
 # Temporary / Scratch Ignored Assets
 .ignore/
+Garmire Design Notes.md
 
 # OS and Editor Artifacts
 .DS_Store
