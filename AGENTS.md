@@ -147,8 +147,9 @@ To maintain a minimal, professional visual aesthetic and avoid visual clutter, a
    - Trimpots located in Zone 3 are inherently CV modulation attenuverters.
    - Do NOT append `"CV"` to trimpot row labels on the faceplate. Label trimpot rows with the parameter name alone (e.g. `DEPTH`, `COUNT`, `RATE`, `SLOPE`) without the word `"CV"`.
 
-3. **Centered Shared Subheader Labels (No Per-Column Duplication)**:
-   - Whenever two controls (knobs, trimpot attenuverters, or I/O jacks) sit side-by-side in the $X$ ($7.62\text{ mm}$) and $Y$ ($22.86\text{ mm}$) columns with the same parameter function:
-   - Do NOT duplicate the label over both individual controls.
-   - Place a **single, centered subheader label** at $X = 15.24\text{ mm}$ between the two controls. Channel association is established by the top `X` and `Y` column headers.
+3. **Strict Ban on Duplicate Identical Labels (Single Centered Label Across Controls)**:
+   - Duplication of labels for adjacent controls (knobs, trimpot attenuverters, or I/O jacks) that share the same function or channel is a **strict no-no**.
+   - NEVER repeat identical labels horizontally across multiple columns (e.g., NEVER render `"X X X X"`, `"Y Y Y Y"`, `"R R R R"`, `"DEPTH DEPTH"`).
+   - Place a **single, horizontally centered label** centered across the entire row/span of controls.
+   - Channel / column identity is established solely by the top column headers (e.g., `IN 1`, `IN 2`, `SW`, `OUT` or `X`, `Y`), while row / parameter function is established by the single centered label.
 

@@ -118,8 +118,9 @@ def main():
 
     all_jacks = []
     for r_label, ry in row_data:
-        for c_idx, cx in enumerate(col_x):
-            svg_parts.append(render_qs_text(qs_font, r_label, cx, ry - 5.60, 0.002200, "#2c2c2c", f"{r_label} (col {c_idx+1})"))
+        # Single horizontally centered label across the row (no duplicated labels)
+        svg_parts.append(render_qs_text(qs_font, r_label, panel_w / 2.0, ry - 5.60, 0.002600, "#1c1c1c", f"Row: {r_label}"))
+        for cx in col_x:
             all_jacks.append((cx, ry))
 
     svg_parts.append('</svg>')
