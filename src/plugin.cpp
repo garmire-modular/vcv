@@ -26,7 +26,7 @@ void init(Plugin* p) {
 	p->addModel(modelSteps);
 	p->addModel(modelCopycat);
 	p->addModel(modelPetals);
-	p->addModel(modelUnfold);
+	p->addModel(modelKnots);
 	p->addModel(modelVortex);
 	p->addModel(modelTrough);
 	p->addModel(modelSwitch);

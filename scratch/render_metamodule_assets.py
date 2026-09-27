@@ -36,7 +36,7 @@ modules = [
     ('Steps', 57, 240),
     ('Copycat', 57, 240),
     ('Petals', 57, 240),
-    ('Unfold', 57, 240),
+    ('Knots', 57, 240),
     ('Vortex', 57, 240),
     ('Ants', 57, 240),
     ('Switch', 28, 240),

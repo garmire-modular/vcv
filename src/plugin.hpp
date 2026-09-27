@@ -27,7 +27,7 @@ extern Model* modelQuake;
 extern Model* modelSteps;
 extern Model* modelCopycat;
 extern Model* modelPetals;
-extern Model* modelUnfold;
+extern Model* modelKnots;
 extern Model* modelVortex;
 extern Model* modelTrough;
 extern Model* modelSwitch;

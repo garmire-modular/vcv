@@ -225,9 +225,9 @@
       ]
     },
     {
-      "slug": "Unfold",
-      "name": "Unfold",
-      "description": "Dual X/Y polar angle multiplier and sector wrapping transformer",
+      "slug": "Knots",
+      "name": "Knots",
+      "description": "Dual X/Y polar angle harmonic multiplier and Lissajous knot transformer",
       "tags": [
         "Visual",
         "Utility",
