@@ -1,0 +1,112 @@
+import os
+import re
+from fontTools.ttLib import TTFont
+from fontTools.pens.svgPathPen import SVGPathPen
+import pathops
+
+def get_simplified_glyph_path(font, char):
+    cmap = font.getBestCmap()
+    gname = cmap[ord(char)] if cmap and ord(char) in cmap else char
+    gset = font.getGlyphSet()
+    
+    path = pathops.Path()
+    pen = pathops.PathPen(path)
+    gset[gname].draw(pen)
+    
+    simplified = pathops.simplify(path)
+    svg_pen = SVGPathPen(None)
+    simplified.draw(svg_pen)
+    
+    path_d = svg_pen.getCommands()
+    path_d = re.sub(r'(\d+\.\d+)', lambda m: f'{float(m.group(1)):.1f}', path_d)
+    path_d = re.sub(r'([MLCQZHVmlcqzhv])', r' \1 ', path_d)
+    path_d = re.sub(r'\s+', ' ', path_d).strip()
+    return path_d
+
+def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
+    cmap = font.getBestCmap()
+    hmtx = font['hmtx']
+    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text]
+    total_w = sum(widths)
+    start_x = center_x - total_w / 2.0
+    res = []
+    if comment:
+        res.append(f'  <!-- Label: "{comment}" -->')
+    curr = start_x
+    for c, w in zip(text, widths):
+        if c != ' ':
+            pd = get_simplified_glyph_path(font, c)
+            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({scale:.6f}, {-scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
+        curr += w
+    return "\n".join(res)
+
+def main():
+    node_font = TTFont('res/Node.otf')
+    qs_font = TTFont('res/Quicksand-Medium.ttf')
+
+    # Title "instability" in Node.otf (scale 0.0048, baseline 7.620, centered on 6 HP = 30.48mm)
+    hmtx = node_font['hmtx']
+    scale = 0.0048
+    text = "instability"
+    total_w = sum(hmtx[c][0] * scale for c in text)
+    start_x = (30.48 - total_w) / 2.0
+
+    title_block = ['  <!-- Label: "instability" -->']
+    curr_x = start_x
+    for c in text:
+        w = hmtx[c][0] * scale
+        if c != ' ':
+            path_d = get_simplified_glyph_path(node_font, c)
+            title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
+        curr_x += w
+
+    # Version "v2.17.0"
+    v217_version_block = [render_qs_text(qs_font, "v2.17.0", 15.24, 10.414, 0.001600, "#aaaaaa", "Version v2.17.0")]
+
+    svg_parts = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<svg xmlns="http://www.w3.org/2000/svg" width="30.48mm" height="128.5mm" viewBox="0 0 30.48 128.5">',
+        '  <!-- Panel Background: 6 HP -->',
+        '  <rect width="30.48" height="128.5" fill="#7c7c7c"/>',
+        '',
+        '  <!-- Delineator Line 1 (Above Attenuverters at Y = 76.00mm) -->',
+        '  <line x1="2.54" y1="76.00" x2="27.94" y2="76.00" stroke="#999999" stroke-width="0.176"/>',
+        '',
+        '  <!-- Delineator Line 2 (Above I/O Jacks at Y = 91.50mm) -->',
+        '  <line x1="2.54" y1="91.50" x2="27.94" y2="91.50" stroke="#999999" stroke-width="0.176"/>',
+        ''
+    ]
+    svg_parts.extend(title_block)
+    svg_parts.extend(v217_version_block)
+
+    # Row 1 Knob: FREQ DRIFT (Y = 13.070, scale = 0.003000)
+    svg_parts.append(render_qs_text(qs_font, "FREQ DRIFT", 15.24, 13.070, 0.003000, "#1c1c1c", "FREQ DRIFT"))
+
+    # Row 2 Knob: PHASE DRIFT (Y = 31.480, scale = 0.003000)
+    svg_parts.append(render_qs_text(qs_font, "PHASE DRIFT", 15.24, 31.480, 0.003000, "#1c1c1c", "PHASE DRIFT"))
+
+    # Row 3 Knob: AMP DRIFT (Y = 49.890, scale = 0.003000)
+    svg_parts.append(render_qs_text(qs_font, "AMP DRIFT", 15.24, 49.890, 0.003000, "#1c1c1c", "AMP DRIFT"))
+
+    # Trimpot Row: FREQ, PHASE, AMP (Center Y = 83.000, baseline Y = 78.800, scale = 0.002000)
+    svg_parts.append(render_qs_text(qs_font, "FREQ", 6.00, 78.800, 0.002000, "#2c2c2c", "FREQ CV"))
+    svg_parts.append(render_qs_text(qs_font, "PHASE", 15.24, 78.800, 0.002000, "#2c2c2c", "PHASE CV"))
+    svg_parts.append(render_qs_text(qs_font, "AMP", 24.48, 78.800, 0.002000, "#2c2c2c", "AMP CV"))
+
+    # Jack Row 1 (CV Rate Inputs): FREQ, PHASE, AMP (Center Y = 105.410, baseline Y = 103.910, scale = 0.002400)
+    svg_parts.append(render_qs_text(qs_font, "FREQ", 6.00, 103.910, 0.002400, "#2c2c2c", "FREQ IN"))
+    svg_parts.append(render_qs_text(qs_font, "PHASE", 15.24, 103.910, 0.002400, "#2c2c2c", "PHASE IN"))
+    svg_parts.append(render_qs_text(qs_font, "AMP", 24.48, 103.910, 0.002400, "#2c2c2c", "AMP IN"))
+
+    # Jack Row 2 (Signal I/O): IN, OUT (Center Y = 116.840, baseline Y = 115.340, scale = 0.002400)
+    svg_parts.append(render_qs_text(qs_font, "IN", 7.62, 115.340, 0.002400, "#1c1c1c", "IN"))
+    svg_parts.append(render_qs_text(qs_font, "OUT", 22.86, 115.340, 0.002400, "#1c1c1c", "OUT"))
+
+    svg_parts.append('</svg>')
+
+    with open('res/Instability.svg', 'w', encoding='utf-8') as f:
+        f.write("\n".join(svg_parts) + "\n")
+    print("Generated res/Instability.svg successfully.")
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,31 @@
+# VCV Rack & MetaModule Build Artifacts
+build/
+**/build/
+dep/
+dist/
+metamodule/output/
+*.dll
+*.so
+*.dylib
+*.vcvplugin
+*.mmplugin
+*.bin
+*.a
+*.o
+*.map
+*.exe
+
+# Test captures, audio exports, and large media
+*.gif
+*.mp4
+*.wav
+scratch/osci_harness/results/
+
+# Temporary / Scratch Ignored Assets
+.ignore/
+
+# OS and Editor Artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

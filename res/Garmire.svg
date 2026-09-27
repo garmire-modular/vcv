@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="177.8mm" height="128.5mm" viewBox="0 0 177.8 128.5">
+  <!-- Panel Background: 35 HP -->
+  <rect width="177.8" height="128.5" fill="#7c7c7c"/>
+  <!-- Mounting Screws -->
+  <circle cx="7.5" cy="3.5" r="2.2" fill="#444444"/>
+  <circle cx="170.3" cy="3.5" r="2.2" fill="#444444"/>
+  <circle cx="7.5" cy="125.0" r="2.2" fill="#444444"/>
+  <circle cx="170.3" cy="125.0" r="2.2" fill="#444444"/>
+  <!-- Section Dividers -->
+  <line x1="41.06" y1="8" x2="41.06" y2="124" stroke="#d0d0d0" stroke-width="0.35" stroke-opacity="0.7"/>
+  <line x1="73.97" y1="8" x2="73.97" y2="124" stroke="#d0d0d0" stroke-width="0.35" stroke-opacity="0.7"/>
+  <line x1="106.87" y1="8" x2="106.87" y2="124" stroke="#d0d0d0" stroke-width="0.35" stroke-opacity="0.7"/>
+  <line x1="139.86" y1="8" x2="139.86" y2="124" stroke="#d0d0d0" stroke-width="0.35" stroke-opacity="0.7"/>
+  <!-- Output Jack Colored Rings -->
+  <circle cx="57.47" cy="106.57" r="4.3" fill="none" stroke="#e52020" stroke-width="1.4"/>
+  <circle cx="90.46" cy="106.57" r="4.3" fill="none" stroke="#15c815" stroke-width="1.4"/>
+  <circle cx="123.33" cy="106.5" r="4.3" fill="none" stroke="#2545f0" stroke-width="1.4"/>
+  <style>
+    .label { font-family: "DejaVu Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif; font-size: 2.7px; fill: #1c1c1c; text-anchor: middle; font-weight: 500; }
+    .label-small { font-family: "DejaVu Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif; font-size: 2.3px; fill: #1c1c1c; text-anchor: middle; font-weight: 500; }
+    .switch-label { font-family: "DejaVu Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif; font-size: 2.4px; fill: #1c1c1c; text-anchor: middle; font-weight: 500; }
+  </style>
+  <!-- Left Section: Color Engine & Drift Labels -->
+  <text x="16.32" y="6.89" class="label-small">color</text>
+  <text x="16.32" y="9.65" class="label-small">space r/h/l</text>
+  <text x="32.82" y="6.89" class="label-small">freq</text>
+  <text x="32.82" y="9.65" class="label-small">drift</text>
+  <text x="16.32" y="27.56" class="label-small">color</text>
+  <text x="16.32" y="30.32" class="label-small">space g/s/c</text>
+  <text x="32.82" y="27.56" class="label-small">phase</text>
+  <text x="32.82" y="30.32" class="label-small">drift</text>
+  <text x="16.32" y="48.23" class="label-small">color</text>
+  <text x="16.32" y="50.99" class="label-small">space b/v/h</text>
+  <text x="32.82" y="48.23" class="label-small">amp</text>
+  <text x="32.82" y="50.99" class="label-small">drift</text>
+  <text x="6.6" y="86.47" class="switch-label">rgb</text>
+  <text x="6.6" y="89.23" class="switch-label">hsv</text>
+  <text x="6.6" y="91.98" class="switch-label">oklh</text>
+  <!-- Channel Strips Labels -->
+  <text x="49.22" y="8.27" class="label">freq</text>
+  <text x="65.72" y="8.27" class="label">fine</text>
+  <text x="49.22" y="28.94" class="label">mult/div</text>
+  <text x="65.72" y="28.94" class="label">phase</text>
+  <text x="49.22" y="49.61" class="label">wave</text>
+  <text x="65.72" y="49.61" class="label">amp</text>
+  <text x="57.47" y="74.07" class="label-small">s/t&amp;h</text>
+  <text x="57.47" y="91.29" class="label-small">rate</text>
+  <text x="57.47" y="122.3" class="label-small">sync</text>
+  <text x="82.13" y="8.27" class="label">freq</text>
+  <text x="98.62" y="8.27" class="label">fine</text>
+  <text x="82.13" y="28.94" class="label">mult/div</text>
+  <text x="98.62" y="28.94" class="label">phase</text>
+  <text x="82.13" y="49.61" class="label">wave</text>
+  <text x="98.62" y="49.61" class="label">amp</text>
+  <text x="90.46" y="74.07" class="label-small">s/t&amp;h</text>
+  <text x="90.46" y="91.29" class="label-small">rate</text>
+  <text x="90.46" y="122.3" class="label-small">sync</text>
+  <text x="115.12" y="8.27" class="label">freq</text>
+  <text x="131.53" y="8.27" class="label">fine</text>
+  <text x="115.12" y="28.94" class="label">mult/div</text>
+  <text x="131.53" y="28.94" class="label">phase</text>
+  <text x="115.12" y="49.61" class="label">wave</text>
+  <text x="131.53" y="49.61" class="label">amp</text>
+  <text x="123.35" y="74.07" class="label-small">s/t&amp;h</text>
+  <text x="123.35" y="91.29" class="label-small">rate</text>
+  <text x="123.35" y="122.3" class="label-small">sync</text>
+  <text x="148.02" y="8.27" class="label">freq</text>
+  <text x="164.43" y="8.27" class="label">fine</text>
+  <text x="148.02" y="28.94" class="label">mult/div</text>
+  <text x="164.43" y="28.94" class="label">phase</text>
+  <text x="148.02" y="49.61" class="label">wave</text>
+  <text x="164.43" y="49.61" class="label">amp</text>
+  <text x="156.27" y="74.07" class="label-small">s/t&amp;h</text>
+  <text x="156.27" y="91.29" class="label-small">rate</text>
+  <text x="156.27" y="122.3" class="label-small">sync</text>
+</svg>

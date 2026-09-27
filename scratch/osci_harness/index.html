@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Osci-Render Web App Analysis Harness (Multi-Shape Lua Controller)</title>
+  <style>
+    :root {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --border-color: #333333;
+      --accent-color: #00e676;
+      --accent-hover: #00c853;
+      --abort-color: #ff1744;
+      --abort-hover: #d50000;
+      --warn-color: #ff9800;
+      --ping-color: #00b0ff;
+      --text-main: #eeeeee;
+      --text-muted: #aaaaaa;
+      --input-bg: #141414;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      padding: 20px;
+      line-height: 1.5;
+    }
+
+    header {
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--accent-color);
+      letter-spacing: 0.5px;
+    }
+
+    .status-bar {
+      display: flex;
+      gap: 12px;
+      font-size: 0.85rem;
+    }
+
+    .status-tag {
+      padding: 4px 10px;
+      border-radius: 4px;
+      background-color: var(--input-bg);
+      border: 1px solid var(--border-color);
+    }
+
+    .status-tag.active {
+      border-color: var(--accent-color);
+      color: var(--accent-color);
+    }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 1000px) {
+      .grid-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel h2 {
+      font-size: 1.1rem;
+      color: var(--accent-color);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    input, select {
+      background-color: var(--input-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent-color);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    button {
+      background-color: var(--accent-color);
+      color: #000;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button:hover {
+      background-color: var(--accent-hover);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button.abort-btn {
+      background-color: var(--abort-color);
+      color: #fff;
+    }
+
+    button.abort-btn:hover {
+      background-color: var(--abort-hover);
+    }
+
+    button.ping-btn {
+      background-color: var(--ping-color);
+      color: #fff;
+      font-size: 0.8rem;
+      padding: 6px 10px;
+    }
+
+    button.ping-btn.active {
+      background-color: var(--abort-color);
+    }
+
+    .scope-container {
+      width: 100%;
+      aspect-ratio: 1.5;
+      max-height: 180px;
+      background-color: #000;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .param-card {
+      background-color: var(--input-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .param-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .param-header span {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--accent-color);
+    }
+
+    .param-inputs {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .log-box {
+      background-color: var(--input-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.8rem;
+      color: #00e676;
+      height: 140px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+
+    .status-display {
+      font-size: 1.6rem;
+      font-weight: bold;
+      color: var(--warn-color);
+      text-align: center;
+    }
+
+    .info-box {
+      background-color: rgba(0, 176, 255, 0.1);
+      border: 1px solid var(--ping-color);
+      color: #80d8ff;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>OSCI-RENDER MULTI-SHAPE LUA HARNESS</h1>
+    <div class="status-bar">
+      <div id="sweep-status-tag" class="status-tag">Status: Idle</div>
+      <div id="midi-status" class="status-tag">MIDI: Initializing...</div>
+    </div>
+  </header>
+
+  <div class="grid-container">
+    
+    <!-- 1. SWEEP CONFIGURATION & LUA SHAPE SELECTOR -->
+    <div class="panel">
+      <h2>1. Reference Trajectory & Lua Shape Control</h2>
+      
+      <div class="form-group">
+        <label for="signal-type">Reference Vector Shape (Lua Controlled)</label>
+        <select id="signal-type">
+          <option value="circle">Unit Circle (Cos / Sin)</option>
+          <option value="square">Square (Linear Bounding Box)</option>
+          <option value="ramp">Diagonal Ramp Line (-1 to +1)</option>
+          <option value="lissajous32">Lissajous Pattern (3:2 Ratio)</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="shape-midi-cc">Lua Slider A MIDI CC (Shape Selector)</label>
+          <input type="number" id="shape-midi-cc" value="19" min="0" max="127">
+        </div>
+        <div class="form-group">
+          <label for="freq">Frequency (Hz)</label>
+          <input type="number" id="freq" value="100" min="10" max="1000" step="10">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="grid-steps">Grid Steps (K)</label>
+          <input type="number" id="grid-steps" value="5" min="2" max="16">
+        </div>
+        <div class="form-group">
+          <label for="single-sweep-duration">Sweep Duration per Step (Sec)</label>
+          <input type="number" id="single-sweep-duration" value="2.0" min="0.5" max="10.0" step="0.5">
+        </div>
+      </div>
+
+      <div class="info-box" id="duration-estimate">
+        Estimated Test Duration: 2.0s
+      </div>
+
+      <div class="scope-container">
+        <canvas id="scope"></canvas>
+      </div>
+    </div>
+
+    <!-- 2. MIDI LEARN & MULTI-PARAMETER CONTROLLER -->
+    <div class="panel">
+      <h2>
+        2. Multi-Parameter Slots (up to 5)
+        <select id="midi-out" style="max-width: 200px; font-size: 0.8rem;">
+          <option value="">-- MIDI Output Device --</option>
+        </select>
+      </h2>
+
+      <div id="param-slots" style="display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: 360px;">
+        <!-- Slots 1 to 5 built by JS -->
+      </div>
+    </div>
+
+    <!-- 3. LIVE SWEEP CONTROL -->
+    <div class="panel full-width">
+      <h2>3. Execution & Shape Synchronization</h2>
+      
+      <div class="form-row" style="grid-template-columns: 2fr 1fr; align-items: center;">
+        <button id="btn-toggle-sweep" style="font-size: 1.1rem; padding: 14px;">
+          ▶ START LIVE MIDI CC SWEEP
+        </button>
+        <div id="status-box" class="status-display">READY</div>
+      </div>
+
+      <div class="log-box" id="log-console">Instructions:
+1. In osci-render, load reference_harness.lua as the shape generator.
+2. Map Lua Slider A to MIDI CC 19 (or Ping CC).
+3. Assign target effect MIDI CCs using "Ping CC".
+4. In osci-render, hit Record / Render WAV.
+5. Click "START LIVE MIDI CC SWEEP" above!</div>
+    </div>
+
+  </div>
+
+  <script>
+    let midiAccess = null;
+    let selectedMidiOutput = null;
+    let activePingTimers = {};
+    let isSweeping = false;
+    let sweepInterval = null;
+    let eventLog = [];
+
+    const signalTypeSelect = document.getElementById('signal-type');
+    const shapeCcInput = document.getElementById('shape-midi-cc');
+    const freqInput = document.getElementById('freq');
+    const singleSweepDurInput = document.getElementById('single-sweep-duration');
+    const gridStepsInput = document.getElementById('grid-steps');
+    const midiOutSelect = document.getElementById('midi-out');
+    const paramSlotsContainer = document.getElementById('param-slots');
+    const scopeCanvas = document.getElementById('scope');
+    const scopeCtx = scopeCanvas.getContext('2d');
+    const logConsole = document.getElementById('log-console');
+    const statusBox = document.getElementById('status-box');
+    const sweepStatusTag = document.getElementById('sweep-status-tag');
+    const durationEstBox = document.getElementById('duration-estimate');
+    const toggleSweepBtn = document.getElementById('btn-toggle-sweep');
+
+    function log(msg) {
+      const time = new Date().toLocaleTimeString();
+      logConsole.textContent += `\n[${time}] ${msg}`;
+      logConsole.scrollTop = logConsole.scrollHeight;
+    }
+
+    const defaultParams = [
+      { name: "Param_A", ch: 1, cc: 14, enable: true },
+      { name: "Param_B", ch: 1, cc: 15, enable: false },
+      { name: "Param_C", ch: 1, cc: 16, enable: false },
+      { name: "Param_D", ch: 1, cc: 17, enable: false },
+      { name: "Param_E", ch: 1, cc: 18, enable: false }
+    ];
+
+    function buildParamSlots() {
+      paramSlotsContainer.innerHTML = '';
+      defaultParams.forEach((param, idx) => {
+        const slotId = idx + 1;
+        const card = document.createElement('div');
+        card.className = 'param-card';
+        card.innerHTML = `
+          <div class="param-header">
+            <span>Slot ${slotId} ${slotId === 1 ? '(Primary Continuous Sweep)' : '(Secondary Grid Parameter)'}</span>
+            <label style="font-size: 0.8rem; cursor: pointer;">
+              <input type="checkbox" id="param-enable-${slotId}" ${param.enable ? 'checked' : ''}> Active
+            </label>
+          </div>
+          <div class="param-inputs">
+            <input type="text" id="param-name-${slotId}" value="${param.name}" placeholder="Param Name">
+            <input type="number" id="param-ch-${slotId}" value="${param.ch}" min="1" max="16" placeholder="Ch">
+            <input type="number" id="param-cc-${slotId}" value="${param.cc}" min="0" max="127" placeholder="CC">
+            <button class="ping-btn" id="btn-ping-${slotId}">Ping CC (Learn)</button>
+          </div>
+        `;
+        paramSlotsContainer.appendChild(card);
+
+        document.getElementById(`btn-ping-${slotId}`).addEventListener('click', () => togglePingCc(slotId));
+        document.getElementById(`param-enable-${slotId}`).addEventListener('change', updateDurationEstimate);
+      });
+      updateDurationEstimate();
+    }
+
+    function getActiveParameters() {
+      const active = [];
+      for (let i = 1; i <= 5; i++) {
+        if (document.getElementById(`param-enable-${i}`).checked) {
+          active.push({
+            slot: i,
+            name: document.getElementById(`param-name-${i}`).value,
+            ch: parseInt(document.getElementById(`param-ch-${i}`).value) - 1,
+            cc: parseInt(document.getElementById(`param-cc-${i}`).value)
+          });
+        }
+      }
+      return active;
+    }
+
+    function updateDurationEstimate() {
+      const active = getActiveParameters();
+      const numActive = active.length;
+      const sweepDur = parseFloat(singleSweepDurInput.value);
+      const K = parseInt(gridStepsInput.value);
+
+      if (numActive <= 1) {
+        const totalSec = sweepDur;
+        durationEstBox.textContent = `Estimated Test Duration: ${totalSec.toFixed(1)}s (1 parameter continuous sweep)`;
+      } else {
+        const secondaryCount = numActive - 1;
+        const totalPermutations = Math.pow(K, secondaryCount);
+        const totalSec = totalPermutations * sweepDur;
+        durationEstBox.textContent = `Estimated Test Duration: ${totalSec.toFixed(1)}s (${totalPermutations} permutations of ${K} grid steps across ${numActive} active params)`;
+      }
+    }
+
+    singleSweepDurInput.addEventListener('input', updateDurationEstimate);
+    gridStepsInput.addEventListener('input', updateDurationEstimate);
+
+    buildParamSlots();
+
+    // Scope Visualization
+    function drawScope() {
+      const width = scopeCanvas.width = scopeCanvas.clientWidth;
+      const height = scopeCanvas.height = scopeCanvas.clientHeight;
+      const type = signalTypeSelect.value;
+      const freq = parseFloat(freqInput.value);
+
+      scopeCtx.fillStyle = '#000000';
+      scopeCtx.fillRect(0, 0, width, height);
+      scopeCtx.strokeStyle = '#222222';
+      scopeCtx.lineWidth = 1;
+      scopeCtx.beginPath();
+      scopeCtx.moveTo(width / 2, 0); scopeCtx.lineTo(width / 2, height);
+      scopeCtx.moveTo(0, height / 2); scopeCtx.lineTo(width, height / 2);
+      scopeCtx.stroke();
+
+      scopeCtx.strokeStyle = '#00e676';
+      scopeCtx.lineWidth = 2;
+      scopeCtx.beginPath();
+
+      const numPoints = 1000;
+      const duration = 1 / freq;
+      for (let i = 0; i < numPoints; i++) {
+        const t = (i / numPoints) * duration;
+        const [x, y] = sampleTrajectory(type, t, freq);
+        const px = (x * 0.4 + 0.5) * width;
+        const py = (-y * 0.4 + 0.5) * height;
+        if (i === 0) scopeCtx.moveTo(px, py);
+        else scopeCtx.lineTo(px, py);
+      }
+      scopeCtx.stroke();
+    }
+
+    function sampleTrajectory(type, t, f) {
+      const omega = 2 * Math.PI * f;
+      let x = 0, y = 0;
+      switch (type) {
+        case 'circle': x = Math.cos(omega * t); y = Math.sin(omega * t); break;
+        case 'square': {
+          const phase = (f * t) % 1.0;
+          if (phase < 0.25) { x = -1 + 8 * phase; y = 1; }
+          else if (phase < 0.50) { x = 1; y = 1 - 8 * (phase - 0.25); }
+          else if (phase < 0.75) { x = 1 - 8 * (phase - 0.50); y = -1; }
+          else { x = -1; y = -1 + 8 * (phase - 0.75); }
+          break;
+        }
+        case 'ramp': {
+          const phase = (f * t) % 1.0;
+          const tri = phase < 0.5 ? (4 * phase - 1) : (3 - 4 * phase);
+          x = tri; y = tri; break;
+        }
+        case 'lissajous32': x = Math.sin(3 * omega * t); y = Math.sin(2 * omega * t + Math.PI / 4); break;
+      }
+      return [x, y];
+    }
+
+    function sendShapeSelectMidi() {
+      if (!selectedMidiOutput) return;
+      const shapeType = signalTypeSelect.value;
+      const shapeCc = parseInt(shapeCcInput.value);
+      let ccVal = 0; // Circle
+      if (shapeType === 'square') ccVal = 48;
+      else if (shapeType === 'ramp') ccVal = 80;
+      else if (shapeType === 'lissajous32') ccVal = 112;
+
+      selectedMidiOutput.send([0xB0, shapeCc, ccVal]);
+      log(`Sent Lua Shape Switch CC ${shapeCc} -> Value ${ccVal} (${shapeType})`);
+    }
+
+    signalTypeSelect.addEventListener('change', () => {
+      drawScope();
+      sendShapeSelectMidi();
+    });
+    freqInput.addEventListener('input', drawScope);
+    window.addEventListener('resize', drawScope);
+    drawScope();
+
+    // WebMIDI Setup
+    if (navigator.requestMIDIAccess) {
+      navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
+    } else {
+      document.getElementById('midi-status').textContent = 'MIDI: Unsupported';
+    }
+
+    function onMIDISuccess(access) {
+      midiAccess = access;
+      document.getElementById('midi-status').textContent = 'MIDI: Ready';
+      document.getElementById('midi-status').classList.add('active');
+      updateMidiOutputs();
+      midiAccess.onstatechange = updateMidiOutputs;
+    }
+
+    function onMIDIFailure() {
+      document.getElementById('midi-status').textContent = 'MIDI: Access Denied';
+    }
+
+    function updateMidiOutputs() {
+      const prevSelectedId = midiOutSelect.value;
+      midiOutSelect.innerHTML = '<option value="">-- MIDI Output Device --</option>';
+      
+      if (!midiAccess) return;
+
+      const outputs = Array.from(midiAccess.outputs.values());
+      for (let output of outputs) {
+        const option = document.createElement('option');
+        option.value = output.id;
+        option.textContent = output.name;
+        midiOutSelect.appendChild(option);
+      }
+
+      if (prevSelectedId && midiAccess.outputs.has(prevSelectedId)) {
+        midiOutSelect.value = prevSelectedId;
+      } else if (midiOutSelect.options.length > 1) {
+        midiOutSelect.selectedIndex = 1;
+      }
+
+      if (midiOutSelect.value) {
+        selectedMidiOutput = midiAccess.outputs.get(midiOutSelect.value);
+      } else {
+        selectedMidiOutput = null;
+      }
+    }
+
+    midiOutSelect.addEventListener('change', () => {
+      const selectedId = midiOutSelect.value;
+      selectedMidiOutput = midiAccess.outputs.get(selectedId) || null;
+      if (selectedMidiOutput) {
+        log(`Selected MIDI Output: ${selectedMidiOutput.name}`);
+        sendShapeSelectMidi();
+      }
+    });
+
+    function togglePingCc(slotId) {
+      const btn = document.getElementById(`btn-ping-${slotId}`);
+      const ch = parseInt(document.getElementById(`param-ch-${slotId}`).value) - 1;
+      const cc = parseInt(document.getElementById(`param-cc-${slotId}`).value);
+
+      const currentId = midiOutSelect.value;
+      if (currentId && midiAccess) {
+        selectedMidiOutput = midiAccess.outputs.get(currentId) || selectedMidiOutput;
+      }
+
+      if (activePingTimers[slotId]) {
+        clearInterval(activePingTimers[slotId]);
+        delete activePingTimers[slotId];
+        btn.textContent = 'Ping CC (Learn)';
+        btn.classList.remove('active');
+        log(`Stopped ping for Slot ${slotId}`);
+      } else {
+        if (!selectedMidiOutput) {
+          alert("Please select a MIDI Output device first!");
+          return;
+        }
+        let pingVal = 0;
+        btn.textContent = 'PINGING...';
+        btn.classList.add('active');
+        log(`Pinging CC ${cc} (Ch ${ch + 1}) on [${selectedMidiOutput.name}] for osci-render MIDI Learn...`);
+
+        activePingTimers[slotId] = setInterval(() => {
+          pingVal = pingVal === 0 ? 127 : 0;
+          selectedMidiOutput.send([0xB0 | ch, cc, pingVal]);
+        }, 200);
+      }
+    }
+
+    function generateGridPermutations(secondaryParams, K) {
+      if (secondaryParams.length === 0) return [[]];
+      const gridValues = [];
+      for (let i = 0; i < K; i++) {
+        gridValues.push(Math.round((i / (K - 1)) * 127));
+      }
+      function cartesian(arrays) {
+        return arrays.reduce((acc, curr) => acc.flatMap(d => curr.map(e => [...d, e])), [[]]);
+      }
+      return cartesian(secondaryParams.map(() => gridValues));
+    }
+
+    toggleSweepBtn.addEventListener('click', () => {
+      if (isSweeping) {
+        abortSweep();
+      } else {
+        startSweep();
+      }
+    });
+
+    function startSweep() {
+      const currentMidiId = midiOutSelect.value;
+      if (currentMidiId && midiAccess) {
+        selectedMidiOutput = midiAccess.outputs.get(currentMidiId) || selectedMidiOutput;
+      }
+
+      if (!selectedMidiOutput) {
+        alert("Please select a MIDI Output device first!");
+        return;
+      }
+
+      const activeParams = getActiveParameters();
+      if (activeParams.length === 0) {
+        alert("Please enable at least one Parameter slot!");
+        return;
+      }
+
+      // Send Shape Selection CC to Lua Script to reset phase & emit sync beep!
+      sendShapeSelectMidi();
+
+      isSweeping = true;
+      toggleSweepBtn.textContent = "⏹ ABORT MIDI CC SWEEP";
+      toggleSweepBtn.className = "abort-btn";
+      statusBox.textContent = "SWEEPING...";
+      statusBox.style.color = "#00e676";
+      sweepStatusTag.textContent = "Status: SWEEPING";
+      sweepStatusTag.className = "status-tag active";
+
+      const primaryParam = activeParams[0];
+      const secondaryParams = activeParams.slice(1);
+      const K = parseInt(gridStepsInput.value);
+      const sweepDurPerStep = parseFloat(singleSweepDurInput.value);
+      const permutations = generateGridPermutations(secondaryParams, K);
+      const totalSweepDurationSec = permutations.length * sweepDurPerStep;
+      const signalType = signalTypeSelect.value;
+      const freq = parseFloat(freqInput.value);
+
+      log(`[🚀] Starting Live MIDI CC Sweep on [${selectedMidiOutput.name}]: ${activeParams.length} params, ${permutations.length} permutations, ${totalSweepDurationSec.toFixed(1)}s total.`);
+
+      eventLog = [];
+      const updateIntervalMs = 20;
+      const stepsPerPermutation = Math.floor((sweepDurPerStep * 1000) / updateIntervalMs);
+      const totalSteps = permutations.length * stepsPerPermutation;
+      let globalStep = 0;
+
+      sweepInterval = setInterval(() => {
+        if (!isSweeping) {
+          clearInterval(sweepInterval);
+          return;
+        }
+
+        const currentPerm = Math.floor(globalStep / stepsPerPermutation);
+        const stepInPerm = globalStep % stepsPerPermutation;
+        const progressInPerm = stepInPerm / stepsPerPermutation;
+
+        if (currentPerm >= permutations.length) {
+          finishSweep(activeParams, signalType, freq, totalSweepDurationSec, K);
+          return;
+        }
+
+        const primaryCcVal = Math.min(127, Math.max(0, Math.round(progressInPerm * 127)));
+        if (selectedMidiOutput) {
+          selectedMidiOutput.send([0xB0 | primaryParam.ch, primaryParam.cc, primaryCcVal]);
+        }
+
+        const sampleIndex = Math.floor((globalStep / totalSteps) * Math.floor(48000 * totalSweepDurationSec));
+        const timeSec = parseFloat((sampleIndex / 48000.0).toFixed(4));
+
+        const frameState = {
+          sampleIndex: sampleIndex,
+          timeSec: timeSec,
+          values: { [primaryParam.name]: primaryCcVal }
+        };
+
+        const permState = permutations[currentPerm];
+        secondaryParams.forEach((param, pIdx) => {
+          const secVal = permState[pIdx];
+          if (selectedMidiOutput) {
+            selectedMidiOutput.send([0xB0 | param.ch, param.cc, secVal]);
+          }
+          frameState.values[param.name] = secVal;
+        });
+
+        eventLog.push(frameState);
+
+        statusBox.textContent = `RUNNING (${currentPerm + 1}/${permutations.length})`;
+        globalStep++;
+      }, updateIntervalMs);
+    }
+
+    function abortSweep() {
+      if (sweepInterval) clearInterval(sweepInterval);
+      isSweeping = false;
+      const activeParams = getActiveParameters();
+      resetAllCcToZero(activeParams);
+      toggleSweepBtn.textContent = "▶ START LIVE MIDI CC SWEEP";
+      toggleSweepBtn.className = "";
+      statusBox.textContent = "ABORTED";
+      statusBox.style.color = "#ff1744";
+      sweepStatusTag.textContent = "Status: Aborted";
+      sweepStatusTag.className = "status-tag";
+      log("⏹ MIDI CC Sweep aborted by user. Reset CC parameters to 0.");
+    }
+
+    function finishSweep(activeParams, signalType, freq, totalSweepDurationSec, K) {
+      if (sweepInterval) clearInterval(sweepInterval);
+      isSweeping = false;
+      resetAllCcToZero(activeParams);
+      toggleSweepBtn.textContent = "▶ START LIVE MIDI CC SWEEP";
+      toggleSweepBtn.className = "";
+      statusBox.textContent = "COMPLETE";
+      statusBox.style.color = "#00e676";
+      sweepStatusTag.textContent = "Status: Complete";
+      sweepStatusTag.className = "status-tag";
+      log(`[✔] Live MIDI CC Sweep Complete! Logged ${eventLog.length} samples. Reset CC parameters to 0.`);
+      exportMetadata(activeParams, signalType, freq, totalSweepDurationSec, K);
+    }
+
+    function resetAllCcToZero(activeParams) {
+      if (!selectedMidiOutput) return;
+      activeParams.forEach(param => {
+        selectedMidiOutput.send([0xB0 | param.ch, param.cc, 0]);
+      });
+    }
+
+    function exportMetadata(activeParams, signalType, freq, totalSweepDurationSec, K) {
+      const metadata = {
+        sampleRate: 48000,
+        syncBurstDurationSec: 0.1,
+        sweepDurationSeconds: totalSweepDurationSec,
+        signalType: signalType,
+        frequencyHz: freq,
+        gridStepsK: K,
+        parameters: activeParams,
+        events: eventLog
+      };
+
+      const jsonStr = JSON.stringify(metadata, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const filename = `metadata_NDim_${activeParams.map(p => p.name).join('_')}.json`;
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      log(`Exported metadata JSON: ${filename}`);
+    }
+  </script>
+</body>
+</html>

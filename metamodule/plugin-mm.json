@@ -1,0 +1,11 @@
+{
+  "MetaModuleBrandName": "Garmire",
+  "MetaModuleDescription": "Laser RGB & Blanking Controller with HSV/OKLCH color engine, per-channel oscillators, global instability drift with targeted scope routing, and switchable S&H/T&H. Designed for use with LZX Cyclops or similar RGB-to-ILDA converters.",
+  "MetaModuleIncludedModules": [
+    {
+      "slug": "Chromance",
+      "name": "Chromance",
+      "displayName": "Chromance"
+    }
+  ]
+}

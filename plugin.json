@@ -1,0 +1,273 @@
+{
+  "slug": "Garmire",
+  "name": "Garmire",
+  "version": "2.19.0",
+  "license": "GPL-3.0-or-later",
+  "brand": "Garmire",
+  "author": "Garmire",
+  "authorEmail": "",
+  "authorUrl": "",
+  "pluginUrl": "",
+  "manualUrl": "",
+  "sourceUrl": "",
+  "donateUrl": "",
+  "changelogUrl": "",
+  "modules": [
+    {
+      "slug": "Chromance",
+      "name": "Chromance",
+      "description": "Single-strip laser channel oscillator with 3-position S&H/T&H mode, continuous waveform morphing, and hard sync",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Low-frequency oscillator",
+        "Oscillator"
+      ]
+    },
+    {
+      "slug": "Ants",
+      "name": "Ants",
+      "description": "Vector trajectory dashed line and marching ants blanking generator",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual"
+      ]
+    },
+    {
+      "slug": "HsvRgb",
+      "name": "HSV / HSL to RGB",
+      "description": "CV-controllable color space bias generator with HSV/HSL mode toggle and linear RGB outputs",
+      "tags": [
+        "Visual",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "OklchRgb",
+      "name": "OKLCH",
+      "description": "Perceptually uniform color generator with Lightness, Chroma, and Hue inputs and linear RGB outputs",
+      "tags": [
+        "Visual",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "Rgb",
+      "name": "RGB",
+      "description": "Direct linear RGB voltage generator with CV modulation and real-time color preview bar",
+      "tags": [
+        "Visual",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "Instability",
+      "name": "Instability",
+      "description": "Standalone 3-axis organic drift CV generator for frequency, phase, and amplitude drift",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Low-frequency oscillator",
+        "Noise"
+      ]
+    },
+    {
+      "slug": "Scale",
+      "name": "Scale (X/Y)",
+      "description": "Dual X/Y laser trajectory voltage scale transformer with normalized CV modulation",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Attenuator"
+      ]
+    },
+    {
+      "slug": "Position",
+      "name": "Position (X/Y)",
+      "description": "Dual X/Y laser trajectory voltage position offset transformer with normalized CV modulation",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Offset"
+      ]
+    },
+    {
+      "slug": "Rotate",
+      "name": "Rotate (X/Y)",
+      "description": "Dual X/Y laser trajectory 2D rotation transformer with continuous auto-rotation frequency control",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual"
+      ]
+    },
+    {
+      "slug": "Spin",
+      "name": "Spin (X/Y)",
+      "description": "Dual X/Y laser trajectory independent dual-axis spin frequency transformer",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual"
+      ]
+    },
+    {
+      "slug": "Fold",
+      "name": "Fold (X/Y)",
+      "description": "Dual X/Y laser trajectory quadratic x^2 voltage wavefolder transformer",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Waveshaper"
+      ]
+    },
+    {
+      "slug": "Stretch",
+      "name": "Stretch (X/Y)",
+      "description": "Dual X/Y laser trajectory cubic x^3 voltage stretch transformer",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Waveshaper"
+      ]
+    },
+    {
+      "slug": "Shear",
+      "name": "Shear (X/Y)",
+      "description": "Dual X/Y laser trajectory 2D affine shear transformer with normalized CV modulation",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual"
+      ]
+    },
+    {
+      "slug": "Smooth",
+      "name": "Smooth (X/Y)",
+      "description": "Dual X/Y laser trajectory exponential 1-pole lowpass corner smoother and inertia filter",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Filter",
+        "Slew rate limiter"
+      ]
+    },
+    {
+      "slug": "Wiggle",
+      "name": "Wiggle (X/Y)",
+      "description": "Dual X/Y laser trajectory organic multi-harmonic wobble and displacement engine",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Low-frequency oscillator"
+      ]
+    },
+    {
+      "slug": "Crest",
+      "name": "Crest (X/Y)",
+      "description": "Dual X/Y 2-cycle trigonometric waveshaper and harmonic trajectory folder",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Waveshaper"
+      ]
+    },
+    {
+      "slug": "Quake",
+      "name": "Quake (X/Y)",
+      "description": "Dual X/Y laser trajectory organic timing and micro-jitter humanizer engine",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Noise"
+      ]
+    },
+    {
+      "slug": "Steps",
+      "name": "Steps (X/Y)",
+      "description": "Dual X/Y laser trajectory unquantized continuous bit-crusher transformer",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Digital"
+      ]
+    },
+    {
+      "slug": "Copycat",
+      "name": "Copycat",
+      "description": "Multi-pass vector duplicator and spatial shape copier with spread and rotation offset",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Delay"
+      ]
+    },
+    {
+      "slug": "Petals",
+      "name": "Petals",
+      "description": "Dual X/Y rotational vector unfold and angular 16-segment petal multiplier transformer",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Waveshaper"
+      ]
+    },
+    {
+      "slug": "Unfold",
+      "name": "Unfold",
+      "description": "Dual X/Y polar angle multiplier and sector wrapping transformer",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Waveshaper"
+      ]
+    },
+    {
+      "slug": "Vortex",
+      "name": "Vortex",
+      "description": "Dual X/Y angular phase multiplier and multi-centered rosette swirl engine",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Waveshaper"
+      ]
+    },
+    {
+      "slug": "Trough",
+      "name": "Trough (X/Y)",
+      "description": "Dual X/Y lower half-space center-clipping trough waveshaper and harmonic interpolator",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Waveshaper"
+      ]
+    },
+    {
+      "slug": "Switch",
+      "name": "Switch (X/Y)",
+      "description": "CV-controlled dual X/Y A/B router passing main X/Y inputs when track pulse is LOW and alternate X/Y inputs when HIGH",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Switch",
+        "Logic"
+      ]
+    }
+  ]
+}
