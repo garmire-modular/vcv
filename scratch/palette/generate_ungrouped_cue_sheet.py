@@ -41,7 +41,7 @@ def simulate_tritan(r, g, b):
 
 palette = [
     ('White', '#FFFFFF'),
-    ('Safety Orange', '#E69F00'),
+    ('Lemon Yellow', '#EBEC72'),
     ('Coral Peach', '#FF8866'),
     ('Pale Lavender', '#B8A0E8'),
     ('Sky Blue', '#56B4E9'),
