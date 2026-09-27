@@ -27,6 +27,7 @@ SOURCES += src/Unfold.cpp
 SOURCES += src/Vortex.cpp
 SOURCES += src/Trough.cpp
 SOURCES += src/Switch.cpp
+SOURCES += src/Route.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res

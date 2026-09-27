@@ -15,7 +15,7 @@ endif()
 include(${METAMODULE_SDK_DIR}/plugin.cmake)
 
 # ── Project ──────────────────────────────────────────────────────────
-project(Garmire VERSION 2.19.0 DESCRIPTION "Garmire Laser Trajectory & Color Control System" LANGUAGES C CXX ASM)
+project(Garmire VERSION 2.20.0 DESCRIPTION "Garmire Laser Trajectory & Color Control System" LANGUAGES C CXX ASM)
 
 add_library(Garmire STATIC)
 
@@ -47,6 +47,7 @@ target_sources(Garmire PRIVATE
     ${SOURCE_DIR}/src/Vortex.cpp
     ${SOURCE_DIR}/src/Trough.cpp
     ${SOURCE_DIR}/src/Switch.cpp
+    ${SOURCE_DIR}/src/Route.cpp
 )
 
 # ── Include paths ────────────────────────────────────────────────────

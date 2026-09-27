@@ -40,6 +40,7 @@ modules = [
     ('Vortex', 57, 240),
     ('Ants', 57, 240),
     ('Switch', 28, 240),
+    ('Route', 28, 240),
 ]
 
 for slug, width, height in modules:

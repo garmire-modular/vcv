@@ -1,7 +1,7 @@
 {
   "slug": "Garmire",
   "name": "Garmire",
-  "version": "2.19.0",
+  "version": "2.20.0",
   "license": "GPL-3.0-or-later",
   "brand": "Garmire",
   "author": "Garmire",
@@ -261,6 +261,18 @@
       "slug": "Switch",
       "name": "Switch (X/Y)",
       "description": "CV-controlled dual X/Y A/B router passing main X/Y inputs when track pulse is LOW and alternate X/Y inputs when HIGH",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Switch",
+        "Logic"
+      ]
+    },
+    {
+      "slug": "Route",
+      "name": "Route (X/Y)",
+      "description": "Dual X/Y 1:2 alternating toggle router and Bernoulli gate routing inputs between two output pairs on each clock/switch pulse",
       "tags": [
         "Visual",
         "Utility",

@@ -30,4 +30,5 @@ void init(Plugin* p) {
 	p->addModel(modelVortex);
 	p->addModel(modelTrough);
 	p->addModel(modelSwitch);
+	p->addModel(modelRoute);
 }
