@@ -575,19 +575,16 @@ html_content = f'''<!DOCTYPE html>
     const MODULES = {modules_json_str};
 
     const CHROMATIC_HIGH = [
-      '#F0E442', // Electric Yellow
+      '#EBEC72', // Lemon Yellow
       '#56B4E9', // Sky Blue
       '#E69F00', // Safety Orange
       '#B8A0E8', // Pale Lavender
-      '#EE99AA', // Pastel Rose
       '#FF8866'  // Coral Peach
     ];
     const CHROMATIC_LOW = [
       '#0072B2', // Cobalt Blue
       '#D55E00', // Vermilion
-      '#009E73', // Bluish Green (Mint)
       '#CC79A7', // Reddish Purple
-      '#117733', // Forest Pine
       '#882255', // Deep Wine
       '#442288', // Imperial Violet
       '#005566'  // Dark Petrol
