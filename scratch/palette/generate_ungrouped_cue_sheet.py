@@ -41,7 +41,6 @@ def simulate_tritan(r, g, b):
 
 palette = [
     ('White', '#FFFFFF'),
-    ('Lemon Yellow', '#EBEC72'),
     ('Safety Orange', '#E69F00'),
     ('Coral Peach', '#FF8866'),
     ('Pale Lavender', '#B8A0E8'),
@@ -106,7 +105,7 @@ def get_similarity_order(sim_fn):
     return [(palette[idx][0], palette[idx][1], sim_rgbs[idx]) for idx in best_path]
 
 def main():
-    W, H = 1820, 950
+    W, H = 1820, 880
     img = Image.new("RGBA", (W, H), (18, 20, 24, 255))
     draw = ImageDraw.Draw(img)
 

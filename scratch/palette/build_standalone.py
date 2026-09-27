@@ -575,7 +575,6 @@ html_content = f'''<!DOCTYPE html>
     const MODULES = {modules_json_str};
 
     const CHROMATIC_HIGH = [
-      '#EBEC72', // Lemon Yellow
       '#56B4E9', // Sky Blue
       '#E69F00', // Safety Orange
       '#B8A0E8', // Pale Lavender
