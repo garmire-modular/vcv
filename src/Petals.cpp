@@ -67,6 +67,9 @@ struct Petals : Module {
 		bool yInputConnected = inputs[Y_INPUT].isConnected();
 		bool cvYConnected = inputs[Y_SEGM_CV_INPUT].isConnected();
 
+		// Normalization: if Y knob is untouched at default 1.0 and no Y CV is connected, normal Y to X
+		float effectiveYParam = (ySegmParam == 1.f && !cvYConnected) ? xSegmParam : ySegmParam;
+
 		for (int c = 0; c < numChannels; c++) {
 			float inX = inputs[X_INPUT].getPolyVoltage(c);
 			float inY = yInputConnected ? inputs[Y_INPUT].getPolyVoltage(c) : inX;
@@ -75,58 +78,55 @@ struct Petals : Module {
 			float ySegmCV = cvYConnected ? inputs[Y_SEGM_CV_INPUT].getPolyVoltage(c) : xSegmCV;
 
 			float xSegm = clamp(xSegmParam + xSegmCV * xSegmTrim * 8.f, -16.f, 16.f);
-			float ySegm = clamp(ySegmParam + ySegmCV * ySegmTrim * 8.f, -16.f, 16.f);
+			float ySegm = clamp(effectiveYParam + ySegmCV * ySegmTrim * 8.f, -16.f, 16.f);
 
 			// Polar transformation
 			float r = std::sqrt(inX * inX + inY * inY);
 			float theta = std::atan2(inY, inX);
 
-			// Rose / Ranunculus spiraling radius transformation for X
-			float nX = std::abs(xSegm);
-			float rScaledX = r;
-			float thetaX = theta;
-			if (nX > 1.f) {
-				float normTheta = (theta + (float)M_PI) / (2.f * (float)M_PI);
-				float phaseX = std::fmod(normTheta * nX, nX);
-				if (phaseX < 0.f) phaseX += nX;
-				int kX = (int)std::floor(phaseX);
+			// Square boundary compensation to base inradius
+			float c4 = std::max(std::abs(std::cos(theta)), std::abs(std::sin(theta)));
+			float rBase = r * c4;
 
-				int lX = kX / 4;
-				int topLayerX = (int)std::floor((nX - 1.f) / 4.f);
-				int deltaLX = std::max(0, topLayerX - lX);
+			auto transformChannel = [&](float segm, float& outR, float& outTheta) {
+				float n = std::abs(segm);
+				if (n <= 1.f) {
+					outR = r;
+					outTheta = theta;
+					return;
+				}
+				float theta0 = (float)M_PI / (2.f * n);
+				float phi = theta - theta0;
+				float dTh = 2.f * (float)M_PI / n;
+				float localTh = std::fmod(phi + (float)M_PI / n, dTh);
+				if (localTh < 0.f) localTh += dTh;
+				localTh -= (float)M_PI / n;
 
-				float spiralScaleX = 1.f / (1.f + 0.35f * deltaLX);
-				float baseScaleX = 1.f / (1.f + 0.05f * (nX - 1.f));
-				float scaleX = (xSegm - (xSegm > 0.f ? 1.f : -1.f)) * (0.4f / (1.f + 0.05f * nX));
+				float cn = std::cos(localTh);
+				float targetBulge = std::sqrt(2.f) - 1.f;
+				float normCn = 0.f;
+				if (n <= 2.f) {
+					normCn = targetBulge * std::max(0.f, std::cos(2.f * (theta - theta0)));
+				} else {
+					float actualBulge = (1.f / std::cos((float)M_PI / n)) - 1.f;
+					float bulgeScale = targetBulge / std::max(0.01f, actualBulge);
+					normCn = (1.f / std::max(0.4f, cn) - 1.f) * bulgeScale;
+				}
+				float centerScale = 1.f / (1.f + 0.04f * (n - 1.f));
+				outR = rBase * (centerScale + normCn);
 
-				thetaX = theta + scaleX * std::sin(theta * xSegm);
-				rScaledX = r * baseScaleX * spiralScaleX;
-			}
+				float scale = std::min(1.f, n - 1.f);
+				float dirVal = (segm >= 0.f) ? 1.f : -1.f;
+				outTheta = theta + dirVal * scale * std::sin(n * phi);
+			};
 
-			// Rose / Ranunculus spiraling radius transformation for Y
-			float nY = std::abs(ySegm);
-			float rScaledY = r;
-			float thetaY = theta;
-			if (nY > 1.f) {
-				float normTheta = (theta + (float)M_PI) / (2.f * (float)M_PI);
-				float phaseY = std::fmod(normTheta * nY, nY);
-				if (phaseY < 0.f) phaseY += nY;
-				int kY = (int)std::floor(phaseY);
+			float rX = r, thetaX = theta;
+			float rY = r, thetaY = theta;
+			transformChannel(xSegm, rX, thetaX);
+			transformChannel(ySegm, rY, thetaY);
 
-				int lY = kY / 4;
-				int topLayerY = (int)std::floor((nY - 1.f) / 4.f);
-				int deltaLY = std::max(0, topLayerY - lY);
-
-				float spiralScaleY = 1.f / (1.f + 0.35f * deltaLY);
-				float baseScaleY = 1.f / (1.f + 0.05f * (nY - 1.f));
-				float scaleY = (ySegm - (ySegm > 0.f ? 1.f : -1.f)) * (0.4f / (1.f + 0.05f * nY));
-
-				thetaY = theta + scaleY * std::sin(theta * ySegm);
-				rScaledY = r * baseScaleY * spiralScaleY;
-			}
-
-			float outX = rScaledX * std::cos(thetaX);
-			float outY = rScaledY * std::sin(thetaY);
+			float outX = rX * std::cos(thetaX);
+			float outY = rY * std::sin(thetaY);
 
 			// Laser safety voltage bounds (-12V to +12V)
 			outputs[X_OUTPUT].setVoltage(clamp(outX, -12.f, 12.f), c);
