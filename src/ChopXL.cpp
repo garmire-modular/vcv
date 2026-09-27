@@ -219,41 +219,41 @@ struct ChopXLWidget : ModuleWidget {
 		// 4 Control Columns (x = 7.62, 22.86, 38.10, 53.34 mm)
 		const double ctrlX[4] = {7.62, 22.86, 38.10, 53.34};
 
-		// Row 1: Knobs (center Y = 22.00 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(ctrlX[0], 22.00)), module, ChopXLModule::COUNT_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(ctrlX[1], 22.00)), module, ChopXLModule::LENGTH_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(ctrlX[2], 22.00)), module, ChopXLModule::POSITION_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(ctrlX[3], 22.00)), module, ChopXLModule::VARIETY_PARAM));
+		// Row 1: Knobs (center Y = 23.50 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(ctrlX[0], 23.50)), module, ChopXLModule::COUNT_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(ctrlX[1], 23.50)), module, ChopXLModule::LENGTH_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(ctrlX[2], 23.50)), module, ChopXLModule::POSITION_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(ctrlX[3], 23.50)), module, ChopXLModule::VARIETY_PARAM));
 
-		// Row 2: Attenuverters (center Y = 38.00 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(ctrlX[0], 38.00)), module, ChopXLModule::COUNT_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(ctrlX[1], 38.00)), module, ChopXLModule::LENGTH_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(ctrlX[2], 38.00)), module, ChopXLModule::POSITION_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(ctrlX[3], 38.00)), module, ChopXLModule::VARIETY_TRIM_PARAM));
+		// Row 2: Attenuverters (center Y = 45.50 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(ctrlX[0], 45.50)), module, ChopXLModule::COUNT_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(ctrlX[1], 45.50)), module, ChopXLModule::LENGTH_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(ctrlX[2], 45.50)), module, ChopXLModule::POSITION_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(ctrlX[3], 45.50)), module, ChopXLModule::VARIETY_TRIM_PARAM));
 
-		// Row 3: CV Inputs (center Y = 49.50 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(ctrlX[0], 49.50)), module, ChopXLModule::COUNT_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(ctrlX[1], 49.50)), module, ChopXLModule::LENGTH_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(ctrlX[2], 49.50)), module, ChopXLModule::POSITION_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(ctrlX[3], 49.50)), module, ChopXLModule::VARIETY_CV_INPUT));
+		// Row 3: CV Inputs (center Y = 63.00 mm, aligns with XORXY Row 4)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(ctrlX[0], 63.00)), module, ChopXLModule::COUNT_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(ctrlX[1], 63.00)), module, ChopXLModule::LENGTH_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(ctrlX[2], 63.00)), module, ChopXLModule::POSITION_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(ctrlX[3], 63.00)), module, ChopXLModule::VARIETY_CV_INPUT));
 
 		// 6 Signal Columns (pitch = 9.50 mm, left margin = 6.73 mm)
 		// x = 6.73, 16.23, 25.73, 35.23, 44.73, 54.23 mm
 		const double colX[6] = {6.73, 16.23, 25.73, 35.23, 44.73, 54.23};
 
-		// Row 4: Input 1 (center Y = 76.50 mm)
+		// Row 4: Input 1 (center Y = 90.50 mm, aligns with XORXY Row 6)
 		for (int k = 0; k < 6; k++) {
-			addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colX[k], 76.50)), module, ChopXLModule::X1_INPUT + k));
+			addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colX[k], 90.50)), module, ChopXLModule::X1_INPUT + k));
 		}
 
-		// Row 5: Input 2 (center Y = 96.50 mm)
+		// Row 5: Input 2 (center Y = 104.50 mm, aligns with XORXY Row 7)
 		for (int k = 0; k < 6; k++) {
-			addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colX[k], 96.50)), module, ChopXLModule::X2_INPUT + k));
+			addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colX[k], 104.50)), module, ChopXLModule::X2_INPUT + k));
 		}
 
-		// Row 6: Output (center Y = 116.50 mm)
+		// Row 6: Output (center Y = 118.00 mm, aligns with XORXY Row 8)
 		for (int k = 0; k < 6; k++) {
-			addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(colX[k], 116.50)), module, ChopXLModule::X_OUTPUT + k));
+			addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(colX[k], 118.00)), module, ChopXLModule::X_OUTPUT + k));
 		}
 	}
 };

@@ -90,20 +90,11 @@ def main():
         f'  <!-- Panel Background: 12 HP ({panel_w:.2f} mm) -->',
         f'  <rect width="{panel_w:.2f}" height="{panel_h:.2f}" fill="#7c7c7c"/>',
         '',
-        '  <!-- Delineator Line 1 (Above Attenuverters at Y = 32.00mm) -->',
-        f'  <line x1="2.54" y1="32.00" x2="{panel_w - 2.54:.2f}" y2="32.00" stroke="#999999" stroke-width="0.176"/>',
+        '  <!-- Horizontal Line 1 (Between Knobs & Trim Labels at Y = 33.50mm) -->',
+        f'  <line x1="2.54" y1="33.50" x2="{panel_w - 2.54:.2f}" y2="33.50" stroke="#999999" stroke-width="0.176"/>',
         '',
-        '  <!-- Delineator Line 2 (Above Channel Headers at Y = 58.00mm) -->',
-        f'  <line x1="2.54" y1="58.00" x2="{panel_w - 2.54:.2f}" y2="58.00" stroke="#999999" stroke-width="0.176"/>',
-        '',
-        '  <!-- Delineator Line 3 (Between Headers & IN 1 at Y = 66.50mm) -->',
-        f'  <line x1="2.54" y1="66.50" x2="{panel_w - 2.54:.2f}" y2="66.50" stroke="#999999" stroke-width="0.176"/>',
-        '',
-        '  <!-- Delineator Line 4 (Between IN 1 & IN 2 at Y = 86.50mm) -->',
-        f'  <line x1="2.54" y1="86.50" x2="{panel_w - 2.54:.2f}" y2="86.50" stroke="#999999" stroke-width="0.176"/>',
-        '',
-        '  <!-- Delineator Line 5 (Between IN 2 & OUT at Y = 106.50mm) -->',
-        f'  <line x1="2.54" y1="106.50" x2="{panel_w - 2.54:.2f}" y2="106.50" stroke="#999999" stroke-width="0.176"/>',
+        '  <!-- Horizontal Line 2 (Between Trims & CV Inputs at Y = 53.50mm) -->',
+        f'  <line x1="2.54" y1="53.50" x2="{panel_w - 2.54:.2f}" y2="53.50" stroke="#999999" stroke-width="0.176"/>',
         ''
     ]
     svg_parts.extend(title_block)
@@ -113,49 +104,48 @@ def main():
     ctrl_x = [7.62, 22.86, 38.10, 53.34]
     ctrl_names = ["COUNT", "LENGTH", "POSITION", "VARIETY"]
 
-    # Row 1: Knobs (center Y = 22.00 mm, label baseline Y = 14.50 mm)
+    # Row 1: Knobs (center Y = 23.50 mm, label baseline Y = 14.50 mm)
     for name, cx in zip(ctrl_names, ctrl_x):
         svg_parts.append(render_qs_text(qs_font, name, cx, 14.50, 0.002200, "#1c1c1c", f"Knob: {name}"))
 
-    # Row 2: Attenuverter Trimpots (center Y = 38.00 mm)
-    # Row 3: CV Inputs (center Y = 49.50 mm)
+    # Row 2: Attenuverter Trimpots (center Y = 45.50 mm, label baseline Y = 38.50 mm)
     trim_labels = ["COUNT", "LENGTH", "POS", "VAR"]
     for t_label, cx in zip(trim_labels, ctrl_x):
-        svg_parts.append(render_qs_text(qs_font, t_label, cx, 34.50, 0.001800, "#2c2c2c", f"Trim: {t_label}"))
+        svg_parts.append(render_qs_text(qs_font, t_label, cx, 38.50, 0.001800, "#2c2c2c", f"Trim: {t_label}"))
 
-    # Zone 4: Signal I/O Section (6 Columns: X, Y, R, G, B, I)
+    # Row 3: CV Inputs (center Y = 63.00 mm, aligns with XORXY Row 4)
+
+    # Row 4: Channel Headers for the 6 channels (baseline Y = 78.00 mm, aligns with XORXY Row 5)
     col_x = [6.73 + i * 9.50 for i in range(6)]
     chan_names = ["X", "Y", "R", "G", "B", "I"]
-
-    # Top Column Headers for the 6 channels in dedicated header band (baseline Y = 63.00 mm)
     for c_name, cx in zip(chan_names, col_x):
-        svg_parts.append(render_qs_text(qs_font, c_name, cx, 63.00, 0.002400, "#1c1c1c", f"Channel: {c_name}"))
+        svg_parts.append(render_qs_text(qs_font, c_name, cx, 78.00, 0.002400, "#1c1c1c", f"Channel: {c_name}"))
 
-    # 3 Signal Jack Rows with uniform 20mm pitch:
-    # Row 1: Input 1 (center Y = 76.50 mm, single centered label "IN 1" at baseline Y = 70.50 mm)
-    # Row 2: Input 2 (center Y = 96.50 mm, single centered label "IN 2" at baseline Y = 90.50 mm)
-    # Row 3: Output  (center Y = 116.50 mm, single centered label "OUT" at baseline Y = 110.50 mm)
+    # Rows 5, 6, 7: Signal Jack Rows (aligned with XORXY spacing):
+    # Row 5: Input 1 (center Y = 90.50 mm, single centered label "IN 1" at baseline Y = 83.50 mm)
+    # Row 6: Input 2 (center Y = 104.50 mm, single centered label "IN 2" at baseline Y = 97.50 mm)
+    # Row 7: Output  (center Y = 118.00 mm, single centered label "OUT" at baseline Y = 111.50 mm)
     sig_rows = [
-        ("IN 1", 76.50, 70.50),
-        ("IN 2", 96.50, 90.50),
-        ("OUT",  116.50, 110.50)
+        ("IN 1",  90.50,  83.50),
+        ("IN 2", 104.50,  97.50),
+        ("OUT",  118.00, 111.50)
     ]
 
     all_jacks = []
-    # Add CV jacks
+    # Add CV jacks (Y = 63.00 mm)
     for cx in ctrl_x:
-        all_jacks.append((cx, 49.50, 4.15))
+        all_jacks.append((cx, 63.00, 4.15))
 
     # Add signal jacks and single centered row labels
     for r_label, r_y, lbl_y in sig_rows:
-        svg_parts.append(render_qs_text(qs_font, r_label, panel_w / 2.0, lbl_y, 0.002600, "#1c1c1c", f"Row: {r_label}"))
+        svg_parts.append(render_qs_text(qs_font, r_label, panel_w / 2.0, lbl_y, 0.002000, "#1c1c1c", f"Row: {r_label}"))
         for cx in col_x:
             all_jacks.append((cx, r_y, 4.15))
 
-    # Trimpot centers
-    all_trims = [(cx, 38.00, 3.25) for cx in ctrl_x]
-    # Knob centers
-    all_knobs = [(cx, 22.00, 5.00) for cx in ctrl_x]
+    # Trimpot centers (Y = 45.50 mm)
+    all_trims = [(cx, 45.50, 3.25) for cx in ctrl_x]
+    # Knob centers (Y = 23.50 mm)
+    all_knobs = [(cx, 23.50, 5.00) for cx in ctrl_x]
 
     svg_parts.append('</svg>')
 
