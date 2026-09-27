@@ -15,7 +15,7 @@
         "heightMm": 44.45
       },
       {
-        "hex": "#56B4E9",
+        "hex": "#F0E442",
         "tier": "HIGH",
         "weight": 32,
         "heightMm": 28.448
@@ -29,7 +29,7 @@
     ],
     "colors": [
       "#1A1A1A",
-      "#56B4E9",
+      "#F0E442",
       "#CC79A7"
     ],
     "weights": [
@@ -44,6 +44,1510 @@
       "x": 0,
       "y": 19.8
     },
-    "savedAt": "2026-09-27T18:52:08.535Z"
+    "savedAt": "2026-09-27T18:53:35.511Z"
+  },
+  "Ants": {
+    "module": "Ants",
+    "slug": "Ants",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 18,
+        "heightMm": 16.002
+      },
+      {
+        "hex": "#442288",
+        "tier": "LOW",
+        "weight": 50,
+        "heightMm": 44.45
+      },
+      {
+        "hex": "#FF8866",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#442288",
+      "#FF8866"
+    ],
+    "weights": [
+      18,
+      50,
+      32
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:39:30.236Z"
+  },
+  "HsvRgb": {
+    "module": "HSV / HSL to RGB",
+    "slug": "HsvRgb",
+    "hp": 6,
+    "mode": "Generate",
+    "anchor": "charcoal",
+    "anchorPos": "top",
+    "bandCount": 4,
+    "bands": [
+      {
+        "hex": "#1A1A1A",
+        "tier": "LOW",
+        "weight": 40,
+        "heightMm": 35.56
+      },
+      {
+        "hex": "#B8A0E8",
+        "tier": "HIGH",
+        "weight": 18,
+        "heightMm": 16.002
+      },
+      {
+        "hex": "#D55E00",
+        "tier": "LOW",
+        "weight": 26,
+        "heightMm": 23.114
+      },
+      {
+        "hex": "#EBEC72",
+        "tier": "HIGH",
+        "weight": 16,
+        "heightMm": 14.224
+      }
+    ],
+    "colors": [
+      "#1A1A1A",
+      "#B8A0E8",
+      "#D55E00",
+      "#EBEC72"
+    ],
+    "weights": [
+      40,
+      18,
+      26,
+      16
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:39:50.562Z"
+  },
+  "OklchRgb": {
+    "module": "OKLCH",
+    "slug": "OklchRgb",
+    "hp": 6,
+    "mode": "Generate",
+    "anchor": "charcoal",
+    "anchorPos": "top",
+    "bandCount": 4,
+    "bands": [
+      {
+        "hex": "#1A1A1A",
+        "tier": "LOW",
+        "weight": 24,
+        "heightMm": 21.336
+      },
+      {
+        "hex": "#56B4E9",
+        "tier": "HIGH",
+        "weight": 14,
+        "heightMm": 12.446
+      },
+      {
+        "hex": "#882255",
+        "tier": "LOW",
+        "weight": 38,
+        "heightMm": 33.782
+      },
+      {
+        "hex": "#B8A0E8",
+        "tier": "HIGH",
+        "weight": 24,
+        "heightMm": 21.336
+      }
+    ],
+    "colors": [
+      "#1A1A1A",
+      "#56B4E9",
+      "#882255",
+      "#B8A0E8"
+    ],
+    "weights": [
+      24,
+      14,
+      38,
+      24
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:39:57.816Z"
+  },
+  "Rgb": {
+    "module": "RGB",
+    "slug": "Rgb",
+    "hp": 6,
+    "mode": "Generate",
+    "anchor": "charcoal",
+    "anchorPos": "top",
+    "bandCount": 4,
+    "bands": [
+      {
+        "hex": "#1A1A1A",
+        "tier": "LOW",
+        "weight": 16,
+        "heightMm": 14.224
+      },
+      {
+        "hex": "#EBEC72",
+        "tier": "HIGH",
+        "weight": 28,
+        "heightMm": 24.892
+      },
+      {
+        "hex": "#882255",
+        "tier": "LOW",
+        "weight": 20,
+        "heightMm": 17.78
+      },
+      {
+        "hex": "#56B4E9",
+        "tier": "HIGH",
+        "weight": 36,
+        "heightMm": 32.004
+      }
+    ],
+    "colors": [
+      "#1A1A1A",
+      "#EBEC72",
+      "#882255",
+      "#56B4E9"
+    ],
+    "weights": [
+      16,
+      28,
+      20,
+      36
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:40:14.090Z"
+  },
+  "Instability": {
+    "module": "Instability",
+    "slug": "Instability",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 2,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 57,
+        "heightMm": 50.673
+      },
+      {
+        "hex": "#005566",
+        "tier": "LOW",
+        "weight": 43,
+        "heightMm": 38.227
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#005566"
+    ],
+    "weights": [
+      57,
+      43
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:40:22.880Z"
+  },
+  "Scale": {
+    "module": "Scale (X/Y)",
+    "slug": "Scale",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 46,
+        "heightMm": 40.894
+      },
+      {
+        "hex": "#005566",
+        "tier": "LOW",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#EBEC72",
+        "tier": "HIGH",
+        "weight": 22,
+        "heightMm": 19.558
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#005566",
+      "#EBEC72"
+    ],
+    "weights": [
+      46,
+      32,
+      22
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:40:32.094Z"
+  },
+  "Position": {
+    "module": "Position (X/Y)",
+    "slug": "Position",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 18,
+        "heightMm": 16.002
+      },
+      {
+        "hex": "#442288",
+        "tier": "LOW",
+        "weight": 50,
+        "heightMm": 44.45
+      },
+      {
+        "hex": "#56B4E9",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#442288",
+      "#56B4E9"
+    ],
+    "weights": [
+      18,
+      50,
+      32
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:40:37.318Z"
+  },
+  "Rotate": {
+    "module": "Rotate (X/Y)",
+    "slug": "Rotate",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#0072B2",
+        "tier": "LOW",
+        "weight": 18,
+        "heightMm": 16.002
+      },
+      {
+        "hex": "#EBEC72",
+        "tier": "HIGH",
+        "weight": 50,
+        "heightMm": 44.45
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#0072B2",
+      "#EBEC72"
+    ],
+    "weights": [
+      32,
+      18,
+      50
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:40:42.242Z"
+  },
+  "Spin": {
+    "module": "Spin (X/Y)",
+    "slug": "Spin",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#0072B2",
+        "tier": "LOW",
+        "weight": 18,
+        "heightMm": 16.002
+      },
+      {
+        "hex": "#FF8866",
+        "tier": "HIGH",
+        "weight": 50,
+        "heightMm": 44.45
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#0072B2",
+      "#FF8866"
+    ],
+    "weights": [
+      32,
+      18,
+      50
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:40:46.758Z"
+  },
+  "Fold": {
+    "module": "Fold (X/Y)",
+    "slug": "Fold",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#442288",
+        "tier": "LOW",
+        "weight": 22,
+        "heightMm": 19.558
+      },
+      {
+        "hex": "#B8A0E8",
+        "tier": "HIGH",
+        "weight": 46,
+        "heightMm": 40.894
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#442288",
+      "#B8A0E8"
+    ],
+    "weights": [
+      32,
+      22,
+      46
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:40:51.780Z"
+  },
+  "Stretch": {
+    "module": "Stretch (X/Y)",
+    "slug": "Stretch",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 48,
+        "heightMm": 42.672
+      },
+      {
+        "hex": "#005566",
+        "tier": "LOW",
+        "weight": 20,
+        "heightMm": 17.78
+      },
+      {
+        "hex": "#B8A0E8",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#005566",
+      "#B8A0E8"
+    ],
+    "weights": [
+      48,
+      20,
+      32
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:40:56.802Z"
+  },
+  "Shear": {
+    "module": "Shear (X/Y)",
+    "slug": "Shear",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#D55E00",
+        "tier": "LOW",
+        "weight": 18,
+        "heightMm": 16.002
+      },
+      {
+        "hex": "#B8A0E8",
+        "tier": "HIGH",
+        "weight": 50,
+        "heightMm": 44.45
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#D55E00",
+      "#B8A0E8"
+    ],
+    "weights": [
+      32,
+      18,
+      50
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:41:00.792Z"
+  },
+  "Smooth": {
+    "module": "Smooth (X/Y)",
+    "slug": "Smooth",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 18,
+        "heightMm": 16.002
+      },
+      {
+        "hex": "#005566",
+        "tier": "LOW",
+        "weight": 50,
+        "heightMm": 44.45
+      },
+      {
+        "hex": "#FF8866",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#005566",
+      "#FF8866"
+    ],
+    "weights": [
+      18,
+      50,
+      32
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:41:04.656Z"
+  },
+  "Wiggle": {
+    "module": "Wiggle (X/Y)",
+    "slug": "Wiggle",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#CC79A7",
+        "tier": "LOW",
+        "weight": 48,
+        "heightMm": 42.672
+      },
+      {
+        "hex": "#B8A0E8",
+        "tier": "HIGH",
+        "weight": 20,
+        "heightMm": 17.78
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#CC79A7",
+      "#B8A0E8"
+    ],
+    "weights": [
+      32,
+      48,
+      20
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:41:07.138Z"
+  },
+  "Crest": {
+    "module": "Crest (X/Y)",
+    "slug": "Crest",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 48,
+        "heightMm": 42.672
+      },
+      {
+        "hex": "#882255",
+        "tier": "LOW",
+        "weight": 20,
+        "heightMm": 17.78
+      },
+      {
+        "hex": "#56B4E9",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#882255",
+      "#56B4E9"
+    ],
+    "weights": [
+      48,
+      20,
+      32
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:59:59.941Z"
+  },
+  "Quake": {
+    "module": "Quake (X/Y)",
+    "slug": "Quake",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 50,
+        "heightMm": 44.45
+      },
+      {
+        "hex": "#0072B2",
+        "tier": "LOW",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#56B4E9",
+        "tier": "HIGH",
+        "weight": 18,
+        "heightMm": 16.002
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#0072B2",
+      "#56B4E9"
+    ],
+    "weights": [
+      50,
+      32,
+      18
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:41:15.170Z"
+  },
+  "Steps": {
+    "module": "Steps (X/Y)",
+    "slug": "Steps",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 20,
+        "heightMm": 17.78
+      },
+      {
+        "hex": "#882255",
+        "tier": "LOW",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#EBEC72",
+        "tier": "HIGH",
+        "weight": 48,
+        "heightMm": 42.672
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#882255",
+      "#EBEC72"
+    ],
+    "weights": [
+      20,
+      32,
+      48
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:41:18.014Z"
+  },
+  "Copycat": {
+    "module": "Copycat",
+    "slug": "Copycat",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 50,
+        "heightMm": 44.45
+      },
+      {
+        "hex": "#CC79A7",
+        "tier": "LOW",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#EBEC72",
+        "tier": "HIGH",
+        "weight": 18,
+        "heightMm": 16.002
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#CC79A7",
+      "#EBEC72"
+    ],
+    "weights": [
+      50,
+      32,
+      18
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:41:34.282Z"
+  },
+  "Petals": {
+    "module": "Petals",
+    "slug": "Petals",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 50,
+        "heightMm": 44.45
+      },
+      {
+        "hex": "#CC79A7",
+        "tier": "LOW",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#56B4E9",
+        "tier": "HIGH",
+        "weight": 18,
+        "heightMm": 16.002
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#CC79A7",
+      "#56B4E9"
+    ],
+    "weights": [
+      50,
+      32,
+      18
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:42:07.494Z"
+  },
+  "Unfold": {
+    "module": "Unfold",
+    "slug": "Unfold",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 50,
+        "heightMm": 44.45
+      },
+      {
+        "hex": "#D55E00",
+        "tier": "LOW",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#FF8866",
+        "tier": "HIGH",
+        "weight": 18,
+        "heightMm": 16.002
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#D55E00",
+      "#FF8866"
+    ],
+    "weights": [
+      50,
+      32,
+      18
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:42:19.396Z"
+  },
+  "Vortex": {
+    "module": "Vortex",
+    "slug": "Vortex",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#D55E00",
+        "tier": "LOW",
+        "weight": 22,
+        "heightMm": 19.558
+      },
+      {
+        "hex": "#56B4E9",
+        "tier": "HIGH",
+        "weight": 46,
+        "heightMm": 40.894
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#D55E00",
+      "#56B4E9"
+    ],
+    "weights": [
+      32,
+      22,
+      46
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:42:25.404Z"
+  },
+  "Trough": {
+    "module": "Trough (X/Y)",
+    "slug": "Trough",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 46,
+        "heightMm": 40.894
+      },
+      {
+        "hex": "#882255",
+        "tier": "LOW",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#B8A0E8",
+        "tier": "HIGH",
+        "weight": 22,
+        "heightMm": 19.558
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#882255",
+      "#B8A0E8"
+    ],
+    "weights": [
+      46,
+      32,
+      22
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:42:34.948Z"
+  },
+  "Switch": {
+    "module": "Switch (X/Y)",
+    "slug": "Switch",
+    "hp": 3,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 2,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 62,
+        "heightMm": 55.118
+      },
+      {
+        "hex": "#CC79A7",
+        "tier": "LOW",
+        "weight": 38,
+        "heightMm": 33.782
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#CC79A7"
+    ],
+    "weights": [
+      62,
+      38
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:42:47.423Z"
+  },
+  "Route": {
+    "module": "Route (X/Y)",
+    "slug": "Route",
+    "hp": 3,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 2,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 38,
+        "heightMm": 33.782
+      },
+      {
+        "hex": "#0072B2",
+        "tier": "LOW",
+        "weight": 62,
+        "heightMm": 55.118
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#0072B2"
+    ],
+    "weights": [
+      38,
+      62
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:42:51.526Z"
+  },
+  "SumMult": {
+    "module": "Sum/Mult",
+    "slug": "SumMult",
+    "hp": 3,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 2,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#882255",
+        "tier": "LOW",
+        "weight": 68,
+        "heightMm": 60.452
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#882255"
+    ],
+    "weights": [
+      32,
+      68
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:42:54.814Z"
+  },
+  "SwitchXL": {
+    "module": "Switch XL",
+    "slug": "SwitchXL",
+    "hp": 8,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 4,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 20,
+        "heightMm": 17.78
+      },
+      {
+        "hex": "#CC79A7",
+        "tier": "LOW",
+        "weight": 36,
+        "heightMm": 32.004
+      },
+      {
+        "hex": "#56B4E9",
+        "tier": "HIGH",
+        "weight": 16,
+        "heightMm": 14.224
+      },
+      {
+        "hex": "#442288",
+        "tier": "LOW",
+        "weight": 28,
+        "heightMm": 24.892
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#CC79A7",
+      "#56B4E9",
+      "#442288"
+    ],
+    "weights": [
+      20,
+      36,
+      16,
+      28
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:43:19.670Z"
+  },
+  "RouteXL": {
+    "module": "Route XL",
+    "slug": "RouteXL",
+    "hp": 8,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 4,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 16,
+        "heightMm": 14.224
+      },
+      {
+        "hex": "#0072B2",
+        "tier": "LOW",
+        "weight": 28,
+        "heightMm": 24.892
+      },
+      {
+        "hex": "#B8A0E8",
+        "tier": "HIGH",
+        "weight": 20,
+        "heightMm": 17.78
+      },
+      {
+        "hex": "#005566",
+        "tier": "LOW",
+        "weight": 36,
+        "heightMm": 32.004
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#0072B2",
+      "#B8A0E8",
+      "#005566"
+    ],
+    "weights": [
+      16,
+      28,
+      20,
+      36
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:43:30.530Z"
+  },
+  "SumMixXL": {
+    "module": "Sum/Mix XL",
+    "slug": "SumMixXL",
+    "hp": 8,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 4,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 38,
+        "heightMm": 33.782
+      },
+      {
+        "hex": "#882255",
+        "tier": "LOW",
+        "weight": 24,
+        "heightMm": 21.336
+      },
+      {
+        "hex": "#FF8866",
+        "tier": "HIGH",
+        "weight": 14,
+        "heightMm": 12.446
+      },
+      {
+        "hex": "#0072B2",
+        "tier": "LOW",
+        "weight": 24,
+        "heightMm": 21.336
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#882255",
+      "#FF8866",
+      "#0072B2"
+    ],
+    "weights": [
+      38,
+      24,
+      14,
+      24
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:43:43.020Z"
+  },
+  "Andxy": {
+    "module": "Andxy",
+    "slug": "Andxy",
+    "hp": 3,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 2,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 43,
+        "heightMm": 38.227
+      },
+      {
+        "hex": "#D55E00",
+        "tier": "LOW",
+        "weight": 57,
+        "heightMm": 50.673
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#D55E00"
+    ],
+    "weights": [
+      43,
+      57
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:43:52.084Z"
+  },
+  "Orxy": {
+    "module": "Orxy",
+    "slug": "Orxy",
+    "hp": 3,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 2,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 57,
+        "heightMm": 50.673
+      },
+      {
+        "hex": "#442288",
+        "tier": "LOW",
+        "weight": 43,
+        "heightMm": 38.227
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#442288"
+    ],
+    "weights": [
+      57,
+      43
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:43:54.470Z"
+  },
+  "Xorxy": {
+    "module": "Xorxy",
+    "slug": "Xorxy",
+    "hp": 3,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 2,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 43,
+        "heightMm": 38.227
+      },
+      {
+        "hex": "#0072B2",
+        "tier": "LOW",
+        "weight": 57,
+        "heightMm": 50.673
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#0072B2"
+    ],
+    "weights": [
+      43,
+      57
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:45:14.347Z"
+  },
+  "ChopXL": {
+    "module": "Chop XL",
+    "slug": "ChopXL",
+    "hp": 12,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 4,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 36,
+        "heightMm": 32.004
+      },
+      {
+        "hex": "#882255",
+        "tier": "LOW",
+        "weight": 16,
+        "heightMm": 14.224
+      },
+      {
+        "hex": "#FF8866",
+        "tier": "HIGH",
+        "weight": 28,
+        "heightMm": 24.892
+      },
+      {
+        "hex": "#D55E00",
+        "tier": "LOW",
+        "weight": 20,
+        "heightMm": 17.78
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#882255",
+      "#FF8866",
+      "#D55E00"
+    ],
+    "weights": [
+      36,
+      16,
+      28,
+      20
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "savedAt": "2026-09-27T19:45:48.984Z"
   }
 }

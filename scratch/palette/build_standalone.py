@@ -92,7 +92,7 @@ html_content = f'''<!DOCTYPE html>
       align-items: center;
       gap: 16px;
       width: 100%;
-      max-width: 1200px;
+      max-width: 1320px;
     }}
 
     /* Top Command Header */
@@ -214,6 +214,30 @@ html_content = f'''<!DOCTYPE html>
       width: 1px;
       height: 18px;
       background: #282a32;
+    }}
+
+    .panel-color-group {{
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }}
+
+    .panel-btn {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      font-size: 11px;
+      font-family: 'consola', monospace;
+    }}
+
+    .color-dot {{
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      flex-shrink: 0;
     }}
 
     .btn-save {{
@@ -497,12 +521,14 @@ html_content = f'''<!DOCTYPE html>
         </span>
       </div>
 
-      <!-- Generator & File Controls: Effect/Generate BEFORE 2/3/4 -->
+      <!-- Generator & File Controls -->
       <div class="controls">
-        <!-- Anchor Tier (Effect = White / Generate = Charcoal) -->
+        <!-- Anchor Mode (Transform / Generate / Utility / Control) -->
         <div class="group">
-          <button class="btn active" id="b-effect" onclick="setMode('Effect')" title="Effect (White Anchor, Key: E)">Effect</button>
+          <button class="btn active" id="b-transform" onclick="setMode('Transform')" title="Transform (White Anchor, Key: T)">Transform</button>
           <button class="btn" id="b-generate" onclick="setMode('Generate')" title="Generate (Charcoal Anchor, Key: G)">Generate</button>
+          <button class="btn" id="b-utility" onclick="setMode('Utility')" title="Utility (Warm Bone #E4DAC2, Key: U)">Utility</button>
+          <button class="btn" id="b-control" onclick="setMode('Control')" title="Control (Cool Titanium #BCC5CC, Key: C)">Control</button>
         </div>
 
         <div class="divider"></div>
@@ -517,6 +543,21 @@ html_content = f'''<!DOCTYPE html>
         <div class="divider"></div>
 
         <button class="btn" onclick="generate()" title="Re-roll Palette (Spacebar)">&#x21bb;</button>
+
+        <div class="divider"></div>
+
+        <!-- Panel Color Selector (#7C7C7C, #6E6E6E, #333333) -->
+        <div class="group panel-color-group">
+          <button class="btn panel-btn active" id="b-panel-7c7c7c" onclick="setPanelColor('#7C7C7C')" title="Panel Fill: #7C7C7C (Default)">
+            <span class="color-dot" style="background:#7C7C7C;"></span>#7C7C7C
+          </button>
+          <button class="btn panel-btn" id="b-panel-6e6e6e" onclick="setPanelColor('#6E6E6E')" title="Panel Fill: #6E6E6E">
+            <span class="color-dot" style="background:#6E6E6E;"></span>#6E6E6E
+          </button>
+          <button class="btn panel-btn" id="b-panel-333333" onclick="setPanelColor('#333333')" title="Panel Fill: #333333">
+            <span class="color-dot" style="background:#333333;"></span>#333333
+          </button>
+        </div>
 
         <div class="divider"></div>
 
@@ -612,10 +653,18 @@ html_content = f'''<!DOCTYPE html>
     const BADGE_Y_OFFSET  = 0.00;  // Center locked at 0
 
     // State
+    const ANCHORS = {{
+      'Transform': {{ hex: '#FFFFFF', tier: 'HIGH', label: 'white' }},
+      'Generate':  {{ hex: '#1A1A1A', tier: 'LOW',  label: 'charcoal' }},
+      'Utility':   {{ hex: '#E4DAC2', tier: 'HIGH', label: 'bone' }},
+      'Control':   {{ hex: '#BCC5CC', tier: 'HIGH', label: 'titanium' }}
+    }};
+
     let savedPalettes = {{}};
     let currentModule = null;
     let bandCount = 3;
-    let moduleMode = 'Effect'; // 'Effect' (White Anchor #FFFFFF) | 'Generate' (Charcoal Anchor #1A1A1A)
+    let moduleMode = 'Transform'; // 'Transform' | 'Generate' | 'Utility' | 'Control'
+    let selectedPanelColor = '#7C7C7C'; // '#7C7C7C' | '#6E6E6E' | '#333333'
     let currentPalette = null; // {{ colors: [], weights: [] }}
     let pendingSaveCallback = null;
     let fileHandle = null; // Native File System Access API handle if linked
@@ -728,10 +777,15 @@ html_content = f'''<!DOCTYPE html>
       if (saved) {{
         savedPill.classList.add('active');
         bandCount = saved.bandCount || saved.colors.length;
-        if (saved.mode) {{
+        if (saved.mode === 'Effect' || saved.mode === 'Transform') {{
+          moduleMode = 'Transform';
+        }} else if (saved.mode) {{
           moduleMode = saved.mode;
         }} else {{
-          moduleMode = (saved.colors && saved.colors[0] === '#1A1A1A') ? 'Generate' : 'Effect';
+          moduleMode = (saved.colors && saved.colors[0] === '#1A1A1A') ? 'Generate' : 'Transform';
+        }}
+        if (saved.panelColor) {{
+          selectedPanelColor = saved.panelColor;
         }}
         updateControlUI();
 
@@ -748,16 +802,30 @@ html_content = f'''<!DOCTYPE html>
 
     function updateControlUI() {{
       [2, 3, 4].forEach(x => {{
-        document.getElementById('b-' + x).classList.toggle('active', x === bandCount);
+        const btn = document.getElementById('b-' + x);
+        if (btn) btn.classList.toggle('active', x === bandCount);
       }});
-      document.getElementById('b-effect').classList.toggle('active', moduleMode === 'Effect');
-      document.getElementById('b-generate').classList.toggle('active', moduleMode === 'Generate');
+      ['transform', 'generate', 'utility', 'control'].forEach(m => {{
+        const btn = document.getElementById('b-' + m);
+        if (btn) btn.classList.toggle('active', moduleMode.toLowerCase() === m);
+      }});
+      ['7c7c7c', '6e6e6e', '333333'].forEach(c => {{
+        const btn = document.getElementById('b-panel-' + c);
+        if (btn) btn.classList.toggle('active', selectedPanelColor.toLowerCase() === ('#' + c));
+      }});
+    }}
+
+    function setPanelColor(colorHex) {{
+      selectedPanelColor = colorHex;
+      updateControlUI();
+      renderFaceplateAndSwatches();
     }}
 
     // Actively avoid rolling already reserved palettes
     function generate() {{
-      const anchorColor = (moduleMode === 'Effect') ? '#FFFFFF' : '#1A1A1A';
-      const anchorTier = (anchorColor === '#FFFFFF') ? 'HIGH' : 'LOW';
+      const anchor = ANCHORS[moduleMode] || ANCHORS['Transform'];
+      const anchorColor = anchor.hex;
+      const anchorTier = anchor.tier;
       const curSlug = currentModule ? currentModule.slug : null;
 
       let bestColors = null;
@@ -798,8 +866,8 @@ html_content = f'''<!DOCTYPE html>
       }}
 
       currentPalette = {{
-        colors: bestColors,
-        weights: bestRatio
+        colors: bestColors || [anchorColor, CHROMATIC_LOW[0], CHROMATIC_HIGH[0]],
+        weights: bestRatio || RATIOS[bandCount][0]
       }};
 
       renderFaceplateAndSwatches();
@@ -811,13 +879,17 @@ html_content = f'''<!DOCTYPE html>
       const curSlug = currentModule ? currentModule.slug : null;
 
       if (index === 0) {{
-        setMode(moduleMode === 'Effect' ? 'Generate' : 'Effect');
+        const modes = ['Transform', 'Generate', 'Utility', 'Control'];
+        const nextMode = modes[(modes.indexOf(moduleMode) + 1) % modes.length];
+        setMode(nextMode);
         return;
       }}
 
-      const currentColor = currentPalette.colors[index];
-      const isHigh = CHROMATIC_HIGH.includes(currentColor);
+      const anchor = ANCHORS[moduleMode] || ANCHORS['Transform'];
+      const anchorTier = anchor.tier;
+      const isHigh = (anchorTier === 'HIGH') ? (index % 2 === 0) : (index % 2 === 1);
       const pool = isHigh ? CHROMATIC_HIGH : CHROMATIC_LOW;
+      const currentColor = currentPalette.colors[index];
       const otherColors = currentPalette.colors.filter((_, idx) => idx !== index);
 
       // Candidate colors not already in the palette
@@ -877,6 +949,16 @@ html_content = f'''<!DOCTYPE html>
 
       const svgEl = container.querySelector('svg');
       if (svgEl) {{
+        // Dynamically update the panel faceplate background rect fill
+        const allRects = svgEl.querySelectorAll('rect');
+        for (const r of allRects) {{
+          const h = parseFloat(r.getAttribute('height'));
+          if (h >= 128.0) {{
+            r.setAttribute('fill', selectedPanelColor);
+            break;
+          }}
+        }}
+
         const prior = svgEl.querySelector('#palette-badge');
         if (prior) prior.remove();
 
@@ -1015,12 +1097,13 @@ html_content = f'''<!DOCTYPE html>
       const centerY = 64.25;
       const yStartMm = centerY - (BADGE_HEIGHT_MM / 2) + BADGE_Y_OFFSET;
 
-      const anchorColor = (moduleMode === 'Effect') ? '#FFFFFF' : '#1A1A1A';
+      const anchor = ANCHORS[moduleMode] || ANCHORS['Transform'];
+      const anchorColor = anchor.hex;
 
       const bandsData = currentPalette.colors.map((hex, i) => {{
         const weight = currentPalette.weights[i];
         const hMm = Number(((weight / totalW) * BADGE_HEIGHT_MM).toFixed(3));
-        const tier = (hex === '#FFFFFF' || CHROMATIC_HIGH.includes(hex)) ? 'HIGH' : 'LOW';
+        const tier = (hex === '#FFFFFF' || hex === '#E4DAC2' || hex === '#BCC5CC' || CHROMATIC_HIGH.includes(hex)) ? 'HIGH' : 'LOW';
         return {{
           hex: hex,
           tier: tier,
@@ -1034,7 +1117,8 @@ html_content = f'''<!DOCTYPE html>
         slug: slug,
         hp: currentModule.hp,
         mode: moduleMode,
-        anchor: (anchorColor === '#FFFFFF' ? 'white' : 'charcoal'),
+        anchor: anchor.label,
+        anchorColor: anchorColor,
         anchorPos: 'top',
         bandCount: bandCount,
         bands: bandsData,
@@ -1047,6 +1131,7 @@ html_content = f'''<!DOCTYPE html>
           x: 0.0,
           y: Number(yStartMm.toFixed(3))
         }},
+        panelColor: selectedPanelColor,
         savedAt: new Date().toISOString()
       }};
 
@@ -1155,8 +1240,10 @@ html_content = f'''<!DOCTYPE html>
       if (e.key === '2') setCount(2);
       else if (e.key === '3') setCount(3);
       else if (e.key === '4') setCount(4);
-      else if (e.key === 'e' || e.key === 'E') setMode('Effect');
+      else if (e.key === 't' || e.key === 'T' || e.key === 'e' || e.key === 'E') setMode('Transform');
       else if (e.key === 'g' || e.key === 'G') setMode('Generate');
+      else if (e.key === 'u' || e.key === 'U') setMode('Utility');
+      else if (e.key === 'c' || e.key === 'C') setMode('Control');
       else if (e.key === 's' || e.key === 'S') savePalette();
       else if (e.key === 'ArrowLeft') navModule(-1);
       else if (e.key === 'ArrowRight') navModule(1);
