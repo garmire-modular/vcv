@@ -37,6 +37,24 @@ Before writing or modifying any code, SVGs, or build configurations, you MUST ou
 
 ---
 
+## 3. Build & Compilation Concurrency Control
+
+To prevent race conditions, file locks on `plugin.dll` or `build/` objects, and compiler conflicts:
+- **Pre-Compilation Concurrency Check**:
+  - Before running any `make` or build command, the system MUST inspect running processes to check if another compilation is currently in progress (`make`, `g++`, `gcc`, or `ninja`).
+  - Check command:
+    ```powershell
+    Get-Process make, g++, gcc, ninja -ErrorAction SilentlyContinue
+    ```
+- **Concurrency Wait Protocol**:
+  - If any compilation process is currently running:
+    - Do **NOT** start a new compilation.
+    - Wait **25 seconds** before checking process status again.
+    - Repeat the 25-second wait loop until all conflicting compilation processes have exited.
+  - Proceed with the `make` invocation **only** when the system confirms no other compilation is in progress.
+
+---
+
 ## 6. Panel Layout & UI Design System
 
 This section defines the mandatory, unified panel grid, spatial architecture, component clearance tolerances, and typography hierarchy for all **Garmire** hardware-compatible modules.
