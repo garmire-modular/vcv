@@ -188,7 +188,7 @@ struct AntsWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.86, 61.00)), module, Ants::LENGTH_TRIM_PARAM));
 
 		// Trimpot Row 2: POSITION (7.62 mm) & VARIETY (22.86 mm) (Center Y = 73.00 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(15.24, 73.00)), module, Ants::POSITION_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(7.62, 73.00)), module, Ants::POSITION_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.86, 73.00)), module, Ants::VARIETY_TRIM_PARAM));
 
 		// Bottom I/O Jacks
