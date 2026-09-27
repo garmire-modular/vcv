@@ -42,6 +42,9 @@ modules = [
     ('Switch', 28, 240),
     ('Route', 28, 240),
     ('SumMult', 28, 240),
+    ('SwitchXL', 76, 240),
+    ('RouteXL', 76, 240),
+    ('SumMixXL', 76, 240),
 ]
 
 for slug, width, height in modules:

@@ -32,4 +32,7 @@ void init(Plugin* p) {
 	p->addModel(modelSwitch);
 	p->addModel(modelRoute);
 	p->addModel(modelSumMult);
+	p->addModel(modelSwitchXL);
+	p->addModel(modelRouteXL);
+	p->addModel(modelSumMixXL);
 }

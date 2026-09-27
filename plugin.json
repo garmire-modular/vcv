@@ -1,7 +1,7 @@
 {
   "slug": "Garmire",
   "name": "Garmire",
-  "version": "2.21.0",
+  "version": "2.22.0",
   "license": "GPL-3.0-or-later",
   "brand": "Garmire",
   "author": "Garmire",
@@ -289,6 +289,39 @@
         "Visual",
         "Utility",
         "Dual",
+        "Ring Modulator",
+        "Logic"
+      ]
+    },
+    {
+      "slug": "SwitchXL",
+      "name": "Switch XL",
+      "description": "6-channel dual CV switch and A/B router for full laser trajectory, color, and intensity signals",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Switch",
+        "Logic"
+      ]
+    },
+    {
+      "slug": "RouteXL",
+      "name": "Route XL",
+      "description": "6-channel 1:2 alternating toggle router and Bernoulli gate for full laser trajectory, color, and intensity signals",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Switch",
+        "Logic"
+      ]
+    },
+    {
+      "slug": "SumMixXL",
+      "name": "Sum/Mix XL",
+      "description": "6-channel precision adder and four-quadrant multiplier for simultaneous sum and product modulation of laser trajectory, color, and intensity",
+      "tags": [
+        "Visual",
+        "Utility",
         "Ring Modulator",
         "Logic"
       ]

@@ -33,3 +33,6 @@ extern Model* modelTrough;
 extern Model* modelSwitch;
 extern Model* modelRoute;
 extern Model* modelSumMult;
+extern Model* modelSwitchXL;
+extern Model* modelRouteXL;
+extern Model* modelSumMixXL;

@@ -29,6 +29,9 @@ SOURCES += src/Trough.cpp
 SOURCES += src/Switch.cpp
 SOURCES += src/Route.cpp
 SOURCES += src/SumMult.cpp
+SOURCES += src/SwitchXL.cpp
+SOURCES += src/RouteXL.cpp
+SOURCES += src/SumMixXL.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res
