@@ -95,6 +95,9 @@ struct Petals : Module {
 					outTheta = theta;
 					return;
 				}
+				float t = std::min(1.f, n - 1.f);
+				float ease = t * t * (3.f - 2.f * t);
+
 				float theta0 = (float)M_PI / (2.f * n);
 				float phi = theta - theta0;
 				float dTh = 2.f * (float)M_PI / n;
@@ -113,11 +116,12 @@ struct Petals : Module {
 					normCn = (1.f / std::max(0.4f, cn) - 1.f) * bulgeScale;
 				}
 				float centerScale = 1.f / (1.f + 0.04f * (n - 1.f));
-				outR = rBase * (centerScale + normCn);
+				float rPolyTarget = rBase * (centerScale + normCn);
+				outR = (1.f - ease) * r + ease * rPolyTarget;
 
 				float scale = std::min(1.f, n - 1.f);
 				float dirVal = (segm >= 0.f) ? 1.f : -1.f;
-				outTheta = theta + dirVal * scale * std::sin(n * phi);
+				outTheta = theta + dirVal * scale * std::sin(n * phi) * ease;
 			};
 
 			float rX = r, thetaX = theta;
