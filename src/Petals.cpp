@@ -95,33 +95,50 @@ struct Petals : Module {
 					outTheta = theta;
 					return;
 				}
-				float t = std::min(1.f, n - 1.f);
-				float ease = t * t * (3.f - 2.f * t);
-
-				float theta0 = (float)M_PI / (2.f * n);
-				float phi = theta - theta0;
-				float dTh = 2.f * (float)M_PI / n;
-				float localTh = std::fmod(phi + (float)M_PI / n, dTh);
-				if (localTh < 0.f) localTh += dTh;
-				localTh -= (float)M_PI / n;
-
-				float cn = std::cos(localTh);
-				float targetBulge = std::sqrt(2.f) - 1.f;
-				float normCn = 0.f;
-				if (n <= 2.f) {
-					normCn = targetBulge * std::max(0.f, std::cos(2.f * (theta - theta0)));
-				} else {
-					float actualBulge = (1.f / std::cos((float)M_PI / n)) - 1.f;
-					float bulgeScale = targetBulge / std::max(0.01f, actualBulge);
-					normCn = (1.f / std::max(0.4f, cn) - 1.f) * bulgeScale;
-				}
-				float centerScale = 1.f / (1.f + 0.04f * (n - 1.f));
-				float rPolyTarget = rBase * (centerScale + normCn);
-				outR = (1.f - ease) * r + ease * rPolyTarget;
-
-				float scale = std::min(1.f, n - 1.f);
 				float dirVal = (segm >= 0.f) ? 1.f : -1.f;
-				outTheta = theta + dirVal * scale * std::sin(n * phi) * ease;
+
+				auto getIntegerPetal = [&](int count, float& pR, float& pTheta) {
+					if (count <= 1) {
+						pR = r;
+						pTheta = theta;
+						return;
+					}
+					float theta0 = (float)M_PI / (2.f * (float)count);
+					float targetBulge = std::sqrt(2.f) - 1.f;
+					if (count == 2) {
+						float normCn = targetBulge * std::max(0.f, std::cos(2.f * (theta - theta0)));
+						float centerScale = 1.f / (1.f + 0.04f * (2.f - 1.f));
+						pR = rBase * (centerScale + normCn);
+					} else {
+						float dTh = 2.f * (float)M_PI / (float)count;
+						float phi = theta - theta0;
+						float localTh = std::fmod(phi + (float)M_PI / (float)count, dTh);
+						if (localTh < 0.f) localTh += dTh;
+						localTh -= (float)M_PI / (float)count;
+
+						float cn = std::cos(localTh);
+						float actualBulge = (1.f / std::cos((float)M_PI / (float)count)) - 1.f;
+						float bulgeScale = targetBulge / std::max(0.01f, actualBulge);
+						float normCn = (1.f / std::max(0.4f, cn) - 1.f) * bulgeScale;
+						float centerScale = 1.f / (1.f + 0.04f * ((float)count - 1.f));
+						pR = rBase * (centerScale + normCn);
+					}
+					float phi = theta - theta0;
+					pTheta = theta + dirVal * std::sin((float)count * phi);
+				};
+
+				int k = std::min(15, (int)std::floor(n));
+				int kNext = std::min(16, k + 1);
+				float f = clamp(n - (float)k, 0.f, 1.f);
+				float ease = f * f * (3.f - 2.f * f);
+
+				float r1 = r, th1 = theta;
+				float r2 = r, th2 = theta;
+				getIntegerPetal(k, r1, th1);
+				getIntegerPetal(kNext, r2, th2);
+
+				outR = (1.f - ease) * r1 + ease * r2;
+				outTheta = (1.f - ease) * th1 + ease * th2;
 			};
 
 			float rX = r, thetaX = theta;
