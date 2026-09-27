@@ -1,7 +1,7 @@
 {
   "slug": "Garmire",
   "name": "Garmire",
-  "version": "2.24.0",
+  "version": "2.25.0",
   "license": "GPL-3.0-or-later",
   "brand": "Garmire",
   "author": "Garmire",
@@ -367,6 +367,16 @@
         "Visual",
         "Utility",
         "Switch"
+      ]
+    },
+    {
+      "slug": "Rescale",
+      "name": "Rescale",
+      "description": "Multi-range precision voltage scaler, normalizer, and converter across 1V, 5V, and 10V unipolar and bipolar standards",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual"
       ]
     }
   ]

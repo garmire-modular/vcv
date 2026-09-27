@@ -49,6 +49,7 @@ modules = [
     ('Orxy', 28, 240),
     ('Xorxy', 28, 240),
     ('ChopXL', 114, 240),
+    ('Rescale', 57, 240),
 ]
 
 for slug, width, height in modules:

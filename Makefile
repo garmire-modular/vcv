@@ -36,6 +36,7 @@ SOURCES += src/Andxy.cpp
 SOURCES += src/Orxy.cpp
 SOURCES += src/Xorxy.cpp
 SOURCES += src/ChopXL.cpp
+SOURCES += src/Rescale.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res
