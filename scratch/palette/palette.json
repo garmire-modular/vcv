@@ -38,7 +38,7 @@
       18
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -85,7 +85,7 @@
       32
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -140,7 +140,7 @@
       16
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -154,6 +154,7 @@
     "hp": 6,
     "mode": "Generate",
     "anchor": "charcoal",
+    "anchorColor": "#1A1A1A",
     "anchorPos": "top",
     "bandCount": 4,
     "bands": [
@@ -176,7 +177,7 @@
         "heightMm": 33.782
       },
       {
-        "hex": "#B8A0E8",
+        "hex": "#EBEC72",
         "tier": "HIGH",
         "weight": 24,
         "heightMm": 21.336
@@ -186,7 +187,7 @@
       "#1A1A1A",
       "#56B4E9",
       "#882255",
-      "#B8A0E8"
+      "#EBEC72"
     ],
     "weights": [
       24,
@@ -195,13 +196,14 @@
       24
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
       "y": 19.8
     },
-    "savedAt": "2026-09-27T19:39:57.816Z"
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-27T20:04:58.158Z"
   },
   "Rgb": {
     "module": "RGB",
@@ -250,7 +252,7 @@
       36
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -289,7 +291,7 @@
       43
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -336,7 +338,7 @@
       22
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -383,7 +385,7 @@
       32
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -430,7 +432,7 @@
       50
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -477,7 +479,7 @@
       50
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -524,7 +526,7 @@
       46
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -571,7 +573,7 @@
       32
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -618,7 +620,7 @@
       50
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -665,7 +667,7 @@
       32
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -712,7 +714,7 @@
       20
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -759,7 +761,7 @@
       32
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -806,7 +808,7 @@
       18
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -853,7 +855,7 @@
       48
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -900,7 +902,7 @@
       18
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -947,7 +949,7 @@
       18
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -955,9 +957,9 @@
     },
     "savedAt": "2026-09-27T19:42:07.494Z"
   },
-  "Knots": {
-    "module": "Knots",
-    "slug": "Knots",
+  "Unfold": {
+    "module": "Unfold",
+    "slug": "Unfold",
     "hp": 6,
     "mode": "Effect",
     "anchor": "white",
@@ -994,7 +996,7 @@
       18
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -1041,7 +1043,7 @@
       46
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -1088,7 +1090,7 @@
       22
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -1100,158 +1102,222 @@
     "module": "Switch (X/Y)",
     "slug": "Switch",
     "hp": 3,
-    "mode": "Effect",
-    "anchor": "white",
+    "mode": "Utility",
+    "anchor": "bone",
+    "anchorColor": "#E4DAC2",
     "anchorPos": "top",
     "bandCount": 2,
     "bands": [
       {
-        "hex": "#FFFFFF",
+        "hex": "#E4DAC2",
         "tier": "HIGH",
-        "weight": 62,
-        "heightMm": 55.118
+        "weight": 43,
+        "heightMm": 38.227
       },
       {
-        "hex": "#CC79A7",
+        "hex": "#442288",
         "tier": "LOW",
-        "weight": 38,
-        "heightMm": 33.782
+        "weight": 57,
+        "heightMm": 50.673
       }
     ],
     "colors": [
-      "#FFFFFF",
-      "#CC79A7"
+      "#E4DAC2",
+      "#442288"
     ],
     "weights": [
-      62,
-      38
+      43,
+      57
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
       "y": 19.8
     },
-    "savedAt": "2026-09-27T19:42:47.423Z"
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-27T20:05:34.996Z"
   },
   "Route": {
     "module": "Route (X/Y)",
     "slug": "Route",
     "hp": 3,
-    "mode": "Effect",
-    "anchor": "white",
+    "mode": "Utility",
+    "anchor": "bone",
+    "anchorColor": "#E4DAC2",
     "anchorPos": "top",
     "bandCount": 2,
     "bands": [
       {
-        "hex": "#FFFFFF",
+        "hex": "#E4DAC2",
         "tier": "HIGH",
-        "weight": 38,
-        "heightMm": 33.782
+        "weight": 57,
+        "heightMm": 50.673
       },
       {
-        "hex": "#0072B2",
+        "hex": "#D55E00",
         "tier": "LOW",
-        "weight": 62,
-        "heightMm": 55.118
+        "weight": 43,
+        "heightMm": 38.227
       }
     ],
     "colors": [
-      "#FFFFFF",
-      "#0072B2"
+      "#E4DAC2",
+      "#D55E00"
     ],
     "weights": [
-      38,
-      62
+      57,
+      43
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
       "y": 19.8
     },
-    "savedAt": "2026-09-27T19:42:51.526Z"
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-27T20:05:40.306Z"
   },
   "SumMult": {
     "module": "Sum/Mult",
     "slug": "SumMult",
     "hp": 3,
-    "mode": "Effect",
-    "anchor": "white",
+    "mode": "Utility",
+    "anchor": "bone",
+    "anchorColor": "#E4DAC2",
     "anchorPos": "top",
     "bandCount": 2,
     "bands": [
       {
-        "hex": "#FFFFFF",
+        "hex": "#E4DAC2",
         "tier": "HIGH",
         "weight": 32,
         "heightMm": 28.448
       },
       {
-        "hex": "#882255",
+        "hex": "#CC79A7",
         "tier": "LOW",
         "weight": 68,
         "heightMm": 60.452
       }
     ],
     "colors": [
-      "#FFFFFF",
-      "#882255"
+      "#E4DAC2",
+      "#CC79A7"
     ],
     "weights": [
       32,
       68
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
       "y": 19.8
     },
-    "savedAt": "2026-09-27T19:42:54.814Z"
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-27T20:05:54.854Z"
   },
   "SwitchXL": {
     "module": "Switch XL",
     "slug": "SwitchXL",
     "hp": 8,
-    "mode": "Effect",
-    "anchor": "white",
+    "mode": "Utility",
+    "anchor": "bone",
+    "anchorColor": "#E4DAC2",
     "anchorPos": "top",
     "bandCount": 4,
     "bands": [
       {
-        "hex": "#FFFFFF",
+        "hex": "#E4DAC2",
+        "tier": "HIGH",
+        "weight": 28,
+        "heightMm": 24.892
+      },
+      {
+        "hex": "#442288",
+        "tier": "LOW",
+        "weight": 20,
+        "heightMm": 17.78
+      },
+      {
+        "hex": "#56B4E9",
+        "tier": "HIGH",
+        "weight": 36,
+        "heightMm": 32.004
+      },
+      {
+        "hex": "#CC79A7",
+        "tier": "LOW",
+        "weight": 16,
+        "heightMm": 14.224
+      }
+    ],
+    "colors": [
+      "#E4DAC2",
+      "#442288",
+      "#56B4E9",
+      "#CC79A7"
+    ],
+    "weights": [
+      28,
+      20,
+      36,
+      16
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-27T20:06:09.908Z"
+  },
+  "RouteXL": {
+    "module": "Route XL",
+    "slug": "RouteXL",
+    "hp": 8,
+    "mode": "Utility",
+    "anchor": "bone",
+    "anchorColor": "#E4DAC2",
+    "anchorPos": "top",
+    "bandCount": 4,
+    "bands": [
+      {
+        "hex": "#E4DAC2",
         "tier": "HIGH",
         "weight": 20,
         "heightMm": 17.78
       },
       {
-        "hex": "#CC79A7",
+        "hex": "#D55E00",
         "tier": "LOW",
         "weight": 36,
         "heightMm": 32.004
       },
       {
-        "hex": "#56B4E9",
+        "hex": "#B8A0E8",
         "tier": "HIGH",
         "weight": 16,
         "heightMm": 14.224
       },
       {
-        "hex": "#442288",
+        "hex": "#0072B2",
         "tier": "LOW",
         "weight": 28,
         "heightMm": 24.892
       }
     ],
     "colors": [
-      "#FFFFFF",
-      "#CC79A7",
-      "#56B4E9",
-      "#442288"
+      "#E4DAC2",
+      "#D55E00",
+      "#B8A0E8",
+      "#0072B2"
     ],
     "weights": [
       20,
@@ -1260,240 +1326,194 @@
       28
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
       "y": 19.8
     },
-    "savedAt": "2026-09-27T19:43:19.670Z"
-  },
-  "RouteXL": {
-    "module": "Route XL",
-    "slug": "RouteXL",
-    "hp": 8,
-    "mode": "Effect",
-    "anchor": "white",
-    "anchorPos": "top",
-    "bandCount": 4,
-    "bands": [
-      {
-        "hex": "#FFFFFF",
-        "tier": "HIGH",
-        "weight": 16,
-        "heightMm": 14.224
-      },
-      {
-        "hex": "#0072B2",
-        "tier": "LOW",
-        "weight": 28,
-        "heightMm": 24.892
-      },
-      {
-        "hex": "#B8A0E8",
-        "tier": "HIGH",
-        "weight": 20,
-        "heightMm": 17.78
-      },
-      {
-        "hex": "#005566",
-        "tier": "LOW",
-        "weight": 36,
-        "heightMm": 32.004
-      }
-    ],
-    "colors": [
-      "#FFFFFF",
-      "#0072B2",
-      "#B8A0E8",
-      "#005566"
-    ],
-    "weights": [
-      16,
-      28,
-      20,
-      36
-    ],
-    "badgeGeometry": {
-      "widthMm": 1.35,
-      "heightMm": 88.9,
-      "yOffsetMm": 0,
-      "x": 0,
-      "y": 19.8
-    },
-    "savedAt": "2026-09-27T19:43:30.530Z"
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-27T20:06:48.796Z"
   },
   "SumMixXL": {
     "module": "Sum/Mix XL",
     "slug": "SumMixXL",
     "hp": 8,
-    "mode": "Effect",
-    "anchor": "white",
+    "mode": "Utility",
+    "anchor": "bone",
+    "anchorColor": "#E4DAC2",
     "anchorPos": "top",
     "bandCount": 4,
     "bands": [
       {
-        "hex": "#FFFFFF",
+        "hex": "#E4DAC2",
         "tier": "HIGH",
-        "weight": 38,
-        "heightMm": 33.782
+        "weight": 36,
+        "heightMm": 32.004
       },
       {
-        "hex": "#882255",
+        "hex": "#CC79A7",
         "tier": "LOW",
-        "weight": 24,
-        "heightMm": 21.336
+        "weight": 16,
+        "heightMm": 14.224
       },
       {
         "hex": "#FF8866",
         "tier": "HIGH",
-        "weight": 14,
-        "heightMm": 12.446
+        "weight": 28,
+        "heightMm": 24.892
       },
       {
         "hex": "#0072B2",
         "tier": "LOW",
-        "weight": 24,
-        "heightMm": 21.336
+        "weight": 20,
+        "heightMm": 17.78
       }
     ],
     "colors": [
-      "#FFFFFF",
-      "#882255",
+      "#E4DAC2",
+      "#CC79A7",
       "#FF8866",
       "#0072B2"
     ],
     "weights": [
-      38,
-      24,
-      14,
-      24
+      36,
+      16,
+      28,
+      20
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
       "y": 19.8
     },
-    "savedAt": "2026-09-27T19:43:43.020Z"
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-27T20:06:58.088Z"
   },
   "Andxy": {
     "module": "Andxy",
     "slug": "Andxy",
     "hp": 3,
-    "mode": "Effect",
-    "anchor": "white",
+    "mode": "Utility",
+    "anchor": "bone",
+    "anchorColor": "#E4DAC2",
     "anchorPos": "top",
     "bandCount": 2,
     "bands": [
       {
-        "hex": "#FFFFFF",
+        "hex": "#E4DAC2",
+        "tier": "HIGH",
+        "weight": 62,
+        "heightMm": 55.118
+      },
+      {
+        "hex": "#0072B2",
+        "tier": "LOW",
+        "weight": 38,
+        "heightMm": 33.782
+      }
+    ],
+    "colors": [
+      "#E4DAC2",
+      "#0072B2"
+    ],
+    "weights": [
+      62,
+      38
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-27T20:08:05.672Z"
+  },
+  "Orxy": {
+    "module": "Orxy",
+    "slug": "Orxy",
+    "hp": 3,
+    "mode": "Utility",
+    "anchor": "bone",
+    "anchorColor": "#E4DAC2",
+    "anchorPos": "top",
+    "bandCount": 2,
+    "bands": [
+      {
+        "hex": "#E4DAC2",
         "tier": "HIGH",
         "weight": 43,
         "heightMm": 38.227
       },
       {
-        "hex": "#D55E00",
+        "hex": "#005566",
         "tier": "LOW",
         "weight": 57,
         "heightMm": 50.673
       }
     ],
     "colors": [
-      "#FFFFFF",
-      "#D55E00"
+      "#E4DAC2",
+      "#005566"
     ],
     "weights": [
       43,
       57
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
       "y": 19.8
     },
-    "savedAt": "2026-09-27T19:43:52.084Z"
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-27T20:08:12.894Z"
   },
-  "Orxy": {
-    "module": "Orxy",
-    "slug": "Orxy",
+  "Xorxy": {
+    "module": "Xorxy",
+    "slug": "Xorxy",
     "hp": 3,
-    "mode": "Effect",
-    "anchor": "white",
+    "mode": "Utility",
+    "anchor": "bone",
+    "anchorColor": "#E4DAC2",
     "anchorPos": "top",
     "bandCount": 2,
     "bands": [
       {
-        "hex": "#FFFFFF",
+        "hex": "#E4DAC2",
         "tier": "HIGH",
         "weight": 57,
         "heightMm": 50.673
       },
       {
-        "hex": "#442288",
+        "hex": "#882255",
         "tier": "LOW",
         "weight": 43,
         "heightMm": 38.227
       }
     ],
     "colors": [
-      "#FFFFFF",
-      "#442288"
+      "#E4DAC2",
+      "#882255"
     ],
     "weights": [
       57,
       43
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
       "y": 19.8
     },
-    "savedAt": "2026-09-27T19:43:54.470Z"
-  },
-  "Xorxy": {
-    "module": "Xorxy",
-    "slug": "Xorxy",
-    "hp": 3,
-    "mode": "Effect",
-    "anchor": "white",
-    "anchorPos": "top",
-    "bandCount": 2,
-    "bands": [
-      {
-        "hex": "#FFFFFF",
-        "tier": "HIGH",
-        "weight": 43,
-        "heightMm": 38.227
-      },
-      {
-        "hex": "#0072B2",
-        "tier": "LOW",
-        "weight": 57,
-        "heightMm": 50.673
-      }
-    ],
-    "colors": [
-      "#FFFFFF",
-      "#0072B2"
-    ],
-    "weights": [
-      43,
-      57
-    ],
-    "badgeGeometry": {
-      "widthMm": 1.35,
-      "heightMm": 88.9,
-      "yOffsetMm": 0,
-      "x": 0,
-      "y": 19.8
-    },
-    "savedAt": "2026-09-27T19:45:14.347Z"
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-27T20:08:18.006Z"
   },
   "ChopXL": {
     "module": "Chop XL",
@@ -1542,7 +1562,7 @@
       20
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
@@ -1554,97 +1574,99 @@
     "module": "Rescale",
     "slug": "Rescale",
     "hp": 6,
-    "mode": "Effect",
-    "anchor": "white",
+    "mode": "Utility",
+    "anchor": "bone",
+    "anchorColor": "#E4DAC2",
     "anchorPos": "top",
     "bandCount": 3,
     "bands": [
       {
-        "hex": "#FFFFFF",
+        "hex": "#E4DAC2",
         "tier": "HIGH",
-        "weight": 35,
-        "heightMm": 31.115
+        "weight": 48,
+        "heightMm": 42.672
       },
       {
         "hex": "#005566",
         "tier": "LOW",
-        "weight": 45,
-        "heightMm": 40.005
-      },
-      {
-        "hex": "#56B4E9",
-        "tier": "HIGH",
         "weight": 20,
         "heightMm": 17.78
+      },
+      {
+        "hex": "#EBEC72",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
       }
     ],
     "colors": [
-      "#FFFFFF",
+      "#E4DAC2",
       "#005566",
-      "#56B4E9"
+      "#EBEC72"
     ],
     "weights": [
-      35,
-      45,
-      20
+      48,
+      20,
+      32
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.5,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
       "y": 19.8
     },
     "panelColor": "#6E6E6E",
-    "savedAt": "2026-09-27T20:00:00.000Z"
+    "savedAt": "2026-09-28T00:24:26.877Z"
   },
   "Bleed": {
     "module": "Bleed",
     "slug": "Bleed",
     "hp": 6,
-    "mode": "Effect",
+    "mode": "Transform",
     "anchor": "white",
+    "anchorColor": "#FFFFFF",
     "anchorPos": "top",
     "bandCount": 3,
     "bands": [
       {
         "hex": "#FFFFFF",
         "tier": "HIGH",
-        "weight": 30,
-        "heightMm": 26.67
+        "weight": 18,
+        "heightMm": 16.002
       },
       {
         "hex": "#882255",
         "tier": "LOW",
-        "weight": 40,
-        "heightMm": 35.56
+        "weight": 50,
+        "heightMm": 44.45
       },
       {
-        "hex": "#D55E00",
-        "tier": "LOW",
-        "weight": 30,
-        "heightMm": 26.67
+        "hex": "#FF8866",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
       }
     ],
     "colors": [
       "#FFFFFF",
       "#882255",
-      "#D55E00"
+      "#FF8866"
     ],
     "weights": [
-      30,
-      40,
-      30
+      18,
+      50,
+      32
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
       "y": 19.8
     },
     "panelColor": "#6E6E6E",
-    "savedAt": "2026-09-27T20:30:00.000Z"
+    "savedAt": "2026-09-28T01:15:54.127Z"
   },
   "Lisa": {
     "module": "Lisa",
@@ -1652,46 +1674,47 @@
     "hp": 6,
     "mode": "Generate",
     "anchor": "charcoal",
+    "anchorColor": "#1A1A1A",
     "anchorPos": "top",
     "bandCount": 3,
     "bands": [
       {
         "hex": "#1A1A1A",
         "tier": "LOW",
-        "weight": 40,
-        "heightMm": 35.56
+        "weight": 32,
+        "heightMm": 28.448
       },
       {
-        "hex": "#009E73",
-        "tier": "MID",
-        "weight": 30,
-        "heightMm": 26.67
-      },
-      {
-        "hex": "#56B4E9",
+        "hex": "#B8A0E8",
         "tier": "HIGH",
-        "weight": 30,
-        "heightMm": 26.67
+        "weight": 22,
+        "heightMm": 19.558
+      },
+      {
+        "hex": "#005566",
+        "tier": "LOW",
+        "weight": 46,
+        "heightMm": 40.894
       }
     ],
     "colors": [
       "#1A1A1A",
-      "#009E73",
-      "#56B4E9"
+      "#B8A0E8",
+      "#005566"
     ],
     "weights": [
-      40,
-      30,
-      30
+      32,
+      22,
+      46
     ],
     "badgeGeometry": {
-      "widthMm": 1.35,
+      "widthMm": 2.54,
       "heightMm": 88.9,
       "yOffsetMm": 0,
       "x": 0,
       "y": 19.8
     },
-    "panelColor": "#7C7C7C",
-    "savedAt": "2026-09-27T21:00:00.000Z"
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-28T01:20:18.684Z"
   }
 }
