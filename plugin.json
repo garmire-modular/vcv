@@ -389,6 +389,16 @@
         "Dual",
         "Waveshaper"
       ]
+    },
+    {
+      "slug": "Lisa",
+      "name": "Lisa",
+      "description": "Lissajous curve and harmonic orbital trajectory generator with perpendicular X/Y frequency multipliers, bipolar phase shift, and orbital dampening",
+      "tags": [
+        "Visual",
+        "Oscillator",
+        "Dual"
+      ]
     }
   ]
 }

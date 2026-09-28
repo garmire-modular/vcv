@@ -42,3 +42,4 @@ extern Model* modelXorxy;
 extern Model* modelChopXL;
 extern Model* modelRescale;
 extern Model* modelBleed;
+extern Model* modelLisa;

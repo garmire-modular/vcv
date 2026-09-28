@@ -38,6 +38,7 @@ SOURCES += src/Xorxy.cpp
 SOURCES += src/ChopXL.cpp
 SOURCES += src/Rescale.cpp
 SOURCES += src/Bleed.cpp
+SOURCES += src/Lisa.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res
