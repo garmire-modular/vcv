@@ -53,6 +53,11 @@ def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
         curr += w
     return "\n".join(res)
 
+def get_text_width(font, text, scale):
+    cmap = font.getBestCmap()
+    hmtx = font['hmtx']
+    return sum(hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text)
+
 def main():
     node_font = TTFont('res/Node.otf')
     qs_font = TTFont('res/Quicksand-Medium.ttf')
@@ -62,8 +67,11 @@ def main():
     panel_w = 71.12
     panel_h = 128.50
 
-    # 5 Columns layout (centered with pitch = 13.50 mm)
+    # 5 Primary Columns layout (pitch = 13.50 mm)
     col_x = [8.56, 22.06, 35.56, 49.06, 62.56]
+
+    # Row 3 Jacks (4 Columns symmetrically spaced across 14 HP)
+    jack3_x = [11.06, 27.39, 43.73, 60.06]
 
     # Title "polly" in Node.otf (scale 0.0048, baseline 7.620, centered in 71.12 mm)
     scale = 0.0048
@@ -99,59 +107,71 @@ def main():
         '    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>',
         '  </g>',
         '',
-        '  <!-- Delineator Line 1 (Main Controls / Attenuverters at Y = 60.50mm) -->',
-        f'  <line x1="2.54" y1="60.50" x2="{panel_w - 2.54:.2f}" y2="60.50" stroke="#999999" stroke-width="0.176"/>',
+        '  <!-- Delineator Line 1 (Main Controls / Attenuverters at Y = 63.50mm, matching Lisa) -->',
+        f'  <line x1="2.54" y1="63.50" x2="{panel_w - 2.54:.2f}" y2="63.50" stroke="#999999" stroke-width="0.176"/>',
         '',
-        '  <!-- Delineator Line 2 (Attenuverters / Jacks at Y = 85.50mm) -->',
-        f'  <line x1="2.54" y1="85.50" x2="{panel_w - 2.54:.2f}" y2="85.50" stroke="#999999" stroke-width="0.176"/>',
+        '  <!-- Delineator Line 2 (Attenuverters / Jacks at Y = 86.00mm, matching Lisa) -->',
+        f'  <line x1="2.54" y1="86.00" x2="{panel_w - 2.54:.2f}" y2="86.00" stroke="#999999" stroke-width="0.176"/>',
         ''
     ]
 
     svg_parts.extend(polly_title_block)
     svg_parts.extend(version_block)
 
-    # ── Zone 1 & 2: Primary Parameter Rows ─────────────────────────
-    # Row 1 Labels (Baseline Y = 13.07 mm, Scale 0.0022, Color #1c1c1c)
+    # ── Zone 1 & 2: Primary Parameter Rows (Lisa-matched spacing & font scales) ──
+    # Row 1 Labels (Knob center Y = 21.59 mm, Label Y = 14.500 mm, Scale 0.0026, Color #1c1c1c)
     row1_labels = ["FREQ", "RANGE", "FINE", "SIDES", "ANGLE"]
     for i, lbl in enumerate(row1_labels):
-        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 13.070, 0.002200, "#1c1c1c", f"Row 1: {lbl}"))
+        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 14.500, 0.002600, "#1c1c1c", f"Row 1: {lbl}"))
 
-    # Row 2 Labels (Baseline Y = 28.50 mm, Scale 0.0022, Color #1c1c1c)
-    row2_labels = ["PINCH", "TWIST", "FILLET", "PHASE", "BULGE"]
+    # Row 2 Labels: Distribution (Knob center Y = 37.00 mm, Label Y = 30.500 mm, Scale 0.0026, Color #1c1c1c)
+    row2_labels = ["CLUST", "HARM", "TRIAD", "SWING", "SPLIT"]
     for i, lbl in enumerate(row2_labels):
-        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 28.500, 0.002200, "#1c1c1c", f"Row 2: {lbl}"))
+        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 30.500, 0.002600, "#1c1c1c", f"Row 2 (Dist): {lbl}"))
 
-    # Row 3 Labels (Baseline Y = 44.00 mm, Scale 0.0022, Color #1c1c1c)
-    row3_labels = ["CLUST", "HARM", "TRIAD", "SWING", "SPLIT"]
+    # Row 3 Labels: Shape Modifiers (Knob center Y = 52.50 mm, Label Y = 45.800 mm, Scale 0.0024, Color #1c1c1c)
+    row3_labels = ["PINCH", "TWIST", "FILLET", "PHASE", "BULGE"]
     for i, lbl in enumerate(row3_labels):
-        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 44.000, 0.002200, "#1c1c1c", f"Row 3: {lbl}"))
+        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 45.800, 0.002400, "#1c1c1c", f"Row 3: {lbl}"))
 
-    # ── Zone 3: CV Attenuverter Trimpots ───────────────────────────
-    # Row 1 Attenuverters (Baseline Y = 64.80 mm, Scale 0.0018, Color #2c2c2c)
+    # Connecting line between PINCH and TWIST labels to show they work in concert
+    pinch_w = get_text_width(qs_font, "PINCH", 0.002400)
+    twist_w = get_text_width(qs_font, "TWIST", 0.002400)
+    pinch_right = col_x[0] + pinch_w / 2.0
+    twist_left = col_x[1] - twist_w / 2.0
+    # Add padding on either side
+    line_x1 = pinch_right + 1.20
+    line_x2 = twist_left - 1.20
+    line_y = 45.800 - 0.90  # Vertically aligned with font cap height
+    svg_parts.append(f'  <!-- Concert line between PINCH and TWIST -->')
+    svg_parts.append(f'  <line x1="{line_x1:.3f}" y1="{line_y:.3f}" x2="{line_x2:.3f}" y2="{line_y:.3f}" stroke="#1c1c1c" stroke-width="0.300"/>')
+
+    # ── Zone 3: CV Attenuverter Trimpots (Lisa-matched spacing & font scales) ──
+    # Row 1 Attenuverters (Center Y = 70.00 mm, Label Y = 66.200 mm, Scale 0.0018, Color #2c2c2c)
     trim1_labels = ["FREQ", "SIDES", "ANGLE", "PINCH", "TWIST"]
     for i, lbl in enumerate(trim1_labels):
-        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 64.800, 0.001800, "#2c2c2c", f"Trim 1: {lbl}"))
+        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 66.200, 0.001800, "#2c2c2c", f"Trim 1: {lbl}"))
 
-    # Row 2 Attenuverters (Baseline Y = 74.80 mm, Scale 0.0018, Color #2c2c2c)
-    trim2_labels = ["FM", "FILLET", "CLUST", "PHASE", "BULGE"]
+    # Row 2 Attenuverters (Center Y = 79.50 mm, Label Y = 75.700 mm, Scale 0.0018, Color #2c2c2c)
+    trim2_labels = ["FM", "DIST", "FILLET", "PHASE", "BULGE"]
     for i, lbl in enumerate(trim2_labels):
-        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 74.800, 0.001800, "#2c2c2c", f"Trim 2: {lbl}"))
+        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 75.700, 0.001800, "#2c2c2c", f"Trim 2: {lbl}"))
 
-    # ── Zone 4: I/O Jacks ──────────────────────────────────────────
-    # Jack Row 1 (Inputs) (Baseline Y = 89.20 mm, Scale 0.0019, Color #2c2c2c)
+    # ── Zone 4: I/O Jacks (Lisa-matched spacing & font scales) ──
+    # Jack Row 1 (Inputs) (Center Y = 94.50 mm, Label Y = 89.200 mm, Scale 0.0018, Color #2c2c2c)
     jack1_labels = ["FREQ", "SIDES", "ANGLE", "PINCH", "TWIST"]
     for i, lbl in enumerate(jack1_labels):
-        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 89.200, 0.001900, "#2c2c2c", f"Jack 1: {lbl}"))
+        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 89.200, 0.001800, "#2c2c2c", f"Jack 1: {lbl}"))
 
-    # Jack Row 2 (Inputs) (Baseline Y = 100.20 mm, Scale 0.0019, Color #2c2c2c)
-    jack2_labels = ["FM", "FILLET", "CLUST", "PHASE", "BULGE"]
+    # Jack Row 2 (Inputs) (Center Y = 106.00 mm, Label Y = 100.800 mm, Scale 0.0018, Color #2c2c2c)
+    jack2_labels = ["FM", "DIST", "FILLET", "PHASE", "BULGE"]
     for i, lbl in enumerate(jack2_labels):
-        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 100.200, 0.001900, "#2c2c2c", f"Jack 2: {lbl}"))
+        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 100.800, 0.001800, "#2c2c2c", f"Jack 2: {lbl}"))
 
-    # Jack Row 3 (Sync & Outputs) (Baseline Y = 112.50 mm, Scale 0.0019, Color #2c2c2c)
-    jack3_labels = ["SYNC", "SPLIT", "SYNC", "X", "Y"]
-    for i, lbl in enumerate(jack3_labels):
-        svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 112.500, 0.001900, "#2c2c2c", f"Jack 3: {lbl}"))
+    # Jack Row 3 (Sync & Outputs: SYNC, X, Y, SYNC) (Center Y = 118.00 mm, Label Y = 112.800 mm, Scale 0.0018, Color #2c2c2c)
+    jack3_labels = [("SYNC", 0.001800, "#2c2c2c"), ("X", 0.002200, "#3c3c3c"), ("Y", 0.002200, "#3c3c3c"), ("SYNC", 0.001800, "#2c2c2c")]
+    for i, (lbl, scl, col) in enumerate(jack3_labels):
+        svg_parts.append(render_qs_text(qs_font, lbl, jack3_x[i], 112.800, scl, col, f"Jack 3: {lbl}"))
 
     svg_parts.append('</svg>')
 
@@ -189,17 +209,21 @@ def main():
     btn_r = 2.0 * r_px
     draw.ellipse([col_x[1] * r_px - btn_r, 21.59 * r_px - btn_r, col_x[1] * r_px + btn_r, 21.59 * r_px + btn_r], outline='#f0e442', width=2)
 
-    # Trimpots: Y = 69.50 and 79.50 mm
+    # Trimpots: Y = 70.00 and 79.50 mm
     tr = 2.5 * r_px
-    for ty in [69.50, 79.50]:
+    for ty in [70.00, 79.50]:
         for tx in col_x:
             draw.ellipse([tx * r_px - tr, ty * r_px - tr, tx * r_px + tr, ty * r_px + tr], outline='#00ff88', width=2)
 
-    # Jacks: Row 1 (93.50 mm), Row 2 (104.50 mm), Row 3 (117.50 mm)
+    # Jacks: Row 1 (94.50 mm), Row 2 (106.00 mm) at 5 columns
     jr = 4.15 * r_px
-    for jy in [93.50, 104.50, 117.50]:
+    for jy in [94.50, 106.00]:
         for jx in col_x:
             draw.ellipse([jx * r_px - jr, jy * r_px - jr, jx * r_px + jr, jy * r_px + jr], outline='#00e5ff', width=2)
+
+    # Jacks: Row 3 (118.00 mm) at 4 columns
+    for jx in jack3_x:
+        draw.ellipse([jx * r_px - jr, 118.00 * r_px - jr, jx * r_px + jr, 118.00 * r_px + jr], outline='#00e5ff', width=2)
 
     im.save(verify_png)
     print(f"Rendered verification bitmap: {verify_png}")

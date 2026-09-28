@@ -24,32 +24,32 @@ struct Polly : Module {
 		SIDES_PARAM,
 		ANGLE_PARAM,
 
-		// Row 2: Secondary Geometry & Warping
-		PINCH_PARAM,
-		TWIST_PARAM,
-		FILLET_PARAM,
-		PHASE_PARAM,
-		BULGE_PARAM,
-
-		// Row 3: Serial Distribution & Deformation
+		// Row 2: Distribution Parameters
 		CLUST_PARAM,
 		HARM_PARAM,
 		TRIAD_PARAM,
 		SWING_PARAM,
 		SPLIT_PARAM,
 
+		// Row 3: Secondary Geometry & Warping
+		PINCH_PARAM,
+		TWIST_PARAM,
+		FILLET_PARAM,
+		PHASE_PARAM,
+		BULGE_PARAM,
+
 		// Zone 3: CV Attenuverters (Trimpots)
-		// Row 1 Attenuverters
+		// Row 1 Attenuverters: FREQ, SIDES, ANGLE, PINCH, TWIST
 		FREQ_TRIM_PARAM,
 		SIDES_TRIM_PARAM,
 		ANGLE_TRIM_PARAM,
 		PINCH_TRIM_PARAM,
 		TWIST_TRIM_PARAM,
 
-		// Row 2 Attenuverters
+		// Row 2 Attenuverters: FM, DIST, FILLET, PHASE, BULGE
 		FM_TRIM_PARAM,
+		DIST_TRIM_PARAM,
 		FILLET_TRIM_PARAM,
-		CLUST_TRIM_PARAM,
 		PHASE_TRIM_PARAM,
 		BULGE_TRIM_PARAM,
 
@@ -57,31 +57,30 @@ struct Polly : Module {
 	};
 
 	enum InputIds {
-		// Jack Row 1 (Inputs)
+		// Jack Row 1 (Inputs): FREQ, SIDES, ANGLE, PINCH, TWIST
 		FREQ_CV_INPUT,
 		SIDES_CV_INPUT,
 		ANGLE_CV_INPUT,
 		PINCH_CV_INPUT,
 		TWIST_CV_INPUT,
 
-		// Jack Row 2 (Inputs)
+		// Jack Row 2 (Inputs): FM, DIST, FILLET, PHASE, BULGE
 		FM_CV_INPUT,
+		DIST_CV_INPUT,
 		FILLET_CV_INPUT,
-		CLUST_CV_INPUT,
 		PHASE_CV_INPUT,
 		BULGE_CV_INPUT,
 
-		// Jack Row 3 (Sync & Extra Modulation)
+		// Jack Row 3 (Sync In)
 		SYNC_INPUT,
-		SPLIT_CV_INPUT,
 
 		INPUTS_LEN
 	};
 
 	enum OutputIds {
-		SYNC_OUTPUT,
 		X_OUTPUT,
 		Y_OUTPUT,
+		SYNC_OUTPUT,
 		OUTPUTS_LEN
 	};
 
@@ -231,30 +230,32 @@ struct Polly : Module {
 		configParam(SIDES_PARAM, 3.f, 32.f, 4.f, "Sides", "");
 		configParam(ANGLE_PARAM, -180.f, 180.f, 0.f, "Angle", "°");
 
-		// Row 2: PINCH, TWIST, FILLET, PHASE, BULGE
-		configParam(PINCH_PARAM, -1.f, 1.f, 0.f, "Pinch", "%", 0.f, 100.f);
-		configParam(TWIST_PARAM, -1.f, 1.f, 0.f, "Twist", "%", 0.f, 100.f);
-		configParam(FILLET_PARAM, -1.f, 1.f, 0.f, "Fillet", "%", 0.f, 100.f);
-		configParam(PHASE_PARAM, -180.f, 180.f, 0.f, "Phase offset", "°");
-		configParam(BULGE_PARAM, -1.f, 1.f, 0.f, "Bulge", "%", 0.f, 100.f);
-
-		// Row 3: CLUST, HARM, TRIAD, SWING, SPLIT
+		// Row 2: Distribution Parameters
 		configParam(CLUST_PARAM, -1.f, 1.f, 0.f, "Cluster", "%", 0.f, 100.f);
 		configParam(HARM_PARAM, -1.f, 1.f, 0.f, "Harmonic", "%", 0.f, 100.f);
 		configParam(TRIAD_PARAM, -1.f, 1.f, 0.f, "Triad", "%", 0.f, 100.f);
 		configParam(SWING_PARAM, -1.f, 1.f, 0.f, "Swing", "%", 0.f, 100.f);
 		configParam(SPLIT_PARAM, -1.f, 1.f, 0.f, "Split", "%", 0.f, 100.f);
 
+		// Row 3: PINCH, TWIST, FILLET, PHASE, BULGE
+		configParam(PINCH_PARAM, -1.f, 1.f, 0.f, "Pinch", "%", 0.f, 100.f);
+		configParam(TWIST_PARAM, -1.f, 1.f, 0.f, "Twist", "%", 0.f, 100.f);
+		configParam(FILLET_PARAM, -1.f, 1.f, 0.f, "Fillet", "%", 0.f, 100.f);
+		configParam(PHASE_PARAM, -180.f, 180.f, 0.f, "Phase offset", "°");
+		configParam(BULGE_PARAM, -1.f, 1.f, 0.f, "Bulge", "%", 0.f, 100.f);
+
 		// Zone 3: CV Attenuverters (Mandatory naming per AGENTS.md Rule 6.5.4)
+		// Row 1 Attenuverters
 		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV depth", "%", 0.f, 100.f);
 		configParam(SIDES_TRIM_PARAM, -1.f, 1.f, 0.f, "Sides CV depth", "%", 0.f, 100.f);
 		configParam(ANGLE_TRIM_PARAM, -1.f, 1.f, 0.f, "Angle CV depth", "%", 0.f, 100.f);
 		configParam(PINCH_TRIM_PARAM, -1.f, 1.f, 0.f, "Pinch CV depth", "%", 0.f, 100.f);
 		configParam(TWIST_TRIM_PARAM, -1.f, 1.f, 0.f, "Twist CV depth", "%", 0.f, 100.f);
 
+		// Row 2 Attenuverters
 		configParam(FM_TRIM_PARAM, -1.f, 1.f, 0.f, "Linear FM CV depth", "%", 0.f, 100.f);
+		configParam(DIST_TRIM_PARAM, -1.f, 1.f, 0.f, "Distribution CV depth", "%", 0.f, 100.f);
 		configParam(FILLET_TRIM_PARAM, -1.f, 1.f, 0.f, "Fillet CV depth", "%", 0.f, 100.f);
-		configParam(CLUST_TRIM_PARAM, -1.f, 1.f, 0.f, "Cluster CV depth", "%", 0.f, 100.f);
 		configParam(PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Phase CV depth", "%", 0.f, 100.f);
 		configParam(BULGE_TRIM_PARAM, -1.f, 1.f, 0.f, "Bulge CV depth", "%", 0.f, 100.f);
 
@@ -268,18 +269,16 @@ struct Polly : Module {
 
 		// Row 2
 		configInput(FM_CV_INPUT, "External FM");
+		configInput(DIST_CV_INPUT, "Distribution CV");
 		configInput(FILLET_CV_INPUT, "Fillet CV");
-		configInput(CLUST_CV_INPUT, "Cluster CV");
 		configInput(PHASE_CV_INPUT, "Phase CV");
 		configInput(BULGE_CV_INPUT, "Bulge CV");
 
 		// Row 3
 		configInput(SYNC_INPUT, "Sync");
-		configInput(SPLIT_CV_INPUT, "Split CV");
-
-		configOutput(SYNC_OUTPUT, "Sync");
 		configOutput(X_OUTPUT, "X");
 		configOutput(Y_OUTPUT, "Y");
+		configOutput(SYNC_OUTPUT, "Sync");
 	}
 
 	float calculateBaseFrequency(float coarse, float fine) const {
@@ -317,20 +316,21 @@ struct Polly : Module {
 		outputs[X_OUTPUT].setChannels(numChannels);
 		outputs[Y_OUTPUT].setChannels(numChannels);
 
-		// Parameters
+		// Base Frequency
 		float coarseParam = params[FREQ_PARAM].getValue();
 		float fineParam   = params[FINE_PARAM].getValue();
 		float defaultF0   = calculateBaseFrequency(coarseParam, fineParam);
 
+		// Geometry parameters
 		float sidesParam  = params[SIDES_PARAM].getValue();
 		float angleParam  = params[ANGLE_PARAM].getValue();
-
 		float pinchParam  = params[PINCH_PARAM].getValue();
 		float twistParam  = params[TWIST_PARAM].getValue();
 		float filletParam = params[FILLET_PARAM].getValue();
 		float phaseParam  = params[PHASE_PARAM].getValue();
 		float bulgeParam  = params[BULGE_PARAM].getValue();
 
+		// Distribution knobs
 		float clustParam  = params[CLUST_PARAM].getValue();
 		float harmParam   = params[HARM_PARAM].getValue();
 		float triadParam  = params[TRIAD_PARAM].getValue();
@@ -345,14 +345,14 @@ struct Polly : Module {
 		float twistTrim  = params[TWIST_TRIM_PARAM].getValue();
 
 		float fmTrim     = params[FM_TRIM_PARAM].getValue();
+		float distTrim   = params[DIST_TRIM_PARAM].getValue();
 		float filletTrim = params[FILLET_TRIM_PARAM].getValue();
-		float clustTrim  = params[CLUST_TRIM_PARAM].getValue();
 		float phaseTrim  = params[PHASE_TRIM_PARAM].getValue();
 		float bulgeTrim  = params[BULGE_TRIM_PARAM].getValue();
 
-		bool fmConnected    = inputs[FM_CV_INPUT].isConnected();
-		bool syncConnected  = inputs[SYNC_INPUT].isConnected();
-		bool splitConnected = inputs[SPLIT_CV_INPUT].isConnected();
+		bool fmConnected   = inputs[FM_CV_INPUT].isConnected();
+		bool distConnected = inputs[DIST_CV_INPUT].isConnected();
+		bool syncConnected = inputs[SYNC_INPUT].isConnected();
 
 		for (int c = 0; c < numChannels; c++) {
 			VoiceState& vs = voices[c];
@@ -414,16 +414,14 @@ struct Polly : Module {
 			float phaseVal = (phaseParam + (inputs[PHASE_CV_INPUT].getPolyVoltage(c) / 5.f) * phaseTrim * 180.f) * (float)(M_PI / 180.0);
 			float bulgeVal = clampf(bulgeParam + (inputs[BULGE_CV_INPUT].getPolyVoltage(c) / 5.f) * bulgeTrim, -1.f, 1.f);
 
-			// Distribution parameters: Cluster CV modulates cluster
-			float clustCv = inputs[CLUST_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float clustVal = clampf(clustParam + clustCv * clustTrim, -1.f, 1.f);
-			float harmVal = clampf(harmParam, -1.f, 1.f);
-			float triadVal = clampf(triadParam, -1.f, 1.f);
-			float swingVal = clampf(swingParam, -1.f, 1.f);
-
-			// Split parameter: modulated by Split CV if patched
-			float splitCv = splitConnected ? (inputs[SPLIT_CV_INPUT].getPolyVoltage(c) / 5.f) : 0.f;
-			float splitVal = clampf(splitParam + splitCv * clustTrim, -1.f, 1.f);
+			// Unified Distribution Modulation:
+			// Modulates all 5 distribution parameters simultaneously in a bipolar fashion around current knob values
+			float distMod = distConnected ? ((inputs[DIST_CV_INPUT].getPolyVoltage(c) / 5.f) * distTrim) : 0.f;
+			float clustVal = clampf(clustParam + distMod, -1.f, 1.f);
+			float harmVal  = clampf(harmParam  + distMod, -1.f, 1.f);
+			float triadVal = clampf(triadParam + distMod, -1.f, 1.f);
+			float swingVal = clampf(swingParam + distMod, -1.f, 1.f);
+			float splitVal = clampf(splitParam + distMod, -1.f, 1.f);
 
 			// Master phase traversal across polygon sides
 			float p = vs.basePhase;
@@ -507,14 +505,15 @@ struct Polly : Module {
 				curY = (1.f - t) * v1.second + t * v2.second;
 			}
 
-			// Corner Fillet (convex rounding or concave inward notch)
+			// Corner Fillet: 3x depth!
+			// Threshold extended to 0.40f (almost entire half-edge) with 3x concave depth
 			if (std::abs(filletVal) > 0.001f) {
 				float cornerDist = (t < 0.5f) ? t : (1.f - t);
-				if (cornerDist < 0.25f) {
-					float blend = (0.25f - cornerDist) / 0.25f;
+				if (cornerDist < 0.40f) {
+					float blend = (0.40f - cornerDist) / 0.40f;
 					blend = blend * blend;
 					if (filletVal > 0.f) {
-						// Convex fillet: round towards smoothed circular midpoint
+						// Convex fillet: 3x deeper arc curvature rounding
 						float circR = 0.85f;
 						float rad = std::sqrt(curX * curX + curY * curY);
 						if (rad > 1e-5f) {
@@ -524,22 +523,23 @@ struct Polly : Module {
 							curY = (1.f - blend * filletVal) * curY + (blend * filletVal) * targetY;
 						}
 					} else {
-						// Concave cusp: pull towards origin
-						curX *= (1.f + blend * filletVal * 0.7f);
-						curY *= (1.f + blend * filletVal * 0.7f);
+						// Concave cusp: 3x deeper inward notch (multiplier 2.1f vs previous 0.7f)
+						float pull = clampf(blend * std::abs(filletVal) * 2.1f, 0.f, 0.95f);
+						curX *= (1.f - pull);
+						curY *= (1.f - pull);
 					}
 				}
 			}
 
-			// Convert to Polar for Phase Offset
+			// Phase happens AFTER all vertex transformations, secondary vertices, and fillets
 			float curR = std::sqrt(curX * curX + curY * curY);
 			float curTheta = std::atan2(curY, curX);
 
-			// Reconvert to Cartesian with Global Phase Offset
+			// Apply Global Phase Offset
 			float finalX = curR * std::cos(curTheta + phaseVal);
 			float finalY = curR * std::sin(curTheta + phaseVal);
 
-			// Apply Bulge (Hardcoded Harmonograph Logarithmic Spiral with Depth Factor 4.0 for Polly)
+			// Bulge happens LAST (Hardcoded Harmonograph Logarithmic Spiral with Depth Factor 4.0 for Polly)
 			if (std::abs(bulgeVal) > 1e-4f) {
 				float rNorm = std::sqrt(finalX * finalX + finalY * finalY);
 				float dampFactor = 1.0f - bulgeVal * 4.0f * (1.0f - rNorm);
@@ -596,6 +596,9 @@ struct PollyWidget : ModuleWidget {
 		// 5 Columns (X coordinates matching generator script)
 		const float col_x[5] = { 8.56f, 22.06f, 35.56f, 49.06f, 62.56f };
 
+		// 4 Symmetrically Spaced Columns for Bottom Row 3 Jacks
+		const float jack3_x[4] = { 11.06f, 27.39f, 43.73f, 60.06f };
+
 		// Row 1 Knobs: FREQ, RANGE, FINE, SIDES, ANGLE (Center Y = 21.59 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 21.59)), module, Polly::FREQ_PARAM));
 		addChild(createLightCentered<PollyRangeLightWidget>(mm2px(Vec(col_x[1], 15.50)), module, Polly::RANGE_LIGHT_YELLOW));
@@ -604,56 +607,55 @@ struct PollyWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 21.59)), module, Polly::SIDES_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[4], 21.59)), module, Polly::ANGLE_PARAM));
 
-		// Row 2 Knobs: PINCH, TWIST, FILLET, PHASE, BULGE (Center Y = 37.00 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 37.00)), module, Polly::PINCH_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 37.00)), module, Polly::TWIST_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 37.00)), module, Polly::FILLET_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 37.00)), module, Polly::PHASE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[4], 37.00)), module, Polly::BULGE_PARAM));
+		// Row 2 Knobs: Distribution (CLUST, HARM, TRIAD, SWING, SPLIT) (Center Y = 37.00 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 37.00)), module, Polly::CLUST_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 37.00)), module, Polly::HARM_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 37.00)), module, Polly::TRIAD_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 37.00)), module, Polly::SWING_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[4], 37.00)), module, Polly::SPLIT_PARAM));
 
-		// Row 3 Knobs: CLUST, HARM, TRIAD, SWING, SPLIT (Center Y = 52.50 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 52.50)), module, Polly::CLUST_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 52.50)), module, Polly::HARM_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 52.50)), module, Polly::TRIAD_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 52.50)), module, Polly::SWING_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[4], 52.50)), module, Polly::SPLIT_PARAM));
+		// Row 3 Knobs: PINCH, TWIST, FILLET, PHASE, BULGE (Center Y = 52.50 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 52.50)), module, Polly::PINCH_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 52.50)), module, Polly::TWIST_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 52.50)), module, Polly::FILLET_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 52.50)), module, Polly::PHASE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[4], 52.50)), module, Polly::BULGE_PARAM));
 
-		// Zone 3: CV Attenuverter Trimpots (Y = 69.50 and 79.50 mm)
-		// Row 1 Attenuverters
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 69.50)), module, Polly::FREQ_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 69.50)), module, Polly::SIDES_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 69.50)), module, Polly::ANGLE_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[3], 69.50)), module, Polly::PINCH_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[4], 69.50)), module, Polly::TWIST_TRIM_PARAM));
+		// Zone 3: CV Attenuverter Trimpots (Center Y = 70.00 and 79.50 mm, matching Lisa)
+		// Row 1 Attenuverters: FREQ, SIDES, ANGLE, PINCH, TWIST
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 70.00)), module, Polly::FREQ_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 70.00)), module, Polly::SIDES_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 70.00)), module, Polly::ANGLE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[3], 70.00)), module, Polly::PINCH_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[4], 70.00)), module, Polly::TWIST_TRIM_PARAM));
 
-		// Row 2 Attenuverters
+		// Row 2 Attenuverters: FM, DIST, FILLET, PHASE, BULGE
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 79.50)), module, Polly::FM_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 79.50)), module, Polly::FILLET_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 79.50)), module, Polly::CLUST_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 79.50)), module, Polly::DIST_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 79.50)), module, Polly::FILLET_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[3], 79.50)), module, Polly::PHASE_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[4], 79.50)), module, Polly::BULGE_TRIM_PARAM));
 
 		// Zone 4: I/O Jacks
-		// Row 1 (Inputs) (Center Y = 93.50 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 93.50)), module, Polly::FREQ_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 93.50)), module, Polly::SIDES_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 93.50)), module, Polly::ANGLE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 93.50)), module, Polly::PINCH_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[4], 93.50)), module, Polly::TWIST_CV_INPUT));
+		// Row 1 (Inputs): FREQ, SIDES, ANGLE, PINCH, TWIST (Center Y = 94.50 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 94.50)), module, Polly::FREQ_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 94.50)), module, Polly::SIDES_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 94.50)), module, Polly::ANGLE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 94.50)), module, Polly::PINCH_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[4], 94.50)), module, Polly::TWIST_CV_INPUT));
 
-		// Row 2 (Inputs) (Center Y = 104.50 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 104.50)), module, Polly::FM_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 104.50)), module, Polly::FILLET_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 104.50)), module, Polly::CLUST_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 104.50)), module, Polly::PHASE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[4], 104.50)), module, Polly::BULGE_CV_INPUT));
+		// Row 2 (Inputs): FM, DIST, FILLET, PHASE, BULGE (Center Y = 106.00 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 106.00)), module, Polly::FM_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 106.00)), module, Polly::DIST_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 106.00)), module, Polly::FILLET_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 106.00)), module, Polly::PHASE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[4], 106.00)), module, Polly::BULGE_CV_INPUT));
 
-		// Row 3 (Sync & Outputs) (Center Y = 117.50 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 117.50)), module, Polly::SYNC_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 117.50)), module, Polly::SPLIT_CV_INPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 117.50)), module, Polly::SYNC_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 117.50)), module, Polly::X_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_x[4], 117.50)), module, Polly::Y_OUTPUT));
+		// Row 3 (Sync & Outputs): SYNC, X, Y, SYNC (Center Y = 118.00 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack3_x[0], 118.00)), module, Polly::SYNC_INPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(jack3_x[1], 118.00)), module, Polly::X_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(jack3_x[2], 118.00)), module, Polly::Y_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(jack3_x[3], 118.00)), module, Polly::SYNC_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
