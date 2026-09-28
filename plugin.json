@@ -378,6 +378,17 @@
         "Utility",
         "Dual"
       ]
+    },
+    {
+      "slug": "Bleed",
+      "name": "Bleed",
+      "description": "Cross-channel X/Y mix and crosstalk module with per-channel bleed control and phase-offset feedback loop",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Waveshaper"
+      ]
     }
   ]
 }

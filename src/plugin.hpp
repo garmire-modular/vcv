@@ -41,3 +41,4 @@ extern Model* modelOrxy;
 extern Model* modelXorxy;
 extern Model* modelChopXL;
 extern Model* modelRescale;
+extern Model* modelBleed;

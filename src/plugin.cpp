@@ -40,4 +40,5 @@ void init(Plugin* p) {
 	p->addModel(modelXorxy);
 	p->addModel(modelChopXL);
 	p->addModel(modelRescale);
+	p->addModel(modelBleed);
 }

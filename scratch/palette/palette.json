@@ -1597,5 +1597,53 @@
     },
     "panelColor": "#6E6E6E",
     "savedAt": "2026-09-27T20:00:00.000Z"
+  },
+  "Bleed": {
+    "module": "Bleed",
+    "slug": "Bleed",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 30,
+        "heightMm": 26.67
+      },
+      {
+        "hex": "#882255",
+        "tier": "LOW",
+        "weight": 40,
+        "heightMm": 35.56
+      },
+      {
+        "hex": "#D55E00",
+        "tier": "LOW",
+        "weight": 30,
+        "heightMm": 26.67
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#882255",
+      "#D55E00"
+    ],
+    "weights": [
+      30,
+      40,
+      30
+    ],
+    "badgeGeometry": {
+      "widthMm": 1.35,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-27T20:30:00.000Z"
   }
 }
