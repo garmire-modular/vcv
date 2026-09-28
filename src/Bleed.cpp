@@ -5,8 +5,8 @@
 // ─────────────────────────────────────────────────────────────────────
 //  Bleed — Dual X/Y Pair Cross-Bleed & Phase Feedback Recursion Engine
 //  8 HP module processing two independent pairs of X/Y signals with
-//  bidirectional per-channel bleed crosstalk and all-pass phase-delayed
-//  recursive feedback loops.
+//  bidirectional per-channel bleed crosstalk, ±180° phase-rotated
+//  feedback recursion, and radial Automatic Gain Control (AGC).
 // ─────────────────────────────────────────────────────────────────────
 
 struct Bleed : Module {
@@ -49,7 +49,9 @@ struct Bleed : Module {
 		LIGHTS_LEN
 	};
 
-	// First-order all-pass filter for frequency-dependent phase delay
+	bool agcEnabled = true;
+
+	// First-order all-pass filter for frequency-dependent quadrature phase delay
 	struct AllPassFilter {
 		float x1 = 0.0f;
 		float y1 = 0.0f;
@@ -80,6 +82,12 @@ struct Bleed : Module {
 	float fbStateX2[16] = {0};
 	float fbStateY2[16] = {0};
 
+	// AGC radial envelope trackers
+	float envIn1[16] = {0};
+	float envIn2[16] = {0};
+	float envOut1[16] = {0};
+	float envOut2[16] = {0};
+
 	Bleed() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
@@ -91,9 +99,9 @@ struct Bleed : Module {
 		configParam(X_FEEDBACK_PARAM, 0.f, 1.25f, 0.f, "X feedback", "%", 0.f, 100.f);
 		configParam(Y_FEEDBACK_PARAM, 0.f, 1.25f, 0.f, "Y feedback", "%", 0.f, 100.f);
 
-		// Row 3: Phase Knobs (0% to 100%)
-		configParam(X_PHASE_PARAM, 0.f, 1.f, 0.5f, "X phase", "%", 0.f, 100.f);
-		configParam(Y_PHASE_PARAM, 0.f, 1.f, 0.5f, "Y phase", "%", 0.f, 100.f);
+		// Row 3: Phase Knobs (-180° to +180°)
+		configParam(X_PHASE_PARAM, -180.f, 180.f, 0.f, "X phase", "°");
+		configParam(Y_PHASE_PARAM, -180.f, 180.f, 0.f, "Y phase", "°");
 
 		// Trimpots (CV Attenuverters) — AGENTS.md Standard Tooltip Naming
 		configParam(X_BLEED_TRIM_PARAM, -1.f, 1.f, 0.f, "X bleed CV depth", "%", 0.f, 100.f);
@@ -123,6 +131,19 @@ struct Bleed : Module {
 		configOutput(Y2_OUTPUT, "Y 2");
 	}
 
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "agcEnabled", json_boolean(agcEnabled));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* agcJ = json_object_get(rootJ, "agcEnabled");
+		if (agcJ) {
+			agcEnabled = json_is_true(agcJ);
+		}
+	}
+
 	void onReset() override {
 		for (int i = 0; i < 16; i++) {
 			apX1[i].reset();
@@ -133,6 +154,10 @@ struct Bleed : Module {
 			fbStateY1[i] = 0.0f;
 			fbStateX2[i] = 0.0f;
 			fbStateY2[i] = 0.0f;
+			envIn1[i] = 0.0f;
+			envIn2[i] = 0.0f;
+			envOut1[i] = 0.0f;
+			envOut2[i] = 0.0f;
 		}
 	}
 
@@ -173,12 +198,33 @@ struct Bleed : Module {
 		bool cvYPhaseConnected = inputs[Y_PHASE_CV_INPUT].isConnected();
 
 		float sampleRate = args.sampleRate;
+		float alphaRel = 1.0f - std::exp(-1.0f / (sampleRate * 0.040f)); // ~40 ms AGC release
 
 		for (int c = 0; c < channels; c++) {
 			float inX1 = inputs[X1_INPUT].getPolyVoltage(c);
 			float inY1 = y1Connected ? inputs[Y1_INPUT].getPolyVoltage(c) : inX1;
 			float inX2 = x2Connected ? inputs[X2_INPUT].getPolyVoltage(c) : inX1;
 			float inY2 = y2Connected ? inputs[Y2_INPUT].getPolyVoltage(c) : (x2Connected ? inX2 : inY1);
+
+			// Track input envelope (2D Euclidean radial distance) for AGC reference target
+			float rIn1 = std::sqrt(inX1 * inX1 + inY1 * inY1);
+			float rIn2 = std::sqrt(inX2 * inX2 + inY2 * inY2);
+
+			if (rIn1 > envIn1[c]) {
+				envIn1[c] = rIn1;
+			} else {
+				envIn1[c] += alphaRel * (rIn1 - envIn1[c]);
+			}
+
+			if (rIn2 > envIn2[c]) {
+				envIn2[c] = rIn2;
+			} else {
+				envIn2[c] += alphaRel * (rIn2 - envIn2[c]);
+			}
+
+			// AGC target ceiling: preserves original input scale, nominal floor of 5V, safe ceiling of 10V
+			float target1 = clamp(std::max(5.0f, envIn1[c]), 5.0f, 10.0f);
+			float target2 = clamp(std::max(5.0f, envIn2[c]), 5.0f, 10.0f);
 
 			// CV Modulation (0.2x scaling -> 5V = 100%)
 			float cvXBleed = inputs[X_BLEED_CV_INPUT].getPolyVoltage(c) * 0.2f;
@@ -196,24 +242,38 @@ struct Bleed : Module {
 			float fbX = clamp(xFbVal + cvXFb * xFbTrim, 0.0f, 1.25f);
 			float fbY = clamp(yFbVal + cvYFb * yFbTrim, 0.0f, 1.25f);
 
-			float mPhaseX = clamp(xPhaseVal + cvXPhase * xPhaseTrim, 0.0f, 1.0f);
-			float mPhaseY = clamp(yPhaseVal + cvYPhase * yPhaseTrim, 0.0f, 1.0f);
+			// Phase modulation (-180° to +180°)
+			float phaseDegX = clamp(xPhaseVal + cvXPhase * xPhaseTrim * 180.0f, -180.0f, 180.0f);
+			float phaseDegY = clamp(yPhaseVal + cvYPhase * yPhaseTrim * 180.0f, -180.0f, 180.0f);
 
-			// Exponential frequency sweep for all-pass filters (30 Hz to 12 kHz)
-			float fcX = 30.0f * std::pow(400.0f, mPhaseX);
-			float fcY = 30.0f * std::pow(400.0f, mPhaseY);
+			float radX = phaseDegX * (float)(M_PI / 180.0);
+			float radY = phaseDegY * (float)(M_PI / 180.0);
 
-			// All-pass filter phase delay on feedback signal
-			float apSigX1 = apX1[c].process(fbStateX1[c], fcX, sampleRate);
-			float apSigY1 = apY1[c].process(fbStateY1[c], fcY, sampleRate);
-			float apSigX2 = apX2[c].process(fbStateX2[c], fcX, sampleRate);
-			float apSigY2 = apY2[c].process(fbStateY2[c], fcY, sampleRate);
+			float cosX = std::cos(radX);
+			float sinX = std::sin(radX);
+			float cosY = std::cos(radY);
+			float sinY = std::sin(radY);
+
+			// All-pass filter phase delay on feedback signal for quadrature component
+			float apSigX1 = apX1[c].process(fbStateX1[c], 400.0f, sampleRate);
+			float apSigY1 = apY1[c].process(fbStateY1[c], 600.0f, sampleRate);
+			float apSigX2 = apX2[c].process(fbStateX2[c], 400.0f, sampleRate);
+			float apSigY2 = apY2[c].process(fbStateY2[c], 600.0f, sampleRate);
+
+			// Continuous ±180° phase rotation of feedback loop:
+			// 0° = in-phase (+1.0)
+			// ±180° = inverted phase (-1.0)
+			// ±90° = quadrature phase shift
+			float rotFbX1 = cosX * fbStateX1[c] + sinX * apSigX1;
+			float rotFbY1 = cosY * fbStateY1[c] + sinY * apSigY1;
+			float rotFbX2 = cosX * fbStateX2[c] + sinX * apSigX2;
+			float rotFbY2 = cosY * fbStateY2[c] + sinY * apSigY2;
 
 			// Feedback recursion injection into each independent pair
-			float injX1 = inX1 + fbX * apSigX1;
-			float injY1 = inY1 + fbY * apSigY1;
-			float injX2 = inX2 + fbX * apSigX2;
-			float injY2 = inY2 + fbY * apSigY2;
+			float injX1 = inX1 + fbX * rotFbX1;
+			float injY1 = inY1 + fbY * rotFbY1;
+			float injX2 = inX2 + fbX * rotFbX2;
+			float injY2 = inY2 + fbY * rotFbY2;
 
 			// Cross-channel bleed between Pair 1 and Pair 2:
 			// Out1 = Inj1 + Bleed * Inj2
@@ -222,6 +282,34 @@ struct Bleed : Module {
 			float outX2 = injX2 + kBleedX * injX1;
 			float outY1 = injY1 + kBleedY * injY2;
 			float outY2 = injY2 + kBleedY * injY1;
+
+			// Automatic Gain Control (AGC):
+			// Measure composite output radius and scale (X, Y) uniformly
+			// so the combined shape never clips or warps.
+			if (agcEnabled) {
+				float rOut1 = std::sqrt(outX1 * outX1 + outY1 * outY1);
+				float rOut2 = std::sqrt(outX2 * outX2 + outY2 * outY2);
+
+				if (rOut1 > envOut1[c]) {
+					envOut1[c] = rOut1;
+				} else {
+					envOut1[c] += alphaRel * (rOut1 - envOut1[c]);
+				}
+
+				if (rOut2 > envOut2[c]) {
+					envOut2[c] = rOut2;
+				} else {
+					envOut2[c] += alphaRel * (rOut2 - envOut2[c]);
+				}
+
+				float g1 = (envOut1[c] > target1 && envOut1[c] > 1e-4f) ? (target1 / envOut1[c]) : 1.0f;
+				float g2 = (envOut2[c] > target2 && envOut2[c] > 1e-4f) ? (target2 / envOut2[c]) : 1.0f;
+
+				outX1 *= g1;
+				outY1 *= g1;
+				outX2 *= g2;
+				outY2 *= g2;
+			}
 
 			// Soft saturation in feedback loop to maintain bounded oscillation
 			fbStateX1[c] = 5.0f * std::tanh(outX1 / 5.0f);
@@ -297,6 +385,26 @@ struct BleedWidget : ModuleWidget {
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.57, 118.00)), module, Bleed::Y1_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(25.07, 118.00)), module, Bleed::X2_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(34.57, 118.00)), module, Bleed::Y2_OUTPUT));
+	}
+
+	void appendContextMenu(Menu* menu) override {
+		Bleed* module = dynamic_cast<Bleed*>(this->module);
+		if (!module) return;
+
+		menu->addChild(new MenuSeparator);
+		menu->addChild(createMenuLabel("Dynamics"));
+
+		struct AgcItem : MenuItem {
+			Bleed* module;
+			void onAction(const event::Action& e) override {
+				module->agcEnabled = !module->agcEnabled;
+			}
+		};
+
+		AgcItem* agcItem = createMenuItem<AgcItem>("Automatic Gain Control (AGC)");
+		agcItem->module = module;
+		agcItem->rightText = module->agcEnabled ? "✔" : "";
+		menu->addChild(agcItem);
 	}
 };
 
