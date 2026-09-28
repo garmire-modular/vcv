@@ -484,10 +484,10 @@ struct Lisa : Module {
 			float rawX = std::sin(angX);
 			float rawY = std::sin(angY);
 
-			// Apply Bulge (Hardcoded Harmonograph Logarithmic Spiral with 2.72 depth)
+			// Apply Bulge (Hardcoded Harmonograph Logarithmic Spiral with 1.36 depth)
 			if (std::abs(bulgeVal) > 1e-4f) {
 				float r = std::sqrt(rawX * rawX + rawY * rawY);
-				float dampFactor = 1.0f - bulgeVal * 2.72f * (1.0f - r);
+				float dampFactor = 1.0f - bulgeVal * 1.36f * (1.0f - r);
 				rawX *= dampFactor;
 				rawY *= dampFactor;
 			}
