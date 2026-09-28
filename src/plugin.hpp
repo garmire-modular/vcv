@@ -43,4 +43,4 @@ extern Model* modelChopXL;
 extern Model* modelRescale;
 extern Model* modelBleed;
 extern Model* modelLisa;
-extern Model* modelRose;
+extern Model* modelDaisy;

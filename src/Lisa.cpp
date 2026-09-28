@@ -117,9 +117,9 @@ struct Lisa : Module {
 				float tCoarse = 600.0f * std::pow(0.1f / 600.0f, coarse);
 				return clampf(tCoarse * (1.0f - fine * 0.10f), 0.05f, 1000.0f);
 			} else if (lisa->rangeMode == Lisa::RANGE_LFO) {
-				// Frequency in Hz: 0.00 to 200.00 Hz
-				float fCoarse = 200.0f * coarse * coarse;
-				return clampf(fCoarse + fine * 20.0f, 0.0f, 250.0f);
+				// Frequency in Hz: 0.01 to 200.00 Hz
+				float fCoarse = 0.01f + 199.99f * coarse * coarse;
+				return clampf(fCoarse + fine * 20.0f, 0.01f, 250.0f);
 			} else {
 				// Frequency in Hz: 150.00 to 2000.00 Hz
 				float fCoarse = 150.0f * std::pow(2000.0f / 150.0f, coarse);
@@ -162,12 +162,12 @@ struct Lisa : Module {
 				if (ratio <= 0.f) ratio = 1e-6f;
 				newCoarse = std::log(ratio) / std::log(0.1f / 600.0f);
 			} else if (lisa->rangeMode == Lisa::RANGE_LFO) {
-				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 0.f);
+				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 0.01f);
 				float fCoarse = targetHz - fine * 20.0f;
-				if (fCoarse <= 0.f) {
+				if (fCoarse <= 0.01f) {
 					newCoarse = 0.0f;
 				} else {
-					newCoarse = std::sqrt(fCoarse / 200.0f);
+					newCoarse = std::sqrt((fCoarse - 0.01f) / 199.99f);
 				}
 			} else { // RANGE_VCO
 				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 100.f);
@@ -345,9 +345,9 @@ struct Lisa : Module {
 			float t = clampf(tCoarse * (1.0f - fine * 0.10f), 0.05f, 1000.0f);
 			return 1.0f / t;
 		} else if (rangeMode == RANGE_LFO) {
-			// Frequency in Hz: 0.0 to 200.0 Hz
-			float fCoarse = 200.0f * coarse * coarse;
-			return clampf(fCoarse + fine * 20.0f, 0.001f, 250.0f);
+			// Frequency in Hz: 0.01 to 200.0 Hz
+			float fCoarse = 0.01f + 199.99f * coarse * coarse;
+			return clampf(fCoarse + fine * 20.0f, 0.01f, 250.0f);
 		} else {
 			// Frequency in Hz: 150.0 to 2000.0 Hz
 			float fCoarse = 150.0f * std::pow(2000.0f / 150.0f, coarse);
@@ -484,10 +484,10 @@ struct Lisa : Module {
 			float rawX = std::sin(angX);
 			float rawY = std::sin(angY);
 
-			// Apply Bulge (Hardcoded Harmonograph Logarithmic Spiral with 0.68 depth)
+			// Apply Bulge (Hardcoded Harmonograph Logarithmic Spiral with 1.36 depth)
 			if (std::abs(bulgeVal) > 1e-4f) {
 				float r = std::sqrt(rawX * rawX + rawY * rawY);
-				float dampFactor = 1.0f - bulgeVal * 0.68f * (1.0f - r);
+				float dampFactor = 1.0f - bulgeVal * 1.36f * (1.0f - r);
 				rawX *= dampFactor;
 				rawY *= dampFactor;
 			}
@@ -594,7 +594,7 @@ struct LisaWidget : ModuleWidget {
 
 		const char* rangeLabels[] = {
 			"Very Slow (600s - 0.1s)",
-			"LFO (0 - 200 Hz)",
+			"LFO (0.01 - 200 Hz)",
 			"VCO (150 Hz - 2 kHz)"
 		};
 

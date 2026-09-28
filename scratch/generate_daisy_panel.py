@@ -62,22 +62,22 @@ def main():
     panel_w = 40.64
     panel_h = 128.5
 
-    # Title "rose" in Node.otf (scale 0.0048, baseline 7.620, centered in 40.64 mm)
+    # Title "daisy" in Node.otf (scale 0.0048, baseline 7.620, centered in 40.64 mm)
     scale = 0.0048
-    text = "rose"
+    text = "daisy"
     cmap = node_font.getBestCmap()
     hmtx = node_font['hmtx']
     total_w = sum(hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text)
     start_x = (panel_w - total_w) / 2.0
 
-    rose_title_block = ['  <!-- Label: "rose" -->']
+    daisy_title_block = ['  <!-- Label: "daisy" -->']
     curr_x = start_x
     for c in text:
         gname = cmap[ord(c)] if ord(c) in cmap else c
         w = hmtx[gname][0] * scale
         if c != ' ':
             path_d = get_simplified_glyph_path(node_font, c)
-            rose_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
+            daisy_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
     # Version tag "v2.25.0"
@@ -103,7 +103,7 @@ def main():
         f'  <line x1="2.54" y1="85.50" x2="{panel_w - 2.54:.2f}" y2="85.50" stroke="#999999" stroke-width="0.176"/>',
         ''
     ]
-    svg_parts.extend(rose_title_block)
+    svg_parts.extend(daisy_title_block)
     svg_parts.extend(version_block)
 
     # Row 1 Knobs: FREQ & FINE (Knob center Y = 21.59, label Y = 14.500)
@@ -140,28 +140,33 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "PHASE", 20.32, 100.800, 0.001800, "#2c2c2c", "PHASE Jack Label"))
     svg_parts.append(render_qs_text(qs_font, "BULGE", 31.82, 100.800, 0.001800, "#2c2c2c", "BULGE Jack Label"))
 
-    # Jack Row 3 (Sync & Outputs): SYNC IN, X OUT, Y OUT, SYNC OUT (Center Y = 118.00)
-    svg_parts.append(render_qs_text(qs_font, "SYNC IN", 6.07, 112.800, 0.001600, "#2c2c2c", "SYNC IN Label"))
+    # Jack Row 3 (Sync & Outputs): ⇥ (Sync In), X, Y, ↦ (Sync Out) (Center Y = 118.00)
+    # Visual height = 1.555 mm, vertically centered at Y = 112.031 mm
+    arrow_in_d = "M 231.0 664.0 L 231.0 530.0 L 1280.0 530.0 L 1159.0 412.0 L 1159.0 264.0 L 1479.0 596.0 L 1479.0 600.0 L 1159.0 932.0 L 1159.0 784.0 L 1282.0 664.0 Z M 1618.0 932.0 L 1485.0 932.0 L 1485.0 264.0 L 1618.0 264.0 Z"
+    arrow_out_d = "M 231.0 264.0 L 365.0 264.0 L 365.0 530.0 L 1419.0 530.0 L 1298.0 412.0 L 1298.0 264.0 L 1618.0 596.0 L 1618.0 600.0 L 1298.0 932.0 L 1298.0 784.0 L 1421.0 664.0 L 365.0 664.0 L 365.0 932.0 L 231.0 932.0 Z"
+    svg_parts.append('  <!-- Label: "Sync In (⇥)" -->')
+    svg_parts.append(f'    <g transform="translate(3.917, 113.424) scale(0.002328, -0.002328)"><path d="{arrow_in_d}" fill="#3c3c3c"/></g>')
     svg_parts.append(render_qs_text(qs_font, "X", 15.57, 112.800, 0.002200, "#3c3c3c", "X OUT Label"))
     svg_parts.append(render_qs_text(qs_font, "Y", 25.07, 112.800, 0.002200, "#3c3c3c", "Y OUT Label"))
-    svg_parts.append(render_qs_text(qs_font, "SYNC OUT", 34.57, 112.800, 0.001600, "#2c2c2c", "SYNC OUT Label"))
+    svg_parts.append('  <!-- Label: "Sync Out (↦)" -->')
+    svg_parts.append(f'    <g transform="translate(32.417, 113.424) scale(0.002328, -0.002328)"><path d="{arrow_out_d}" fill="#3c3c3c"/></g>')
 
     svg_parts.append('</svg>')
 
     os.makedirs('res', exist_ok=True)
-    svg_path = 'res/Rose.svg'
+    svg_path = 'res/Daisy.svg'
     with open(svg_path, 'w', encoding='utf-8') as f:
         f.write("\n".join(svg_parts) + "\n")
     print(f"Generated {svg_path} successfully.")
 
     # Render verification bitmap (76 x 240 at 4x resolution = 304 x 960)
-    verify_png = 'scratch/rose_verify.png'
+    verify_png = 'scratch/daisy_verify.png'
     cairosvg.svg2png(url=svg_path, write_to=verify_png, output_width=76 * 4, output_height=240 * 4)
 
     # Render MetaModule asset (76 x 240)
     os.makedirs('metamodule/assets', exist_ok=True)
-    cairosvg.svg2png(url=svg_path, write_to='metamodule/assets/Rose.png', output_width=76, output_height=240)
-    print("Rendered metamodule/assets/Rose.png successfully.")
+    cairosvg.svg2png(url=svg_path, write_to='metamodule/assets/Daisy.png', output_width=76, output_height=240)
+    print("Rendered metamodule/assets/Daisy.png successfully.")
 
     im = Image.open(verify_png)
     draw = ImageDraw.Draw(im)

@@ -5,11 +5,11 @@
 #include <cstdlib>
 
 // ─────────────────────────────────────────────────────────────────────
-//  Rose — Rhodonea Rose Curve & Limaçon Trajectory Generator (8 HP)
+//  Daisy — Rhodonea Rose Curve & Limaçon Trajectory Generator (8 HP)
 //  Generate class module producing mathematical Rhodonea rose curves
 //  with Coarse/Fine timebase, 3-state Range oscillator (Very Slow / LFO / VCO),
 //  carrier-normalized linear FM (with external override), harmonic petal count
-//  (k = 1 to 8), center offset Limaçon morph (Cardioid / Limaçon), bipolar phase
+//  (k = 1 to 12), center offset Limaçon morph (Cardioid / Limaçon), bipolar phase
 //  shift (±180°), bipolar bulge (±100%), and bidirectional frequency sync
 //  (Sync In & Sync Out).
 // ─────────────────────────────────────────────────────────────────────
@@ -26,10 +26,10 @@ inline float clampf(float v, float lo, float hi) {
 
 } // namespace
 
-struct Rose : Module {
+struct Daisy : Module {
 	enum RangeMode {
 		RANGE_VERY_SLOW = 0, // 600s down to 0.1s
-		RANGE_LFO,            // 0 - 200 Hz
+		RANGE_LFO,            // 0.01 - 200 Hz
 		RANGE_VCO             // 150 Hz - 2 kHz
 	};
 
@@ -106,39 +106,39 @@ struct Rose : Module {
 	VoiceState voices[16];
 
 	struct FreqParamQuantity : ParamQuantity {
-		Rose* getRose() {
-			return dynamic_cast<Rose*>(module);
+		Daisy* getDaisy() {
+			return dynamic_cast<Daisy*>(module);
 		}
 
 		float getDisplayValue() override {
-			Rose* rose = getRose();
-			if (!rose) return ParamQuantity::getDisplayValue();
+			Daisy* daisy = getDaisy();
+			if (!daisy) return ParamQuantity::getDisplayValue();
 
 			float coarse = getValue();
-			float fine = (rose->paramQuantities.size() > Rose::FINE_PARAM) ? rose->params[Rose::FINE_PARAM].getValue() : 0.f;
+			float fine = (daisy->paramQuantities.size() > Daisy::FINE_PARAM) ? daisy->params[Daisy::FINE_PARAM].getValue() : 0.f;
 
-			if (rose->rangeMode == Rose::RANGE_VERY_SLOW) {
+			if (daisy->rangeMode == Daisy::RANGE_VERY_SLOW) {
 				// Period T in seconds: 600.0s to 0.1s
 				float tCoarse = 600.0f * std::pow(0.1f / 600.0f, coarse);
 				return clampf(tCoarse * (1.0f - fine * 0.10f), 0.05f, 1000.0f);
-			} else if (rose->rangeMode == Rose::RANGE_LFO) {
-				// Frequency in Hz: 0.00 to 200.00 Hz
-				float fCoarse = 200.0f * coarse * coarse;
-				return clampf(fCoarse + fine * 20.0f, 0.0f, 250.0f);
+			} else if (daisy->rangeMode == Daisy::RANGE_LFO) {
+				// Frequency in Hz: 0.01 to 200.00 Hz
+				float fCoarse = 0.01f + 199.99f * coarse * coarse;
+				return clampf(fCoarse + fine * 20.0f, 0.01f, 250.0f);
 			} else {
 				// Frequency in Hz: 150.00 to 2000.00 Hz
 				float fCoarse = 150.0f * std::pow(2000.0f / 150.0f, coarse);
-				return clampf(fCoarse * (1.0f + fine * 0.10f), 100.0f, 2500.0f);
+				return clampf(fCoarse + fine * 0.10f, 100.0f, 2500.0f);
 			}
 		}
 
 		std::string getDisplayValueString() override {
-			Rose* rose = getRose();
-			if (!rose) return ParamQuantity::getDisplayValueString();
+			Daisy* daisy = getDaisy();
+			if (!daisy) return ParamQuantity::getDisplayValueString();
 
 			float val = getDisplayValue();
 			char buf[32];
-			if (rose->rangeMode == Rose::RANGE_VERY_SLOW) {
+			if (daisy->rangeMode == Daisy::RANGE_VERY_SLOW) {
 				std::snprintf(buf, sizeof(buf), "%.1f", val);
 			} else {
 				std::snprintf(buf, sizeof(buf), "%.2f", val);
@@ -147,13 +147,13 @@ struct Rose : Module {
 		}
 
 		void setFrequencyValue(float rawVal, bool isPeriod) {
-			Rose* rose = getRose();
-			if (!rose) return;
+			Daisy* daisy = getDaisy();
+			if (!daisy) return;
 
-			float fine = (rose->paramQuantities.size() > Rose::FINE_PARAM) ? rose->params[Rose::FINE_PARAM].getValue() : 0.f;
+			float fine = (daisy->paramQuantities.size() > Daisy::FINE_PARAM) ? daisy->params[Daisy::FINE_PARAM].getValue() : 0.f;
 			float newCoarse = getValue();
 
-			if (rose->rangeMode == Rose::RANGE_VERY_SLOW) {
+			if (daisy->rangeMode == Daisy::RANGE_VERY_SLOW) {
 				float targetPeriodS = isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 1e6f);
 				if (targetPeriodS <= 1e-5f) targetPeriodS = 1e-5f;
 
@@ -166,13 +166,13 @@ struct Rose : Module {
 				float ratio = tCoarse / 600.0f;
 				if (ratio <= 0.f) ratio = 1e-6f;
 				newCoarse = std::log(ratio) / std::log(0.1f / 600.0f);
-			} else if (rose->rangeMode == Rose::RANGE_LFO) {
-				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 0.f);
+			} else if (daisy->rangeMode == Daisy::RANGE_LFO) {
+				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 0.01f);
 				float fCoarse = targetHz - fine * 20.0f;
-				if (fCoarse <= 0.f) {
+				if (fCoarse <= 0.01f) {
 					newCoarse = 0.0f;
 				} else {
-					newCoarse = std::sqrt(fCoarse / 200.0f);
+					newCoarse = std::sqrt((fCoarse - 0.01f) / 199.99f);
 				}
 			} else { // RANGE_VCO
 				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 100.f);
@@ -191,18 +191,18 @@ struct Rose : Module {
 		}
 
 		void setDisplayValue(float displayValue) override {
-			Rose* rose = getRose();
-			if (!rose) {
+			Daisy* daisy = getDaisy();
+			if (!daisy) {
 				ParamQuantity::setDisplayValue(displayValue);
 				return;
 			}
-			bool isPeriod = (rose->rangeMode == Rose::RANGE_VERY_SLOW);
+			bool isPeriod = (daisy->rangeMode == Daisy::RANGE_VERY_SLOW);
 			setFrequencyValue(displayValue, isPeriod);
 		}
 
 		void setDisplayValueString(std::string s) override {
-			Rose* rose = getRose();
-			if (!rose) {
+			Daisy* daisy = getDaisy();
+			if (!daisy) {
 				ParamQuantity::setDisplayValueString(s);
 				return;
 			}
@@ -277,7 +277,7 @@ struct Rose : Module {
 				isPeriod = false;
 				finalVal = rawVal * 1000000.0f;
 			} else {
-				isPeriod = (rose->rangeMode == Rose::RANGE_VERY_SLOW);
+				isPeriod = (daisy->rangeMode == Daisy::RANGE_VERY_SLOW);
 				finalVal = rawVal;
 			}
 
@@ -285,13 +285,13 @@ struct Rose : Module {
 		}
 
 		std::string getUnit() override {
-			Rose* rose = getRose();
-			if (!rose) return "";
-			return (rose->rangeMode == Rose::RANGE_VERY_SLOW) ? " s" : " Hz";
+			Daisy* daisy = getDaisy();
+			if (!daisy) return "";
+			return (daisy->rangeMode == Daisy::RANGE_VERY_SLOW) ? " s" : " Hz";
 		}
 	};
 
-	Rose() {
+	Daisy() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		// Coarse Frequency (0.0 to 1.0)
@@ -303,8 +303,8 @@ struct Rose : Module {
 		// Momentary Range Button
 		configButton(RANGE_PARAM, "Range time-scale");
 
-		// Petals Multiplier (k = 1.0 to 8.0, default 3.0)
-		configParam(PETALS_PARAM, 1.f, 8.f, 3.f, "Petals (k)", "", 0.f, 1.f);
+		// Petals Multiplier (k = 1.0 to 12.0, default 3.0)
+		configParam(PETALS_PARAM, 1.f, 12.f, 3.f, "Petals", "", 0.f, 1.f);
 
 		// Center Offset Limaçon (-2.0 to +2.0, default 0.0 for pure Rhodonea rose)
 		configParam(OFFSET_PARAM, -2.f, 2.f, 0.f, "Center offset", "", 0.f, 1.f);
@@ -352,13 +352,13 @@ struct Rose : Module {
 			float t = clampf(tCoarse * (1.0f - fine * 0.10f), 0.05f, 1000.0f);
 			return 1.0f / t;
 		} else if (rangeMode == RANGE_LFO) {
-			// Frequency in Hz: 0.0 to 200.0 Hz
-			float fCoarse = 200.0f * coarse * coarse;
-			return clampf(fCoarse + fine * 20.0f, 0.001f, 250.0f);
+			// Frequency in Hz: 0.01 to 200.0 Hz
+			float fCoarse = 0.01f + 199.99f * coarse * coarse;
+			return clampf(fCoarse + fine * 20.0f, 0.01f, 250.0f);
 		} else {
 			// Frequency in Hz: 150.0 to 2000.0 Hz
 			float fCoarse = 150.0f * std::pow(2000.0f / 150.0f, coarse);
-			return clampf(fCoarse * (1.0f + fine * 0.10f), 100.0f, 2500.0f);
+			return clampf(fCoarse + fine * 0.10f, 100.0f, 2500.0f);
 		}
 	}
 
@@ -455,7 +455,7 @@ struct Rose : Module {
 			float kCv = inputs[PETALS_CV_INPUT].getPolyVoltage(c) / 5.f;
 			float aCv = offsetConnected ? (inputs[OFFSET_CV_INPUT].getPolyVoltage(c) / 5.f) : kCv;
 
-			float k = clampf(petalsParam + kCv * petalsTrim * 7.f, 0.1f, 16.f);
+			float k = clampf(petalsParam + kCv * petalsTrim * 11.f, 0.1f, 24.f);
 			float a = clampf(offsetParam + aCv * offsetTrim * 2.f, -4.f, 4.f);
 
 			// Advance base phase
@@ -493,10 +493,10 @@ struct Rose : Module {
 			float bCv = bulgeConnected ? (inputs[BULGE_CV_INPUT].getPolyVoltage(c) / 5.f) : pCv;
 			float bulgeVal = clampf(bulgeParam + bCv * bulgeTrim, -1.f, 1.f);
 
-			// Apply Bulge (Hardcoded Harmonograph Logarithmic Spiral with 0.68 depth)
+			// Apply Bulge (Hardcoded Harmonograph Logarithmic Spiral with 1.36 depth)
 			if (std::abs(bulgeVal) > 1e-4f) {
 				float radiusNorm = std::sqrt(rawX * rawX + rawY * rawY);
-				float dampFactor = 1.0f - bulgeVal * 0.68f * (1.0f - radiusNorm);
+				float dampFactor = 1.0f - bulgeVal * 1.36f * (1.0f - radiusNorm);
 				rawX *= dampFactor;
 				rawY *= dampFactor;
 			}
@@ -531,8 +531,8 @@ struct Rose : Module {
 
 // ── Custom 3-Color Range Light Widget (Palette: #e1be6a, #40b0a6, #d35fb7) ──
 template <typename TBase = GrayModuleLightWidget>
-struct TRoseRangeLight : TBase {
-	TRoseRangeLight() {
+struct TDaisyRangeLight : TBase {
+	TDaisyRangeLight() {
 		// Range 0: Very Slow = #e1be6a (Warm Gold)
 		this->addBaseColor(nvgRGBA(0xe1, 0xbe, 0x6a, 0xff));
 		// Range 1: LFO = #40b0a6 (Teal)
@@ -541,12 +541,12 @@ struct TRoseRangeLight : TBase {
 		this->addBaseColor(nvgRGBA(0xd3, 0x5f, 0xb7, 0xff));
 	}
 };
-struct RoseRangeLightWidget : SmallLight<TRoseRangeLight<>> {};
+struct DaisyRangeLightWidget : SmallLight<TDaisyRangeLight<>> {};
 
-struct RoseWidget : ModuleWidget {
-	RoseWidget(Rose* module) {
+struct DaisyWidget : ModuleWidget {
+	DaisyWidget(Daisy* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Rose.svg")));
+		setPanel(createPanel(asset::plugin(pluginInstance, "res/Daisy.svg")));
 
 		// 8 HP Screws
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
@@ -555,52 +555,52 @@ struct RoseWidget : ModuleWidget {
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
 		// Row 1: FREQ & FINE Knobs (10.82 and 29.82 mm at Center Y = 21.59 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 21.59)), module, Rose::FREQ_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 21.59)), module, Rose::FINE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 21.59)), module, Daisy::FREQ_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 21.59)), module, Daisy::FINE_PARAM));
 
 		// Row 1 Center: Range LED (15.50 mm) and Range Button (21.59 mm, horizontally aligned with knobs)
-		addChild(createLightCentered<RoseRangeLightWidget>(mm2px(Vec(20.32, 15.50)), module, Rose::RANGE_LIGHT_YELLOW));
-		addParam(createParamCentered<TL1105>(mm2px(Vec(20.32, 21.59)), module, Rose::RANGE_PARAM));
+		addChild(createLightCentered<DaisyRangeLightWidget>(mm2px(Vec(20.32, 15.50)), module, Daisy::RANGE_LIGHT_YELLOW));
+		addParam(createParamCentered<TL1105>(mm2px(Vec(20.32, 21.59)), module, Daisy::RANGE_PARAM));
 
 		// Row 2: Module-Specific Parameter Knobs: PETALS & OFFSET (Center Y = 37.00 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 37.00)), module, Rose::PETALS_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 37.00)), module, Rose::OFFSET_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 37.00)), module, Daisy::PETALS_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 37.00)), module, Daisy::OFFSET_PARAM));
 
 		// Row 3: Phase & Bulge Knobs (Center Y = 52.50 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 52.50)), module, Rose::PHASE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 52.50)), module, Rose::BULGE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 52.50)), module, Daisy::PHASE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 52.50)), module, Daisy::BULGE_PARAM));
 
 		// Zone 3: CV Attenuverter Trimpots (3 Columns: 8.82, 20.32, 31.82 mm)
 		// Row 1 Attenuverters: FREQ, PETALS, OFFSET (Center Y = 70.00 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(8.82, 70.00)), module, Rose::FREQ_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 70.00)), module, Rose::PETALS_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 70.00)), module, Rose::OFFSET_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(8.82, 70.00)), module, Daisy::FREQ_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 70.00)), module, Daisy::PETALS_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 70.00)), module, Daisy::OFFSET_TRIM_PARAM));
 
 		// Row 2 Attenuverters: FM, PHASE, BULGE (Center Y = 79.50 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(8.82, 79.50)), module, Rose::FM_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 79.50)), module, Rose::PHASE_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 79.50)), module, Rose::BULGE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(8.82, 79.50)), module, Daisy::FM_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 79.50)), module, Daisy::PHASE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 79.50)), module, Daisy::BULGE_TRIM_PARAM));
 
 		// Zone 4: I/O Jacks
 		// Row 1 (Inputs): FREQ, PETALS, OFFSET (Center Y = 94.50 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.82, 94.50)), module, Rose::FREQ_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 94.50)), module, Rose::PETALS_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 94.50)), module, Rose::OFFSET_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.82, 94.50)), module, Daisy::FREQ_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 94.50)), module, Daisy::PETALS_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 94.50)), module, Daisy::OFFSET_CV_INPUT));
 
 		// Row 2 (Inputs): FM, PHASE, BULGE (Center Y = 106.00 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.82, 106.00)), module, Rose::FM_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 106.00)), module, Rose::PHASE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 106.00)), module, Rose::BULGE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.82, 106.00)), module, Daisy::FM_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 106.00)), module, Daisy::PHASE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 106.00)), module, Daisy::BULGE_CV_INPUT));
 
 		// Row 3 (Sync & Outputs): SYNC IN, X OUT, Y OUT, SYNC OUT (Center Y = 118.00 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(6.07, 118.00)), module, Rose::SYNC_INPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.57, 118.00)), module, Rose::X_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(25.07, 118.00)), module, Rose::Y_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(34.57, 118.00)), module, Rose::SYNC_OUTPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(6.07, 118.00)), module, Daisy::SYNC_INPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.57, 118.00)), module, Daisy::X_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(25.07, 118.00)), module, Daisy::Y_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(34.57, 118.00)), module, Daisy::SYNC_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
-		Rose* module = dynamic_cast<Rose*>(this->module);
+		Daisy* module = dynamic_cast<Daisy*>(this->module);
 		if (!module) return;
 
 		menu->addChild(new MenuSeparator());
@@ -608,12 +608,12 @@ struct RoseWidget : ModuleWidget {
 
 		const char* rangeLabels[] = {
 			"Very Slow (600s - 0.1s)",
-			"LFO (0 - 200 Hz)",
+			"LFO (0.01 - 200 Hz)",
 			"VCO (150 Hz - 2 kHz)"
 		};
 
 		for (int i = 0; i < 3; i++) {
-			Rose::RangeMode mode = (Rose::RangeMode)i;
+			Daisy::RangeMode mode = (Daisy::RangeMode)i;
 			menu->addChild(createCheckMenuItem(rangeLabels[i], "",
 				[=]() { return module->rangeMode == mode; },
 				[=]() { module->rangeMode = mode; }
@@ -624,15 +624,15 @@ struct RoseWidget : ModuleWidget {
 		menu->addChild(createMenuLabel("Harmonic Function"));
 
 		menu->addChild(createCheckMenuItem("Cosine (Axis-aligned Rhodonea)", "",
-			[=]() { return module->roseFuncMode == Rose::FUNC_COSINE; },
-			[=]() { module->roseFuncMode = Rose::FUNC_COSINE; }
+			[=]() { return module->roseFuncMode == Daisy::FUNC_COSINE; },
+			[=]() { module->roseFuncMode = Daisy::FUNC_COSINE; }
 		));
 
 		menu->addChild(createCheckMenuItem("Sine (Rotated)", "",
-			[=]() { return module->roseFuncMode == Rose::FUNC_SINE; },
-			[=]() { module->roseFuncMode = Rose::FUNC_SINE; }
+			[=]() { return module->roseFuncMode == Daisy::FUNC_SINE; },
+			[=]() { module->roseFuncMode = Daisy::FUNC_SINE; }
 		));
 	}
 };
 
-Model* modelRose = createModel<Rose, RoseWidget>("Rose");
+Model* modelDaisy = createModel<Daisy, DaisyWidget>("Daisy");
