@@ -419,6 +419,16 @@
         "Oscillator",
         "Dual"
       ]
+    },
+    {
+      "slug": "Circe",
+      "name": "Circe",
+      "description": "Geometric circle, ellipse, and crescent vector trajectory generator with Coarse/Fine timebase, 3-state Range oscillator (Very Slow / LFO / VCO), carrier-normalized linear FM, knife-edge Crop (half-circles), intersecting Circle Eclipse (C-shapes), bipolar Stretch (aspect ratio), and bipolar Phase orientation",
+      "tags": [
+        "Visual",
+        "Oscillator",
+        "Dual"
+      ]
     }
   ]
 }
