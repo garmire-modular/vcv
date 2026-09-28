@@ -3,10 +3,10 @@
   <!-- Panel Background: 3 HP (15.24 mm) -->
   <rect width="15.24" height="128.5" fill="#6e6e6e"/>
 
-  <!-- Left Edge Color Badge (Centered 88.9mm x 2.54mm, Flush X=0) -->
+  <!-- Left Edge Color Badge (Centered 88.9mm x 1.35mm, Flush X=0) -->
   <g id="palette-badge">
-    <rect x="0.000" y="19.800" width="2.540" height="28.448" fill="#FFFFFF" stroke="none"/>
-    <rect x="0.000" y="48.248" width="2.540" height="60.452" fill="#882255" stroke="none"/>
+    <rect x="0.000" y="19.800" width="1.350" height="28.448" fill="#FFFFFF" stroke="none"/>
+    <rect x="0.000" y="48.248" width="1.350" height="60.452" fill="#882255" stroke="none"/>
   </g>
 
   <!-- Delineator Line 1 (Between IN 1 & IN 2 at Y = 41.50mm) -->

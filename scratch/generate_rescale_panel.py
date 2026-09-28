@@ -108,17 +108,11 @@ def main():
         '<svg xmlns="http://www.w3.org/2000/svg" width="30.48mm" height="128.5mm" viewBox="0 0 30.48 128.5">',
         '  <!-- Panel Background: 6 HP (30.48 mm) -->',
         '  <rect width="30.48" height="128.5" fill="#6e6e6e"/>',
-
-        '  <!-- Left Edge Color Badge (Centered 88.9mm x 2.54mm, Flush X=0) -->',
-
+        '  <!-- Left Edge Color Badge (Centered 88.9mm x 1.35mm, Flush X=0) -->',
         '  <g id="palette-badge">',
-
-        '    <rect x="0.000" y="19.800" width="2.540" height="31.115" fill="#FFFFFF" stroke="none"/>',
-
-        '    <rect x="0.000" y="50.915" width="2.540" height="40.005" fill="#005566" stroke="none"/>',
-
-        '    <rect x="0.000" y="90.920" width="2.540" height="17.780" fill="#56B4E9" stroke="none"/>',
-
+        '    <rect x="0.000" y="19.800" width="1.350" height="31.115" fill="#FFFFFF" stroke="none"/>',
+        '    <rect x="0.000" y="50.915" width="1.350" height="40.005" fill="#005566" stroke="none"/>',
+        '    <rect x="0.000" y="90.920" width="1.350" height="17.780" fill="#56B4E9" stroke="none"/>',
         '  </g>',
         '',
         '  <!-- Delineator Line 1 (Below Title/Version at Y = 15.00mm) -->',

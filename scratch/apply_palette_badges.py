@@ -127,13 +127,13 @@ def ensure_rescale_palette(palette_data: Dict[str, Any]):
 
 def build_badge_svg_snippet(entry: Dict[str, Any]) -> str:
     """Generates the exact <g id=\"palette-badge\"> XML snippet."""
-    geom = entry.get("badgeGeometry", {"x": 0.0, "y": 19.8, "widthMm": 2.54, "heightMm": 88.9})
+    geom = entry.get("badgeGeometry", {"x": 0.0, "y": 19.8, "widthMm": 1.35, "heightMm": 88.9})
     start_x = geom.get("x", 0.0)
     cur_y = geom.get("y", 19.8)
-    width = geom.get("widthMm", 2.54)
+    width = geom.get("widthMm", 1.35)
     
     lines = [
-        '  <!-- Left Edge Color Badge (Centered 88.9mm x 2.54mm, Flush X=0) -->',
+        '  <!-- Left Edge Color Badge (Centered 88.9mm x 1.35mm, Flush X=0) -->',
         '  <g id="palette-badge">'
     ]
     for i, band in enumerate(entry["bands"]):

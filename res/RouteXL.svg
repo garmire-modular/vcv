@@ -3,12 +3,12 @@
   <!-- Panel Background: 8 HP (40.64 mm) -->
   <rect width="40.64" height="128.50" fill="#6e6e6e"/>
 
-  <!-- Left Edge Color Badge (Centered 88.9mm x 2.54mm, Flush X=0) -->
+  <!-- Left Edge Color Badge (Centered 88.9mm x 1.35mm, Flush X=0) -->
   <g id="palette-badge">
-    <rect x="0.000" y="19.800" width="2.540" height="14.224" fill="#FFFFFF" stroke="none"/>
-    <rect x="0.000" y="34.024" width="2.540" height="24.892" fill="#0072B2" stroke="none"/>
-    <rect x="0.000" y="58.916" width="2.540" height="17.780" fill="#B8A0E8" stroke="none"/>
-    <rect x="0.000" y="76.696" width="2.540" height="32.004" fill="#005566" stroke="none"/>
+    <rect x="0.000" y="19.800" width="1.350" height="14.224" fill="#FFFFFF" stroke="none"/>
+    <rect x="0.000" y="34.024" width="1.350" height="24.892" fill="#0072B2" stroke="none"/>
+    <rect x="0.000" y="58.916" width="1.350" height="17.780" fill="#B8A0E8" stroke="none"/>
+    <rect x="0.000" y="76.696" width="1.350" height="32.004" fill="#005566" stroke="none"/>
   </g>
 
   <!-- Delineator Line 1 (Between Trajectory & Color at Y = 54.00mm) -->

@@ -104,15 +104,10 @@ def generate_3hp_logic_panel(module_slug, title_text, out_pair1_labels, out_pair
         '<svg xmlns="http://www.w3.org/2000/svg" width="15.24mm" height="128.5mm" viewBox="0 0 15.24 128.5">',
         '  <!-- Panel Background: 3 HP (15.24 mm) -->',
         '  <rect width="15.24" height="128.5" fill="#6e6e6e"/>',
-
-        '  <!-- Left Edge Color Badge (Centered 88.9mm x 2.54mm, Flush X=0) -->',
-
+        '  <!-- Left Edge Color Badge (Centered 88.9mm x 1.35mm, Flush X=0) -->',
         '  <g id="palette-badge">',
-
-        '    <rect x="0.000" y="19.800" width="2.540" height="38.227" fill="#FFFFFF" stroke="none"/>',
-
-        '    <rect x="0.000" y="58.027" width="2.540" height="50.673" fill="#D55E00" stroke="none"/>',
-
+        '    <rect x="0.000" y="19.800" width="1.350" height="38.227" fill="#FFFFFF" stroke="none"/>',
+        '    <rect x="0.000" y="58.027" width="1.350" height="50.673" fill="#D55E00" stroke="none"/>',
         '  </g>',
         '',
         '  <!-- Delineator Line 1 (Between IN 1 & IN 2 at Y = 41.50mm) -->',
