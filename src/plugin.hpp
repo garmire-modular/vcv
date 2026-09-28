@@ -46,3 +46,4 @@ extern Model* modelLisa;
 extern Model* modelDaisy;
 extern Model* modelPolly;
 extern Model* modelCirce;
+extern Model* modelMaude;

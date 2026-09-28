@@ -45,4 +45,5 @@ void init(Plugin* p) {
 	p->addModel(modelDaisy);
 	p->addModel(modelPolly);
 	p->addModel(modelCirce);
+	p->addModel(modelMaude);
 }
