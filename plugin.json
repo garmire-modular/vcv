@@ -409,6 +409,16 @@
         "Oscillator",
         "Dual"
       ]
+    },
+    {
+      "slug": "Polly",
+      "name": "Polly",
+      "description": "Polygon vector synthesizer and geometric oscillator with variable vertex sides, rotation, teeth skew, secondary vertex offset/twist, vertex distribution, fillet, edge bow, radial harmonic ripple, symmetry, alternation, angular warp, and multi-mode traversal",
+      "tags": [
+        "Visual",
+        "Oscillator",
+        "Dual"
+      ]
     }
   ]
 }

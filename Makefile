@@ -40,6 +40,7 @@ SOURCES += src/Rescale.cpp
 SOURCES += src/Bleed.cpp
 SOURCES += src/Lisa.cpp
 SOURCES += src/Daisy.cpp
+SOURCES += src/Polly.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res
