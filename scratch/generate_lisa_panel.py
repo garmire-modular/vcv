@@ -181,9 +181,9 @@ def main():
 
     # Range Button and LED at center X = 20.32 mm
     led_r = 1.5 * r_px
-    draw.ellipse([20.32 * r_px - led_r, 16.50 * r_px - led_r, 20.32 * r_px + led_r, 16.50 * r_px + led_r], outline='#d35fb7', width=2)
+    draw.ellipse([20.32 * r_px - led_r, 15.50 * r_px - led_r, 20.32 * r_px + led_r, 15.50 * r_px + led_r], outline='#d35fb7', width=2)
     btn_r = 2.0 * r_px
-    draw.ellipse([20.32 * r_px - btn_r, 24.50 * r_px - btn_r, 20.32 * r_px + btn_r, 24.50 * r_px + btn_r], outline='#f0e442', width=2)
+    draw.ellipse([20.32 * r_px - btn_r, 21.59 * r_px - btn_r, 20.32 * r_px + btn_r, 21.59 * r_px + btn_r], outline='#f0e442', width=2)
 
     # Trimpots: 3 Columns (8.82, 20.32, 31.82 mm at Y = 70.00 and 79.50 mm)
     tr = 2.5 * r_px

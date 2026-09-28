@@ -335,10 +335,10 @@ struct Lisa : Module {
 			float rawX = std::sin(angX);
 			float rawY = std::sin(angY);
 
-			// Apply Orbital Dampening (Hardcoded Harmonograph Logarithmic Spiral with 3x depth)
+			// Apply Orbital Dampening (Hardcoded Harmonograph Logarithmic Spiral with 0.68 depth)
 			if (std::abs(dampVal) > 1e-4f) {
 				float r = std::sqrt(rawX * rawX + rawY * rawY);
-				float dampFactor = 1.0f - dampVal * 1.35f * (1.0f - r);
+				float dampFactor = 1.0f - dampVal * 0.68f * (1.0f - r);
 				rawX *= dampFactor;
 				rawY *= dampFactor;
 			}
@@ -395,9 +395,9 @@ struct LisaWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 21.59)), module, Lisa::FREQ_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 21.59)), module, Lisa::FINE_PARAM));
 
-		// Row 1 Center: Range LED (16.50 mm) and Range Button (24.50 mm)
-		addChild(createLightCentered<RangeLightWidget>(mm2px(Vec(20.32, 16.50)), module, Lisa::RANGE_LIGHT_YELLOW));
-		addParam(createParamCentered<TL1105>(mm2px(Vec(20.32, 24.50)), module, Lisa::RANGE_PARAM));
+		// Row 1 Center: Range LED (15.50 mm) and Range Button (21.59 mm, horizontally aligned with knobs)
+		addChild(createLightCentered<RangeLightWidget>(mm2px(Vec(20.32, 15.50)), module, Lisa::RANGE_LIGHT_YELLOW));
+		addParam(createParamCentered<TL1105>(mm2px(Vec(20.32, 21.59)), module, Lisa::RANGE_PARAM));
 
 		// Row 2: Harmonic Ratio Knobs (Center Y = 37.00 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 37.00)), module, Lisa::X_RATIO_PARAM));
