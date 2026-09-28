@@ -14,17 +14,6 @@ struct WaveformParamQuantity : ParamQuantity {
 	}
 };
 
-struct FineTuneParamQuantity : ParamQuantity {
-	std::string getDisplayValueString() override {
-		float raw = getValue();
-		float percent = raw * 10.f;
-		char buf[32];
-		std::snprintf(buf, sizeof(buf), "%+.1f%%", percent);
-		return std::string(buf);
-	}
-	std::string getUnit() override { return ""; }
-};
-
 struct IntegerParamQuantity : ParamQuantity {
 	std::string getDisplayValueString() override {
 		int val = (int)std::round(getValue());
@@ -128,9 +117,9 @@ struct Maude : Module {
 	};
 
 	enum OutputId {
+		SYNC_OUTPUT,
 		X_OUTPUT,
 		Y_OUTPUT,
-		SYNC_OUTPUT,
 		OUTPUTS_LEN
 	};
 
@@ -145,14 +134,171 @@ struct Maude : Module {
 	dsp::BooleanTrigger rangeTrigger;
 	MaudeChannel channels[16];
 
+	struct FreqParamQuantity : ParamQuantity {
+		Maude* getMaude() {
+			return dynamic_cast<Maude*>(module);
+		}
+
+		float getDisplayValue() override {
+			Maude* maude = getMaude();
+			if (!maude) return ParamQuantity::getDisplayValue();
+
+			float coarse = getValue();
+			float fine = (maude->paramQuantities.size() > Maude::FINE_PARAM) ? maude->params[Maude::FINE_PARAM].getValue() : 0.f;
+
+			if (maude->rangeMode == Maude::RANGE_VERY_SLOW) {
+				float tCoarse = 600.0f * std::pow(0.1f / 600.0f, coarse);
+				return clampf(tCoarse * (1.0f - fine * 0.10f), 0.05f, 1000.0f);
+			} else if (maude->rangeMode == Maude::RANGE_LFO) {
+				float fCoarse = 0.01f + 199.99f * coarse * coarse;
+				return clampf(fCoarse + fine * 20.0f, 0.01f, 250.0f);
+			} else {
+				float fCoarse = 150.0f * std::pow(2000.0f / 150.0f, coarse);
+				return clampf(fCoarse * (1.0f + fine * 0.10f), 100.0f, 2500.0f);
+			}
+		}
+
+		std::string getDisplayValueString() override {
+			Maude* maude = getMaude();
+			if (!maude) return ParamQuantity::getDisplayValueString();
+
+			float val = getDisplayValue();
+			char buf[32];
+			if (maude->rangeMode == Maude::RANGE_VERY_SLOW) {
+				std::snprintf(buf, sizeof(buf), "%.1f", val);
+			} else {
+				std::snprintf(buf, sizeof(buf), "%.2f", val);
+			}
+			return std::string(buf);
+		}
+
+		void setFrequencyValue(float rawVal, bool isPeriod) {
+			Maude* maude = getMaude();
+			if (!maude) return;
+
+			float fine = (maude->paramQuantities.size() > Maude::FINE_PARAM) ? maude->params[Maude::FINE_PARAM].getValue() : 0.f;
+			float newCoarse = getValue();
+
+			if (maude->rangeMode == Maude::RANGE_VERY_SLOW) {
+				float targetPeriodS = isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 1e6f);
+				if (targetPeriodS <= 1e-5f) targetPeriodS = 1e-5f;
+
+				float fineFactor = 1.0f - fine * 0.10f;
+				if (std::abs(fineFactor) < 1e-4f) fineFactor = 1e-4f;
+				float tCoarse = targetPeriodS / fineFactor;
+				if (tCoarse <= 1e-6f) tCoarse = 1e-6f;
+
+				float ratio = tCoarse / 600.0f;
+				if (ratio <= 0.f) ratio = 1e-6f;
+				newCoarse = std::log(ratio) / std::log(0.1f / 600.0f);
+			} else if (maude->rangeMode == Maude::RANGE_LFO) {
+				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 0.01f);
+				float fCoarse = targetHz - fine * 20.0f;
+				if (fCoarse <= 0.01f) {
+					newCoarse = 0.0f;
+				} else {
+					newCoarse = std::sqrt((fCoarse - 0.01f) / 199.99f);
+				}
+			} else {
+				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 100.f);
+				float fineFactor = 1.0f + fine * 0.10f;
+				if (std::abs(fineFactor) < 1e-4f) fineFactor = 1e-4f;
+				float fCoarse = targetHz / fineFactor;
+				if (fCoarse <= 1.0f) fCoarse = 1.0f;
+
+				float ratio = fCoarse / 150.0f;
+				if (ratio <= 0.f) ratio = 1e-6f;
+				newCoarse = std::log(ratio) / std::log(2000.0f / 150.0f);
+			}
+
+			setValue(clampf(newCoarse, 0.0f, 1.0f));
+		}
+
+		void setDisplayValue(float displayValue) override {
+			Maude* maude = getMaude();
+			if (!maude) {
+				ParamQuantity::setDisplayValue(displayValue);
+				return;
+			}
+			bool isPeriod = (maude->rangeMode == Maude::RANGE_VERY_SLOW);
+			setFrequencyValue(displayValue, isPeriod);
+		}
+
+		void setDisplayValueString(std::string s) override {
+			Maude* maude = getMaude();
+			if (!maude) {
+				ParamQuantity::setDisplayValueString(s);
+				return;
+			}
+
+			std::string str = s;
+			std::string lowerStr = s;
+			for (char& c : lowerStr) c = (char)std::tolower((unsigned char)c);
+
+			enum UnitType { UNIT_NONE, UNIT_HZ, UNIT_KHZ, UNIT_MHZ, UNIT_SEC, UNIT_MS };
+			UnitType unitType = UNIT_NONE;
+
+			if (lowerStr.find("khz") != std::string::npos) {
+				unitType = UNIT_KHZ;
+			} else if (lowerStr.find("mhz") != std::string::npos) {
+				unitType = UNIT_MHZ;
+			} else if (lowerStr.find("hz") != std::string::npos) {
+				unitType = UNIT_HZ;
+			} else if (lowerStr.find("ms") != std::string::npos) {
+				unitType = UNIT_MS;
+			} else if (lowerStr.find("s") != std::string::npos || lowerStr.find("sec") != std::string::npos) {
+				unitType = UNIT_SEC;
+			}
+
+			while (!str.empty() && (std::isalpha((unsigned char)str.back()) || std::isspace((unsigned char)str.back()))) {
+				str.pop_back();
+			}
+
+			char* endPtr = nullptr;
+			float rawVal = std::strtof(str.c_str(), &endPtr);
+			if (endPtr == str.c_str()) return;
+
+			bool isPeriod;
+			float finalVal;
+
+			if (unitType == UNIT_SEC) {
+				isPeriod = true;
+				finalVal = rawVal;
+			} else if (unitType == UNIT_MS) {
+				isPeriod = true;
+				finalVal = rawVal * 0.001f;
+			} else if (unitType == UNIT_HZ) {
+				isPeriod = false;
+				finalVal = rawVal;
+			} else if (unitType == UNIT_KHZ) {
+				isPeriod = false;
+				finalVal = rawVal * 1000.0f;
+			} else if (unitType == UNIT_MHZ) {
+				isPeriod = false;
+				finalVal = rawVal * 1000000.0f;
+			} else {
+				isPeriod = (maude->rangeMode == Maude::RANGE_VERY_SLOW);
+				finalVal = rawVal;
+			}
+
+			setFrequencyValue(finalVal, isPeriod);
+		}
+
+		std::string getUnit() override {
+			Maude* maude = getMaude();
+			if (!maude) return "";
+			return (maude->rangeMode == Maude::RANGE_VERY_SLOW) ? " s" : " Hz";
+		}
+	};
+
 	Maude() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-		// Row 1: Timebase
-		configParam(FREQ_PARAM, 0.f, 1.f, 0.5f, "Frequency", "%", 0.f, 100.f);
-		configParam(RANGE_PARAM, 0.f, 1.f, 0.f, "Range Select");
-		configParam<FineTuneParamQuantity>(FINE_PARAM, -1.f, 1.f, 0.f, "Fine Tune");
-		configParam(PHASE_PARAM, -1.f, 1.f, 0.f, "Phase Offset", "\xc2\xb0", 0.f, 180.f);
+		// Row 1: Timebase & Phase (Exact Generator Standard matching Lisa/Daisy/Circe/Polly)
+		configParam<FreqParamQuantity>(FREQ_PARAM, 0.f, 1.f, 0.5477f, "Frequency", "");
+		configButton(RANGE_PARAM, "Range time-scale");
+		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine frequency", "%", 0.f, 10.f);
+		configParam(PHASE_PARAM, -180.f, 180.f, 0.f, "Phase offset", "°", 0.f, 1.f);
 
 		// Row 2: Subharmonic Engine
 		configParam<IntegerParamQuantity>(DIV_PARAM, 1.f, 12.f, 4.f, "Subharmonic Divisions", "");
@@ -170,11 +316,11 @@ struct Maude : Module {
 		configParam(TWIST_PARAM, 0.f, 1.f, 0.f, "Twist (Quadrature Skew)", "%", 0.f, 100.f);
 		configParam(STRETCH_PARAM, -1.f, 1.f, 0.f, "Stretch", "%", 0.f, 100.f);
 
-		// Zone 3: CV Attenuverters (Strict adherence to AGENTS.md 6.5.4)
+		// Zone 3: CV Attenuverters (Mandatory naming per AGENTS.md Section 6.5.4)
 		// Row 1 Attenuverters
 		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV depth", "%", 0.f, 100.f);
-		configParam(FM_TRIM_PARAM, -1.f, 1.f, 0.f, "FM CV depth", "%", 0.f, 100.f);
-		configParam(FINE_TRIM_PARAM, -1.f, 1.f, 0.f, "Fine tune CV depth", "%", 0.f, 100.f);
+		configParam(FM_TRIM_PARAM, -1.f, 1.f, 0.f, "Linear FM CV depth", "%", 0.f, 100.f);
+		configParam(FINE_TRIM_PARAM, -1.f, 1.f, 0.f, "Fine frequency CV depth", "%", 0.f, 100.f);
 		configParam(PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Phase CV depth", "%", 0.f, 100.f);
 
 		// Row 2 Attenuverters
@@ -189,27 +335,32 @@ struct Maude : Module {
 		configParam(TWIST_TRIM_PARAM, -1.f, 1.f, 0.f, "Twist CV depth", "%", 0.f, 100.f);
 		configParam(STRETCH_TRIM_PARAM, -1.f, 1.f, 0.f, "Stretch CV depth", "%", 0.f, 100.f);
 
-		// Port Configurations
+		// Zone 4: Inputs
+		// Row 1 Inputs
 		configInput(FREQ_CV_INPUT, "Frequency CV");
-		configInput(FM_CV_INPUT, "Linear FM CV");
+		configInput(FM_CV_INPUT, "External FM");
 		configInput(FINE_CV_INPUT, "Fine Tune CV");
 		configInput(PHASE_CV_INPUT, "Phase CV");
 
+		// Row 2 Inputs
 		configInput(DIV_CV_INPUT, "Divisions CV");
 		configInput(RATIO_CV_INPUT, "Ratio CV");
 		configInput(SHAPE_CV_INPUT, "Shape CV");
 		configInput(DEPTH_CV_INPUT, "Depth CV");
 
+		// Row 3 Inputs
 		configInput(SPLIT_CV_INPUT, "Split CV");
 		configInput(FOLD_CV_INPUT, "Fold CV");
 		configInput(TWIST_CV_INPUT, "Twist CV");
 		configInput(STRETCH_CV_INPUT, "Stretch CV");
 
+		// Row 4 Sync
 		configInput(SYNC_INPUT, "Sync");
 
+		// Row 4 Outputs
+		configOutput(SYNC_OUTPUT, "Sync");
 		configOutput(X_OUTPUT, "X");
 		configOutput(Y_OUTPUT, "Y");
-		configOutput(SYNC_OUTPUT, "Sync");
 
 		for (int c = 0; c < 16; c++) {
 			channels[c].reset();
@@ -237,12 +388,12 @@ struct Maude : Module {
 	}
 
 	void process(const ProcessArgs& args) override {
-		// Range switch handling
+		// Handle Range Button cycling (Very Slow -> LFO -> VCO)
 		if (rangeTrigger.process(params[RANGE_PARAM].getValue() > 0.5f)) {
 			rangeMode = (RangeMode)((rangeMode + 1) % RANGE_MODES_LEN);
 		}
 
-		// Update 3-Color Range LED
+		// Update 3-Color Range LED (Yellow = Very Slow, Teal = LFO, Magenta = VCO)
 		lights[RANGE_LIGHT_YELLOW].setBrightness(rangeMode == RANGE_VERY_SLOW ? 1.f : 0.f);
 		lights[RANGE_LIGHT_ORANGE].setBrightness(rangeMode == RANGE_LFO ? 1.f : 0.f);
 		lights[RANGE_LIGHT_PURPLE].setBrightness(rangeMode == RANGE_VCO ? 1.f : 0.f);
@@ -255,39 +406,39 @@ struct Maude : Module {
 			}
 		}
 
+		outputs[SYNC_OUTPUT].setChannels(maxChannels);
 		outputs[X_OUTPUT].setChannels(maxChannels);
 		outputs[Y_OUTPUT].setChannels(maxChannels);
-		outputs[SYNC_OUTPUT].setChannels(maxChannels);
 
 		float coarseParam = params[FREQ_PARAM].getValue();
-		float fineParam = params[FINE_PARAM].getValue();
-		float defaultF0 = calculateBaseFrequency(coarseParam, fineParam);
+		float fineParam   = params[FINE_PARAM].getValue();
+		float defaultF0   = calculateBaseFrequency(coarseParam, fineParam);
 
-		float phaseParam = params[PHASE_PARAM].getValue();
-		float divParam = params[DIV_PARAM].getValue();
-		float ratioParam = params[RATIO_PARAM].getValue();
-		float shapeParam = params[SHAPE_PARAM].getValue();
-		float depthParam = params[DEPTH_PARAM].getValue();
-		float splitParam = params[SPLIT_PARAM].getValue();
-		float foldParam = params[FOLD_PARAM].getValue();
-		float twistParam = params[TWIST_PARAM].getValue();
+		float phaseParam   = params[PHASE_PARAM].getValue();
+		float divParam     = params[DIV_PARAM].getValue();
+		float ratioParam   = params[RATIO_PARAM].getValue();
+		float shapeParam   = params[SHAPE_PARAM].getValue();
+		float depthParam   = params[DEPTH_PARAM].getValue();
+		float splitParam   = params[SPLIT_PARAM].getValue();
+		float foldParam    = params[FOLD_PARAM].getValue();
+		float twistParam   = params[TWIST_PARAM].getValue();
 		float stretchParam = params[STRETCH_PARAM].getValue();
 
-		float fTrim = params[FREQ_TRIM_PARAM].getValue();
-		float fmTrim = params[FM_TRIM_PARAM].getValue();
-		float fineTrim = params[FINE_TRIM_PARAM].getValue();
-		float phaseTrim = params[PHASE_TRIM_PARAM].getValue();
-		float divTrim = params[DIV_TRIM_PARAM].getValue();
-		float ratioTrim = params[RATIO_TRIM_PARAM].getValue();
-		float shapeTrim = params[SHAPE_TRIM_PARAM].getValue();
-		float depthTrim = params[DEPTH_TRIM_PARAM].getValue();
-		float splitTrim = params[SPLIT_TRIM_PARAM].getValue();
-		float foldTrim = params[FOLD_TRIM_PARAM].getValue();
-		float twistTrim = params[TWIST_TRIM_PARAM].getValue();
+		float fTrim       = params[FREQ_TRIM_PARAM].getValue();
+		float fmTrim      = params[FM_TRIM_PARAM].getValue();
+		float fineTrim    = params[FINE_TRIM_PARAM].getValue();
+		float phaseTrim   = params[PHASE_TRIM_PARAM].getValue();
+		float divTrim     = params[DIV_TRIM_PARAM].getValue();
+		float ratioTrim   = params[RATIO_TRIM_PARAM].getValue();
+		float shapeTrim   = params[SHAPE_TRIM_PARAM].getValue();
+		float depthTrim   = params[DEPTH_TRIM_PARAM].getValue();
+		float splitTrim   = params[SPLIT_TRIM_PARAM].getValue();
+		float foldTrim    = params[FOLD_TRIM_PARAM].getValue();
+		float twistTrim   = params[TWIST_TRIM_PARAM].getValue();
 		float stretchTrim = params[STRETCH_TRIM_PARAM].getValue();
 
 		bool syncConnected = inputs[SYNC_INPUT].isConnected();
-		bool fmConnected = inputs[FM_CV_INPUT].isConnected();
+		bool fmConnected   = inputs[FM_CV_INPUT].isConnected();
 
 		for (int c = 0; c < maxChannels; c++) {
 			auto& chan = channels[c];
@@ -320,7 +471,7 @@ struct Maude : Module {
 			float fineTotal = clampf(fineParam + fineCv * fineTrim, -1.f, 1.f);
 			float fCarrier = f0 * std::pow(2.f, freqCv * fTrim + fineTotal * 0.10f);
 
-			// Linear FM modulation
+			// Linear FM modulation (matching Circe/Lisa/Daisy/Polly standard)
 			float fActual;
 			if (!fmConnected) {
 				float carrierSelfMod = std::sin(2.f * (float)M_PI * chan.carrierPhase);
@@ -343,18 +494,18 @@ struct Maude : Module {
 			}
 			chan.carrierPhase -= std::floor(chan.carrierPhase);
 
-			// Modulations
-			float pCv = inputs[PHASE_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float dCv = inputs[DIV_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float rCv = inputs[RATIO_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float sCv = inputs[SHAPE_CV_INPUT].getPolyVoltage(c) / 5.f;
+			// CV Modulations
+			float pCv   = inputs[PHASE_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float dCv   = inputs[DIV_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float rCv   = inputs[RATIO_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float sCv   = inputs[SHAPE_CV_INPUT].getPolyVoltage(c) / 5.f;
 			float depCv = inputs[DEPTH_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float spCv = inputs[SPLIT_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float foCv = inputs[FOLD_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float twCv = inputs[TWIST_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float stCv = inputs[STRETCH_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float spCv  = inputs[SPLIT_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float foCv  = inputs[FOLD_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float twCv  = inputs[TWIST_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float stCv  = inputs[STRETCH_CV_INPUT].getPolyVoltage(c) / 5.f;
 
-			float phaseDeg = clampf(phaseParam + pCv * phaseTrim, -1.f, 1.f) * 180.f;
+			float phaseDeg = clampf(phaseParam + pCv * phaseTrim * 180.f, -180.f, 180.f);
 			int numDiv = (int)clampf(std::round(divParam + dCv * divTrim * 11.f), 1.f, 12.f);
 			int ratio = (int)clampf(std::round(ratioParam + rCv * ratioTrim * 11.f), 1.f, 12.f);
 			float shape = clampf(shapeParam + sCv * shapeTrim, 0.f, 1.f);
