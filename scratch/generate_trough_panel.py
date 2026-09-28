@@ -71,7 +71,19 @@ def main():
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<svg xmlns="http://www.w3.org/2000/svg" width="30.48mm" height="128.5mm" viewBox="0 0 30.48 128.5">',
         '  <!-- Panel Background: 6 HP -->',
-        '  <rect width="30.48" height="128.5" fill="#7c7c7c"/>',
+        '  <rect width="30.48" height="128.5" fill="#6e6e6e"/>',
+
+        '  <!-- Left Edge Color Badge (Centered 88.9mm x 2.54mm, Flush X=0) -->',
+
+        '  <g id="palette-badge">',
+
+        '    <rect x="0.000" y="19.800" width="2.540" height="40.894" fill="#FFFFFF" stroke="none"/>',
+
+        '    <rect x="0.000" y="60.694" width="2.540" height="28.448" fill="#882255" stroke="none"/>',
+
+        '    <rect x="0.000" y="89.142" width="2.540" height="19.558" fill="#B8A0E8" stroke="none"/>',
+
+        '  </g>',
         '',
         '  <!-- Delineator Line 1 (Above Attenuverters at Y = 52.50mm) -->',
         '  <line x1="2.54" y1="52.50" x2="27.94" y2="52.50" stroke="#999999" stroke-width="0.176"/>',

@@ -15,28 +15,7 @@ if os.path.exists(msys_bin):
 from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
 import pathops
-import os
-import sys
-
-# Ensure MSYS2 DLLs are found for cairosvg / libcairo
-msys_bin = r'C:\msys64\mingw64\bin'
-if os.path.exists(msys_bin):
-    os.environ['PATH'] = msys_bin + os.path.pathsep + os.environ.get('PATH', '')
-    if hasattr(os, 'add_dll_directory'):
-        try:
-            os.add_dll_directory(msys_bin)
-        except Exception:
-            pass
-
-try:
-    import cairocffi
-    cairo_dll = os.path.join(msys_bin, 'libcairo-2.dll')
-    if os.path.exists(cairo_dll):
-        cairocffi.cairo = cairocffi.ffi.dlopen(cairo_dll)
-    import cairosvg
-except Exception:
-    cairosvg = None
-
+import cairosvg
 from PIL import Image, ImageDraw
 
 def get_simplified_glyph_path(font, char):
@@ -75,17 +54,16 @@ def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
         curr += w
     return "\n".join(res)
 
-def main():
+def generate_xl_panel(module_slug, title_text, col_headers, version_str="v2.21.0"):
     node_font = TTFont('res/Node.otf')
     qs_font = TTFont('res/Quicksand-Medium.ttf')
     qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
 
+    # 8 HP Dimensions: 40.64 mm x 128.50 mm
     panel_w = 40.64
     panel_h = 128.50
-    title_text = "sum/mix xl"
-    col_headers = ["IN 1", "IN 2", "SUM", "MULT"]
-    version_str = "v2.22.0"
 
+    # Title in Node.otf (scale ~0.0035 centered at x = 20.32 mm)
     scale_title = 0.0035
     cmap = node_font.getBestCmap()
     hmtx = node_font['hmtx']
@@ -109,14 +87,7 @@ def main():
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.2f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.2f}">',
         f'  <!-- Panel Background: 8 HP ({panel_w:.2f} mm) -->',
-        f'  <rect width="{panel_w:.2f}" height="{panel_h:.2f}" fill="#6e6e6e"/>',
-        '  <!-- Left Edge Color Badge (Centered 88.9mm x 2.54mm, Flush X=0) -->',
-        '  <g id="palette-badge">',
-        '    <rect x="0.000" y="19.800" width="2.540" height="33.782" fill="#FFFFFF" stroke="none"/>',
-        '    <rect x="0.000" y="53.582" width="2.540" height="21.336" fill="#882255" stroke="none"/>',
-        '    <rect x="0.000" y="74.918" width="2.540" height="12.446" fill="#FF8866" stroke="none"/>',
-        '    <rect x="0.000" y="87.364" width="2.540" height="21.336" fill="#0072B2" stroke="none"/>',
-        '  </g>',
+        f'  <rect width="{panel_w:.2f}" height="{panel_h:.2f}" fill="#7c7c7c"/>',
         '',
         '  <!-- Delineator Line 1 (Between Trajectory & Color at Y = 54.00mm) -->',
         f'  <line x1="2.50" y1="54.00" x2="{panel_w - 2.50:.2f}" y2="54.00" stroke="#999999" stroke-width="0.176"/>',
@@ -128,6 +99,7 @@ def main():
     svg_parts.extend(title_block)
     svg_parts.extend(version_block)
 
+    # 4 Columns at x = [6.07, 15.57, 25.07, 34.57]
     col_x = [6.07, 15.57, 25.07, 34.57]
 
     # Column Headers at Y = 15.50
@@ -135,6 +107,7 @@ def main():
         svg_parts.append(render_qs_text(qs_font, header, cx, 15.50, 0.002200, "#1c1c1c", f"Header: {header}"))
 
     # 6 Rows: X, Y, R, G, B, I
+    # Row Y centers: [27.00, 45.00, 63.00, 81.00, 99.00, 117.00]
     row_data = [
         ("X", 27.00),
         ("Y", 45.00),
@@ -146,20 +119,21 @@ def main():
 
     all_jacks = []
     for r_label, ry in row_data:
-        # Single horizontally centered label across the row (no duplicated labels)
-        svg_parts.append(render_qs_text(qs_font, r_label, panel_w / 2.0, ry - 5.60, 0.002600, "#1c1c1c", f"Row: {r_label}"))
-        for cx in col_x:
+        for c_idx, cx in enumerate(col_x):
+            # Row label sits 5.20 mm above jack center
+            svg_parts.append(render_qs_text(qs_font, r_label, cx, ry - 5.20, 0.002200, "#2c2c2c", f"{r_label} (col {c_idx+1})"))
             all_jacks.append((cx, ry))
 
     svg_parts.append('</svg>')
 
     os.makedirs('res', exist_ok=True)
-    svg_path = 'res/SumMixXL.svg'
+    svg_path = f'res/{module_slug}.svg'
     with open(svg_path, 'w', encoding='utf-8') as f:
         f.write("\n".join(svg_parts) + "\n")
     print(f"Generated {svg_path} successfully (8 HP).")
 
-    verify_png = 'scratch/summixxl_verify.png'
+    # Render verification bitmap (8HP = 76x240 px in MetaModule, render at 4x for inspection)
+    verify_png = f'scratch/{module_slug.lower()}_verify.png'
     cairosvg.svg2png(url=svg_path, write_to=verify_png, output_width=76 * 4, output_height=240 * 4)
 
     im = Image.open(verify_png)
@@ -172,6 +146,16 @@ def main():
         draw.ellipse([px - jr, py - jr, px + jr, py + jr], outline='#00e5ff', width=2)
     im.save(verify_png)
     print(f"Rendered verification bitmap with ports: {verify_png}")
+
+def main():
+    # 1. Switch XL: Input 1, Input 2, Switch, Output
+    generate_xl_panel("SwitchXL", "switch xl", ["IN 1", "IN 2", "SW", "OUT"])
+
+    # 2. Route XL: Input, Switch, Output 1, Output 2
+    generate_xl_panel("RouteXL", "route xl", ["IN", "SW", "OUT 1", "OUT 2"])
+
+    # 3. SumMix XL: Input 1, Input 2, Sum Output, Mult Output
+    generate_xl_panel("SumMixXL", "sum/mix xl", ["IN 1", "IN 2", "SUM", "MULT"])
 
 if __name__ == '__main__':
     main()

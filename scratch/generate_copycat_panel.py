@@ -44,11 +44,8 @@ def main():
     node_font = TTFont('res/Node.otf')
     qs_font = TTFont('res/Quicksand-Medium.ttf')
 
-    with open('res/Stretch.svg', 'r', encoding='utf-8') as f:
-        stretch_svg = f.read()
-
-    stretch_lines = stretch_svg.splitlines()
-    eight_version_path = re.search(r'path d="([^"]+)"', stretch_lines[38]).group(1) if len(stretch_lines) > 38 else re.search(r'path d="([^"]+)"', stretch_lines[24]).group(1)
+    # Version v1.0.8 rendered directly
+    eight_version_path = get_simplified_glyph_path(qs_font, '8')
 
     # Title "copycat" in Node.otf (scale 0.0048, baseline 7.620)
     hmtx = node_font['hmtx']
@@ -67,20 +64,26 @@ def main():
 
     # Version "v1.0.8" (Auto-incremented from v1.0.7)
     v108_version_block = [
-        '  <!-- Label: "v1.0.8" -->',
-        stretch_lines[21], # v
-        stretch_lines[22], # 1
-        stretch_lines[23], # .
-        stretch_lines[24], # 0
-        stretch_lines[25], # .
-        f'    <g transform="translate(16.333, 10.414) scale(0.001600, -0.001600)"><path d="{eight_version_path}" fill="#aaaaaa"/></g>' # 8
+        render_qs_text(qs_font, "v1.0.8", 15.24, 10.414, 0.001600, "#aaaaaa", "v1.0.8")
     ]
 
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<svg xmlns="http://www.w3.org/2000/svg" width="30.48mm" height="128.5mm" viewBox="0 0 30.48 128.5">',
         '  <!-- Panel Background: 6 HP -->',
-        '  <rect width="30.48" height="128.5" fill="#7c7c7c"/>',
+        '  <rect width="30.48" height="128.5" fill="#6e6e6e"/>',
+
+        '  <!-- Left Edge Color Badge (Centered 88.9mm x 2.54mm, Flush X=0) -->',
+
+        '  <g id="palette-badge">',
+
+        '    <rect x="0.000" y="19.800" width="2.540" height="44.450" fill="#FFFFFF" stroke="none"/>',
+
+        '    <rect x="0.000" y="64.250" width="2.540" height="28.448" fill="#CC79A7" stroke="none"/>',
+
+        '    <rect x="0.000" y="92.698" width="2.540" height="16.002" fill="#EBEC72" stroke="none"/>',
+
+        '  </g>',
         '',
         '  <!-- Delineator Line 1 (Main Controls / Attenuverters) -->',
         '  <line x1="2.54" y1="52.50" x2="27.94" y2="52.50" stroke="#999999" stroke-width="0.176"/>',

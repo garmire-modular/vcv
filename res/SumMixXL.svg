@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="40.64mm" height="128.50mm" viewBox="0 0 40.64 128.50">
   <!-- Panel Background: 8 HP (40.64 mm) -->
-  <rect width="40.64" height="128.50" fill="#7c7c7c"/>
+  <rect width="40.64" height="128.50" fill="#6e6e6e"/>
+
+  <!-- Left Edge Color Badge (Centered 88.9mm x 2.54mm, Flush X=0) -->
+  <g id="palette-badge">
+    <rect x="0.000" y="19.800" width="2.540" height="33.782" fill="#FFFFFF" stroke="none"/>
+    <rect x="0.000" y="53.582" width="2.540" height="21.336" fill="#882255" stroke="none"/>
+    <rect x="0.000" y="74.918" width="2.540" height="12.446" fill="#FF8866" stroke="none"/>
+    <rect x="0.000" y="87.364" width="2.540" height="21.336" fill="#0072B2" stroke="none"/>
+  </g>
 
   <!-- Delineator Line 1 (Between Trajectory & Color at Y = 54.00mm) -->
   <line x1="2.50" y1="54.00" x2="38.14" y2="54.00" stroke="#999999" stroke-width="0.176"/>

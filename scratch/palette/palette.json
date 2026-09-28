@@ -1549,5 +1549,53 @@
       "y": 19.8
     },
     "savedAt": "2026-09-27T19:45:48.984Z"
+  },
+  "Rescale": {
+    "module": "Rescale",
+    "slug": "Rescale",
+    "hp": 6,
+    "mode": "Effect",
+    "anchor": "white",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 35,
+        "heightMm": 31.115
+      },
+      {
+        "hex": "#005566",
+        "tier": "LOW",
+        "weight": 45,
+        "heightMm": 40.005
+      },
+      {
+        "hex": "#56B4E9",
+        "tier": "HIGH",
+        "weight": 20,
+        "heightMm": 17.78
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#005566",
+      "#56B4E9"
+    ],
+    "weights": [
+      35,
+      45,
+      20
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-27T20:00:00.000Z"
   }
 }

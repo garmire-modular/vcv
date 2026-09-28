@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="15.24mm" height="128.5mm" viewBox="0 0 15.24 128.5">
   <!-- Panel Background: 3 HP (15.24 mm) -->
-  <rect width="15.24" height="128.5" fill="#7c7c7c"/>
+  <rect width="15.24" height="128.5" fill="#6e6e6e"/>
+
+  <!-- Left Edge Color Badge (Centered 88.9mm x 2.54mm, Flush X=0) -->
+  <g id="palette-badge">
+    <rect x="0.000" y="19.800" width="2.540" height="50.673" fill="#FFFFFF" stroke="none"/>
+    <rect x="0.000" y="70.473" width="2.540" height="38.227" fill="#442288" stroke="none"/>
+  </g>
 
   <!-- Delineator Line 1 (Between IN 1 & IN 2 at Y = 41.50mm) -->
   <line x1="1.50" y1="41.50" x2="13.74" y2="41.50" stroke="#999999" stroke-width="0.176"/>

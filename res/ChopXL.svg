@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="60.96mm" height="128.50mm" viewBox="0 0 60.96 128.50">
   <!-- Panel Background: 12 HP (60.96 mm) -->
-  <rect width="60.96" height="128.50" fill="#7c7c7c"/>
+  <rect width="60.96" height="128.50" fill="#6e6e6e"/>
+
+  <!-- Left Edge Color Badge (Centered 88.9mm x 2.54mm, Flush X=0) -->
+  <g id="palette-badge">
+    <rect x="0.000" y="19.800" width="2.540" height="32.004" fill="#FFFFFF" stroke="none"/>
+    <rect x="0.000" y="51.804" width="2.540" height="14.224" fill="#882255" stroke="none"/>
+    <rect x="0.000" y="66.028" width="2.540" height="24.892" fill="#FF8866" stroke="none"/>
+    <rect x="0.000" y="90.920" width="2.540" height="17.780" fill="#D55E00" stroke="none"/>
+  </g>
 
   <!-- Horizontal Line 1 (Between Knobs & Trim Labels at Y = 33.50mm) -->
   <line x1="2.54" y1="33.50" x2="58.42" y2="33.50" stroke="#999999" stroke-width="0.176"/>

@@ -1,4 +1,30 @@
-<?xml version="1.0" encoding="UTF-8"?>
+import os
+from fontTools.ttLib import TTFont
+import os
+import sys
+
+# Ensure MSYS2 DLLs are found for cairosvg / libcairo
+msys_bin = r'C:\msys64\mingw64\bin'
+if os.path.exists(msys_bin):
+    os.environ['PATH'] = msys_bin + os.path.pathsep + os.environ.get('PATH', '')
+    if hasattr(os, 'add_dll_directory'):
+        try:
+            os.add_dll_directory(msys_bin)
+        except Exception:
+            pass
+
+try:
+    import cairocffi
+    cairo_dll = os.path.join(msys_bin, 'libcairo-2.dll')
+    if os.path.exists(cairo_dll):
+        cairocffi.cairo = cairocffi.ffi.dlopen(cairo_dll)
+    import cairosvg
+except Exception:
+    cairosvg = None
+
+
+def main():
+    svg_content = """<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="30.48mm" height="128.5mm" viewBox="0 0 30.48 128.5">
   <!-- Panel Background: 6 HP -->
   <rect width="30.48" height="128.5" fill="#6e6e6e"/>
@@ -57,3 +83,11 @@
     <g transform="translate(14.572, 116.120) scale(0.002400, -0.002400)"><path d="M584.0 701.0Q566.0 701.0 556.0 689.0Q546.0 677.0 546.0 660.0V263.0Q546.0 208.0 519.5 165.0Q493.0 122.0 450.0 97.5Q407.0 73.0 356.0 73.0Q306.0 73.0 263.5 97.5Q221.0 122.0 196.0 165.0Q171.0 208.0 171.0 263.0V660.0Q171.0 677.0 158.5 689.0Q146.0 701.0 130.0 701.0Q111.0 701.0 99.5 689.0Q88.0 677.0 88.0 660.0V263.0Q88.0 186.0 123.0 125.0Q158.0 64.0 218.5 28.5Q279.0 -7.0 356.0 -7.0Q432.0 -7.0 492.0 28.5Q552.0 64.0 587.5 125.0Q623.0 186.0 623.0 263.0V660.0Q623.0 677.0 612.0 689.0Q601.0 701.0 584.0 701.0Z" fill="#2c2c2c"/></g>
     <g transform="translate(16.276, 116.120) scale(0.002400, -0.002400)"><path d="M305.0 0.0Q324.0 0.0 336.0 12.0Q348.0 24.0 348.0 41.0V624.0H538.0Q555.0 624.0 567.0 634.0Q579.0 644.0 579.0 662.0Q579.0 679.0 567.0 689.5Q555.0 700.0 538.0 700.0H73.0Q56.0 700.0 44.5 689.5Q33.0 679.0 33.0 662.0Q33.0 645.0 44.5 634.5Q56.0 624.0 73.0 624.0H263.0V41.0Q263.0 24.0 275.0 12.0Q287.0 0.0 305.0 0.0Z" fill="#2c2c2c"/></g>
 </svg>
+"""
+    os.makedirs('res', exist_ok=True)
+    with open('res/Scale.svg', 'w', encoding='utf-8') as f:
+        f.write(svg_content.strip() + "\n")
+    print("Generated res/Scale.svg")
+
+if __name__ == '__main__':
+    main()

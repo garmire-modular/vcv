@@ -15,7 +15,28 @@ if os.path.exists(msys_bin):
 from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
 import pathops
-import cairosvg
+import os
+import sys
+
+# Ensure MSYS2 DLLs are found for cairosvg / libcairo
+msys_bin = r'C:\msys64\mingw64\bin'
+if os.path.exists(msys_bin):
+    os.environ['PATH'] = msys_bin + os.path.pathsep + os.environ.get('PATH', '')
+    if hasattr(os, 'add_dll_directory'):
+        try:
+            os.add_dll_directory(msys_bin)
+        except Exception:
+            pass
+
+try:
+    import cairocffi
+    cairo_dll = os.path.join(msys_bin, 'libcairo-2.dll')
+    if os.path.exists(cairo_dll):
+        cairocffi.cairo = cairocffi.ffi.dlopen(cairo_dll)
+    import cairosvg
+except Exception:
+    cairosvg = None
+
 from PIL import Image, ImageDraw
 
 def get_simplified_glyph_path(font, char):
@@ -87,7 +108,19 @@ def main():
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<svg xmlns="http://www.w3.org/2000/svg" width="30.48mm" height="128.5mm" viewBox="0 0 30.48 128.5">',
         '  <!-- Panel Background: 6 HP -->',
-        '  <rect width="30.48" height="128.5" fill="#7c7c7c"/>',
+        '  <rect width="30.48" height="128.5" fill="#6e6e6e"/>',
+
+        '  <!-- Left Edge Color Badge (Centered 88.9mm x 2.54mm, Flush X=0) -->',
+
+        '  <g id="palette-badge">',
+
+        '    <rect x="0.000" y="19.800" width="2.540" height="44.450" fill="#FFFFFF" stroke="none"/>',
+
+        '    <rect x="0.000" y="64.250" width="2.540" height="28.448" fill="#D55E00" stroke="none"/>',
+
+        '    <rect x="0.000" y="92.698" width="2.540" height="16.002" fill="#FF8866" stroke="none"/>',
+
+        '  </g>',
         '',
         '  <!-- Delineator Line 1 (Main Controls / Attenuverters at Y = 52.50mm) -->',
         '  <line x1="2.54" y1="52.50" x2="27.94" y2="52.50" stroke="#999999" stroke-width="0.176"/>',
