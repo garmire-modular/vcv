@@ -177,3 +177,31 @@ To maintain a minimal, professional visual aesthetic and avoid visual clutter, a
      - For non-channel or single-parameter attenuverters: `"<Parameter> CV depth"` (e.g., `"Count CV depth"`, `"Length CV depth"`, `"Rotation CV depth"`). Sentence case with `CV` uppercase and `depth` lowercase.
    - Do NOT use `"Attenuverter"`, `"CV Attenuverter"`, `"Depth"`, or title-cased `"CV Depth"`.
 
+---
+
+### 6.6. Module Palette Badge Protocol & Palette Database Synchronization
+
+All Garmire hardware modules include a vertical color badge oriented along the far left edge of the faceplate to establish visual identity across the rack.
+
+1. **Badge Dimensions & Geometry**:
+   - **Horizontal Position**: Flush left at $X = 0.00\text{ mm}$ ($x = 0$).
+   - **Width**: Standard Eurorack $2.54\text{ mm}$ ($0.10\text{ in}$ / $0.5\text{ HP}$).
+   - **Height**: Standard $88.90\text{ mm}$ ($3.50\text{ in}$).
+   - **Vertical Centering**: Centered vertically at $Y = 64.25\text{ mm}$ ($y = 19.80\text{ mm}$ to $y = 108.70\text{ mm}$).
+
+2. **New Module Default Placeholder Badge (`#5d5d5d`)**:
+   - Anytime a new module is created, its faceplate SVG generator (`scratch/generate_<module>_panel.py`) MUST assign a placeholder badge consisting of a pure `#5d5d5d` neutral gray rectangle:
+     ```xml
+     <g id="palette-badge">
+       <rect x="0" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none" />
+     </g>
+     ```
+   - This `#5d5d5d` badge serves as the unassigned placeholder until an official chromatic palette has been generated and saved for the module.
+
+3. **Palette Builder Database Synchronization**:
+   - Whenever a new module is created or its panel SVG is generated/updated, the palette builder script MUST be executed immediately:
+     ```powershell
+     python scratch/palette/build_standalone.py
+     ```
+   - This script updates the embedded SVG and module definitions in `scratch/palette/index.html`. As a result, when the Palette Manager website is refreshed, the new module will immediately appear in the module selection dropdown and stage for preview and palette assignment.
+
