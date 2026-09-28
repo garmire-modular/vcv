@@ -28,6 +28,7 @@ target_sources(Garmire PRIVATE
     ${SOURCE_DIR}/src/Ants.cpp
     ${SOURCE_DIR}/src/HsvRgb.cpp
     ${SOURCE_DIR}/src/OklchRgb.cpp
+    ${SOURCE_DIR}/src/Rgb.cpp
     ${SOURCE_DIR}/src/Instability.cpp
     ${SOURCE_DIR}/src/Scale.cpp
     ${SOURCE_DIR}/src/Position.cpp

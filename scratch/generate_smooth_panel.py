@@ -44,12 +44,6 @@ def main():
     node_font = TTFont('res/Node.otf')
     qs_font = TTFont('res/Quicksand-Medium.ttf')
 
-    with open('res/Stretch.svg', 'r', encoding='utf-8') as f:
-        stretch_svg = f.read()
-
-    stretch_lines = stretch_svg.splitlines()
-    four_version_path = re.search(r'path d="([^"]+)"', stretch_lines[30]).group(1) if len(stretch_lines) > 30 else re.search(r'path d="([^"]+)"', stretch_lines[24]).group(1)
-
     # Title "smooth" in Node.otf (scale 0.0048, baseline 7.620)
     hmtx = node_font['hmtx']
     scale = 0.0048
@@ -65,15 +59,9 @@ def main():
         smooth_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version "v1.0.4" (Auto-incremented from v1.0.3)
+    # Version "v1.0.4"
     v104_version_block = [
-        '  <!-- Label: "v1.0.4" -->',
-        stretch_lines[21], # v
-        stretch_lines[22], # 1
-        stretch_lines[23], # .
-        stretch_lines[24], # 0
-        stretch_lines[25], # .
-        f'    <g transform="translate(16.333, 10.414) scale(0.001600, -0.001600)"><path d="{four_version_path}" fill="#aaaaaa"/></g>' # 4
+        render_qs_text(qs_font, "v1.0.4", 15.24, 10.414, 0.001600, "#aaaaaa", "v1.0.4")
     ]
 
     svg_parts = [

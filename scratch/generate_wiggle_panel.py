@@ -44,10 +44,7 @@ def main():
     node_font = TTFont('res/Node.otf')
     qs_font = TTFont('res/Quicksand-Medium.ttf')
 
-    with open('res/Stretch.svg', 'r', encoding='utf-8') as f:
-        stretch_svg = f.read()
 
-    stretch_lines = stretch_svg.splitlines()
 
     # Title "wiggle" in Node.otf (scale 0.0048, baseline 7.620)
     hmtx = node_font['hmtx']
@@ -64,15 +61,9 @@ def main():
         wiggle_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    two_version_path = re.search(r'path d="([^"]+)"', stretch_lines[26]).group(1) if len(stretch_lines) > 26 else re.search(r'path d="([^"]+)"', stretch_lines[22]).group(1)
+    # Version "v1.0.2"
     v102_version_block = [
-        '  <!-- Label: "v1.0.2" -->',
-        stretch_lines[21], # v
-        stretch_lines[22], # 1
-        stretch_lines[23], # .
-        stretch_lines[24], # 0
-        stretch_lines[25], # .
-        f'    <g transform="translate(16.333, 10.414) scale(0.001600, -0.001600)"><path d="{two_version_path}" fill="#aaaaaa"/></g>' # 2
+        render_qs_text(qs_font, "v1.0.2", 15.24, 10.414, 0.001600, "#aaaaaa", "v1.0.2")
     ]
 
     svg_parts = [
