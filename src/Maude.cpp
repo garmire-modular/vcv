@@ -1,4 +1,5 @@
 #include "plugin.hpp"
+#include "dsp/Oscillator.hpp"
 #include <cmath>
 #include <algorithm>
 #include <string>
@@ -7,143 +8,208 @@ inline float clampf(float v, float lo, float hi) {
 	return (v < lo) ? lo : (v > hi ? hi : v);
 }
 
-enum WarpMode {
-	WARP_BIFURCATION = 0,
-	WARP_WAVEFOLD = 1,
-	WARP_SKEW = 2,
-	WARP_MODES_LEN
+struct WaveformParamQuantity : ParamQuantity {
+	std::string getDisplayValueString() override {
+		return garmire::waveformName(getValue());
+	}
 };
 
-struct ChannelState {
-	float prevInX = 0.f;
-	int samplesSinceZeroCross = 0;
-	float currentPeriod = 367.f;
-	float smoothedPeriod = 367.f;
+struct FineTuneParamQuantity : ParamQuantity {
+	std::string getDisplayValueString() override {
+		float raw = getValue();
+		float percent = raw * 10.f;
+		char buf[32];
+		std::snprintf(buf, sizeof(buf), "%+.1f%%", percent);
+		return std::string(buf);
+	}
+	std::string getUnit() override { return ""; }
+};
+
+struct IntegerParamQuantity : ParamQuantity {
+	std::string getDisplayValueString() override {
+		int val = (int)std::round(getValue());
+		return std::to_string(val);
+	}
+	void setDisplayValueString(std::string s) override {
+		char* endPtr = nullptr;
+		float val = std::strtof(s.c_str(), &endPtr);
+		if (endPtr != s.c_str()) {
+			setValue(clampf(std::round(val), getMinValue(), getMaxValue()));
+		}
+	}
+};
+
+struct MaudeChannel {
+	float carrierPhase = 0.f;
 	float subPhase = 0.f;
-	int cycleIndex = 0;
-	float internalPhase = 0.f;
+	dsp::SchmittTrigger syncTrigger;
+	dsp::PulseGenerator syncPulse;
+	float syncPeriod = 0.f;
+	float timeSinceSync = 0.f;
 
 	void reset() {
-		prevInX = 0.f;
-		samplesSinceZeroCross = 0;
-		currentPeriod = 367.f;
-		smoothedPeriod = 367.f;
+		carrierPhase = 0.f;
 		subPhase = 0.f;
-		cycleIndex = 0;
-		internalPhase = 0.f;
+		syncTrigger.reset();
+		syncPeriod = 0.f;
+		timeSinceSync = 0.f;
 	}
 };
 
 struct Maude : Module {
+	enum RangeMode {
+		RANGE_VERY_SLOW = 0,
+		RANGE_LFO = 1,
+		RANGE_VCO = 2,
+		RANGE_MODES_LEN
+	};
+
 	enum ParamId {
+		// Row 1: Timebase & Master Phase
+		FREQ_PARAM,
+		RANGE_PARAM,
+		FINE_PARAM,
+		PHASE_PARAM,
+
+		// Row 2: Subharmonic Engine
 		DIV_PARAM,
 		RATIO_PARAM,
+		SHAPE_PARAM,
 		DEPTH_PARAM,
-		WARP_PARAM,
+
+		// Row 3: Rosette Transformations & Sizing
+		SPLIT_PARAM,
+		FOLD_PARAM,
+		TWIST_PARAM,
+		STRETCH_PARAM,
+
+		// Zone 3: CV Attenuverters (3 Rows x 4 Trimpots)
+		FREQ_TRIM_PARAM,
+		FM_TRIM_PARAM,
+		FINE_TRIM_PARAM,
+		PHASE_TRIM_PARAM,
 
 		DIV_TRIM_PARAM,
 		RATIO_TRIM_PARAM,
+		SHAPE_TRIM_PARAM,
 		DEPTH_TRIM_PARAM,
-		WARP_TRIM_PARAM,
+
+		SPLIT_TRIM_PARAM,
+		FOLD_TRIM_PARAM,
+		TWIST_TRIM_PARAM,
+		STRETCH_TRIM_PARAM,
 
 		PARAMS_LEN
 	};
+
 	enum InputId {
-		X_INPUT,
-		Y_INPUT,
+		// Jack Row 1 (CV)
+		FREQ_CV_INPUT,
+		FM_CV_INPUT,
+		FINE_CV_INPUT,
+		PHASE_CV_INPUT,
+
+		// Jack Row 2 (CV)
 		DIV_CV_INPUT,
 		RATIO_CV_INPUT,
+		SHAPE_CV_INPUT,
 		DEPTH_CV_INPUT,
-		WARP_CV_INPUT,
+
+		// Jack Row 3 (CV)
+		SPLIT_CV_INPUT,
+		FOLD_CV_INPUT,
+		TWIST_CV_INPUT,
+		STRETCH_CV_INPUT,
+
+		// Jack Row 4 (Sync)
+		SYNC_INPUT,
+
 		INPUTS_LEN
 	};
+
 	enum OutputId {
 		X_OUTPUT,
 		Y_OUTPUT,
+		SYNC_OUTPUT,
 		OUTPUTS_LEN
 	};
+
 	enum LightId {
+		RANGE_LIGHT_YELLOW,
+		RANGE_LIGHT_ORANGE,
+		RANGE_LIGHT_PURPLE,
 		LIGHTS_LEN
 	};
 
-	WarpMode warpMode = WARP_BIFURCATION;
-	ChannelState channels[16];
-
-	struct IntegerParamQuantity : ParamQuantity {
-		std::string getDisplayValueString() override {
-			int val = (int)std::round(getValue());
-			return std::to_string(val);
-		}
-		void setDisplayValueString(std::string s) override {
-			char* endPtr = nullptr;
-			float val = std::strtof(s.c_str(), &endPtr);
-			if (endPtr != s.c_str()) {
-				setValue(clampf(std::round(val), getMinValue(), getMaxValue()));
-			}
-		}
-	};
-
-	struct WarpParamQuantity : ParamQuantity {
-		Maude* getMaude() {
-			return dynamic_cast<Maude*>(module);
-		}
-
-		std::string getLabel() override {
-			Maude* m = getMaude();
-			if (!m) return "Warp";
-			switch (m->warpMode) {
-				case WARP_BIFURCATION: return "Bifurcation";
-				case WARP_WAVEFOLD: return "Wavefold";
-				case WARP_SKEW: return "Quadrature Skew";
-				default: return "Warp";
-			}
-		}
-
-		std::string getDisplayValueString() override {
-			float val = getValue() * 100.f;
-			char buf[32];
-			std::snprintf(buf, sizeof(buf), "%.1f", val);
-			return std::string(buf);
-		}
-
-		std::string getUnit() override {
-			return "%";
-		}
-	};
+	RangeMode rangeMode = RANGE_LFO;
+	dsp::BooleanTrigger rangeTrigger;
+	MaudeChannel channels[16];
 
 	Maude() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-		// DIV Param (1 to 12 integer subharmonic divisions, default 4)
+		// Row 1: Timebase
+		configParam(FREQ_PARAM, 0.f, 1.f, 0.5f, "Frequency", "%", 0.f, 100.f);
+		configParam(RANGE_PARAM, 0.f, 1.f, 0.f, "Range Select");
+		configParam<FineTuneParamQuantity>(FINE_PARAM, -1.f, 1.f, 0.f, "Fine Tune");
+		configParam(PHASE_PARAM, -1.f, 1.f, 0.f, "Phase Offset", "\xc2\xb0", 0.f, 180.f);
+
+		// Row 2: Subharmonic Engine
 		configParam<IntegerParamQuantity>(DIV_PARAM, 1.f, 12.f, 4.f, "Subharmonic Divisions", "");
 		paramQuantities[DIV_PARAM]->snapEnabled = true;
 
-		// RATIO Param (1 to 12 ring modulation harmonic ratio multiplier, default 1)
 		configParam<IntegerParamQuantity>(RATIO_PARAM, 1.f, 12.f, 1.f, "Ring Mod Ratio", "");
 		paramQuantities[RATIO_PARAM]->snapEnabled = true;
 
-		// DEPTH Param (0% to 100% wet/dry crossfade, default 100%)
+		configParam<WaveformParamQuantity>(SHAPE_PARAM, 0.f, 1.f, 0.f, "Carrier Waveform Morph");
 		configParam(DEPTH_PARAM, 0.f, 1.f, 1.f, "Modulation Depth", "%", 0.f, 100.f);
 
-		// WARP Param (0% to 100%, dynamic label per active mode)
-		configParam<WarpParamQuantity>(WARP_PARAM, 0.f, 1.f, 0.f, "Warp", "%", 0.f, 100.f);
+		// Row 3: Rosette Transformations & Sizing
+		configParam(SPLIT_PARAM, 0.f, 1.f, 0.f, "Split (Period Doubling)", "%", 0.f, 100.f);
+		configParam(FOLD_PARAM, 0.f, 1.f, 0.f, "Fold (Concentric Waveshape)", "%", 0.f, 100.f);
+		configParam(TWIST_PARAM, 0.f, 1.f, 0.f, "Twist (Quadrature Skew)", "%", 0.f, 100.f);
+		configParam(STRETCH_PARAM, -1.f, 1.f, 0.f, "Stretch", "%", 0.f, 100.f);
 
-		// Attenuverter Trimpots (Strict adherence to AGENTS.md 6.5.4)
+		// Zone 3: CV Attenuverters (Strict adherence to AGENTS.md 6.5.4)
+		// Row 1 Attenuverters
+		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV depth", "%", 0.f, 100.f);
+		configParam(FM_TRIM_PARAM, -1.f, 1.f, 0.f, "FM CV depth", "%", 0.f, 100.f);
+		configParam(FINE_TRIM_PARAM, -1.f, 1.f, 0.f, "Fine tune CV depth", "%", 0.f, 100.f);
+		configParam(PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Phase CV depth", "%", 0.f, 100.f);
+
+		// Row 2 Attenuverters
 		configParam(DIV_TRIM_PARAM, -1.f, 1.f, 0.f, "Divisions CV depth", "%", 0.f, 100.f);
 		configParam(RATIO_TRIM_PARAM, -1.f, 1.f, 0.f, "Ratio CV depth", "%", 0.f, 100.f);
+		configParam(SHAPE_TRIM_PARAM, -1.f, 1.f, 0.f, "Shape CV depth", "%", 0.f, 100.f);
 		configParam(DEPTH_TRIM_PARAM, -1.f, 1.f, 0.f, "Depth CV depth", "%", 0.f, 100.f);
-		configParam(WARP_TRIM_PARAM, -1.f, 1.f, 0.f, "Warp CV depth", "%", 0.f, 100.f);
 
-		// Port Labels
-		configInput(X_INPUT, "X");
-		configInput(Y_INPUT, "Y");
+		// Row 3 Attenuverters
+		configParam(SPLIT_TRIM_PARAM, -1.f, 1.f, 0.f, "Split CV depth", "%", 0.f, 100.f);
+		configParam(FOLD_TRIM_PARAM, -1.f, 1.f, 0.f, "Fold CV depth", "%", 0.f, 100.f);
+		configParam(TWIST_TRIM_PARAM, -1.f, 1.f, 0.f, "Twist CV depth", "%", 0.f, 100.f);
+		configParam(STRETCH_TRIM_PARAM, -1.f, 1.f, 0.f, "Stretch CV depth", "%", 0.f, 100.f);
+
+		// Port Configurations
+		configInput(FREQ_CV_INPUT, "Frequency CV");
+		configInput(FM_CV_INPUT, "Linear FM CV");
+		configInput(FINE_CV_INPUT, "Fine Tune CV");
+		configInput(PHASE_CV_INPUT, "Phase CV");
+
 		configInput(DIV_CV_INPUT, "Divisions CV");
 		configInput(RATIO_CV_INPUT, "Ratio CV");
+		configInput(SHAPE_CV_INPUT, "Shape CV");
 		configInput(DEPTH_CV_INPUT, "Depth CV");
-		configInput(WARP_CV_INPUT, "Warp CV");
+
+		configInput(SPLIT_CV_INPUT, "Split CV");
+		configInput(FOLD_CV_INPUT, "Fold CV");
+		configInput(TWIST_CV_INPUT, "Twist CV");
+		configInput(STRETCH_CV_INPUT, "Stretch CV");
+
+		configInput(SYNC_INPUT, "Sync");
 
 		configOutput(X_OUTPUT, "X");
 		configOutput(Y_OUTPUT, "Y");
+		configOutput(SYNC_OUTPUT, "Sync");
 
 		for (int c = 0; c < 16; c++) {
 			channels[c].reset();
@@ -156,206 +222,301 @@ struct Maude : Module {
 		}
 	}
 
+	float calculateBaseFrequency(float coarse, float fine) const {
+		if (rangeMode == RANGE_VERY_SLOW) {
+			float tCoarse = 600.0f * std::pow(0.1f / 600.0f, coarse);
+			float t = clampf(tCoarse * (1.0f - fine * 0.10f), 0.05f, 1000.0f);
+			return 1.0f / t;
+		} else if (rangeMode == RANGE_LFO) {
+			float fCoarse = 0.01f + 199.99f * coarse * coarse;
+			return clampf(fCoarse + fine * 20.0f, 0.01f, 250.0f);
+		} else {
+			float fCoarse = 150.0f * std::pow(2000.0f / 150.0f, coarse);
+			return clampf(fCoarse * (1.0f + fine * 0.10f), 100.0f, 2500.0f);
+		}
+	}
+
 	void process(const ProcessArgs& args) override {
-		int xCh = inputs[X_INPUT].getChannels();
-		int yCh = inputs[Y_INPUT].getChannels();
-		int divCvCh = inputs[DIV_CV_INPUT].getChannels();
-		int ratCvCh = inputs[RATIO_CV_INPUT].getChannels();
-		int depCvCh = inputs[DEPTH_CV_INPUT].getChannels();
-		int warpCvCh = inputs[WARP_CV_INPUT].getChannels();
+		// Range switch handling
+		if (rangeTrigger.process(params[RANGE_PARAM].getValue() > 0.5f)) {
+			rangeMode = (RangeMode)((rangeMode + 1) % RANGE_MODES_LEN);
+		}
 
-		bool xConnected = inputs[X_INPUT].isConnected();
-		bool yConnected = inputs[Y_INPUT].isConnected();
+		// Update 3-Color Range LED
+		lights[RANGE_LIGHT_YELLOW].setBrightness(rangeMode == RANGE_VERY_SLOW ? 1.f : 0.f);
+		lights[RANGE_LIGHT_ORANGE].setBrightness(rangeMode == RANGE_LFO ? 1.f : 0.f);
+		lights[RANGE_LIGHT_PURPLE].setBrightness(rangeMode == RANGE_VCO ? 1.f : 0.f);
 
-		int numChannels = std::max({xCh, yCh, divCvCh, ratCvCh, depCvCh, warpCvCh, 1});
-		outputs[X_OUTPUT].setChannels(numChannels);
-		outputs[Y_OUTPUT].setChannels(numChannels);
+		// Determine polyphony
+		int maxChannels = 1;
+		for (int i = 0; i < INPUTS_LEN; i++) {
+			if (inputs[i].isConnected()) {
+				maxChannels = std::max(maxChannels, inputs[i].getChannels());
+			}
+		}
 
+		outputs[X_OUTPUT].setChannels(maxChannels);
+		outputs[Y_OUTPUT].setChannels(maxChannels);
+		outputs[SYNC_OUTPUT].setChannels(maxChannels);
+
+		float coarseParam = params[FREQ_PARAM].getValue();
+		float fineParam = params[FINE_PARAM].getValue();
+		float defaultF0 = calculateBaseFrequency(coarseParam, fineParam);
+
+		float phaseParam = params[PHASE_PARAM].getValue();
 		float divParam = params[DIV_PARAM].getValue();
 		float ratioParam = params[RATIO_PARAM].getValue();
+		float shapeParam = params[SHAPE_PARAM].getValue();
 		float depthParam = params[DEPTH_PARAM].getValue();
-		float warpParam = params[WARP_PARAM].getValue();
+		float splitParam = params[SPLIT_PARAM].getValue();
+		float foldParam = params[FOLD_PARAM].getValue();
+		float twistParam = params[TWIST_PARAM].getValue();
+		float stretchParam = params[STRETCH_PARAM].getValue();
 
+		float fTrim = params[FREQ_TRIM_PARAM].getValue();
+		float fmTrim = params[FM_TRIM_PARAM].getValue();
+		float fineTrim = params[FINE_TRIM_PARAM].getValue();
+		float phaseTrim = params[PHASE_TRIM_PARAM].getValue();
 		float divTrim = params[DIV_TRIM_PARAM].getValue();
 		float ratioTrim = params[RATIO_TRIM_PARAM].getValue();
+		float shapeTrim = params[SHAPE_TRIM_PARAM].getValue();
 		float depthTrim = params[DEPTH_TRIM_PARAM].getValue();
-		float warpTrim = params[WARP_TRIM_PARAM].getValue();
+		float splitTrim = params[SPLIT_TRIM_PARAM].getValue();
+		float foldTrim = params[FOLD_TRIM_PARAM].getValue();
+		float twistTrim = params[TWIST_TRIM_PARAM].getValue();
+		float stretchTrim = params[STRETCH_TRIM_PARAM].getValue();
 
-		// Reference oscillator for unpatched normalled state (130.81278 Hz = C3)
-		const float refFreq = 130.81278f;
-		const float refDeltaPhase = refFreq * args.sampleTime;
+		bool syncConnected = inputs[SYNC_INPUT].isConnected();
+		bool fmConnected = inputs[FM_CV_INPUT].isConnected();
 
-		for (int c = 0; c < numChannels; c++) {
+		for (int c = 0; c < maxChannels; c++) {
 			auto& chan = channels[c];
 
-			// CV modulation inputs
-			float divCv = inputs[DIV_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float ratCv = inputs[RATIO_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float depCv = inputs[DEPTH_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float warpCv = inputs[WARP_CV_INPUT].getPolyVoltage(c) / 5.f;
-
-			int numDiv = (int)clampf(std::round(divParam + divCv * divTrim * 11.f), 1.f, 12.f);
-			int ratio = (int)clampf(std::round(ratioParam + ratCv * ratioTrim * 11.f), 1.f, 12.f);
-			float depth = clampf(depthParam + depCv * depthTrim, 0.f, 1.f);
-			float warp = clampf(warpParam + warpCv * warpTrim, 0.f, 1.f);
-
-			// Period doubling base span: 2 * numDiv input cycles ensures continuous subharmonic undertones
-			int totalCycles = 2 * numDiv;
-
-			float inX = 0.f;
-			float inY = 0.f;
-
-			if (!xConnected && !yConnected) {
-				// Normalled internal quadrature reference circle
-				chan.internalPhase += refDeltaPhase;
-				if (chan.internalPhase >= 1.f) {
-					chan.internalPhase -= 1.f;
-				}
-				float angle = 2.f * (float)M_PI * chan.internalPhase;
-				inX = 5.f * std::cos(angle);
-				inY = 5.f * std::sin(angle);
-
-				// Advance subharmonic phase locked to internal reference
-				chan.subPhase += refDeltaPhase / (float)totalCycles;
-				if (chan.subPhase >= 1.f) {
-					chan.subPhase -= 1.f;
+			// Handle Sync Input
+			bool syncTriggered = false;
+			chan.timeSinceSync += args.sampleTime;
+			if (syncConnected) {
+				float syncVolt = inputs[SYNC_INPUT].getPolyVoltage(c);
+				if (chan.syncTrigger.process(syncVolt, 0.1f, 1.5f)) {
+					if (chan.timeSinceSync > 1e-5f) {
+						chan.syncPeriod = chan.timeSinceSync;
+					}
+					chan.timeSinceSync = 0.f;
+					chan.carrierPhase = 0.f;
+					chan.subPhase = 0.f;
+					syncTriggered = true;
+					chan.syncPulse.trigger(1e-4f);
 				}
 			} else {
-				inX = inputs[X_INPUT].getPolyVoltage(c);
-				inY = yConnected ? inputs[Y_INPUT].getPolyVoltage(c) : inX;
-
-				// Cycle detector with hysteresis Schmitt trigger (+/-0.02V)
-				if (chan.prevInX <= -0.02f && inX > 0.02f && chan.samplesSinceZeroCross > 10) {
-					chan.currentPeriod = (float)chan.samplesSinceZeroCross;
-					// Exponential smoothing of tracked fundamental period
-					chan.smoothedPeriod += 0.1f * (chan.currentPeriod - chan.smoothedPeriod);
-					chan.samplesSinceZeroCross = 0;
-					chan.cycleIndex = (chan.cycleIndex + 1) % totalCycles;
-
-					// Soft phase alignment towards cycle boundary
-					float targetSubPhase = (float)chan.cycleIndex / (float)totalCycles;
-					float phaseDiff = targetSubPhase - chan.subPhase;
-					while (phaseDiff > 0.5f) phaseDiff -= 1.0f;
-					while (phaseDiff < -0.5f) phaseDiff += 1.0f;
-					chan.subPhase += 0.25f * phaseDiff;
-				}
-				chan.prevInX = inX;
-				chan.samplesSinceZeroCross = std::min(chan.samplesSinceZeroCross + 1, 480000);
-
-				float clampedPeriod = clampf(chan.smoothedPeriod, 8.f, 480000.f);
-				float dPhase = 1.0f / (clampedPeriod * (float)totalCycles);
-				chan.subPhase += dPhase;
-				if (chan.subPhase >= 1.0f) chan.subPhase -= 1.0f;
-				if (chan.subPhase < 0.0f) chan.subPhase += 1.0f;
+				chan.syncPeriod = 0.f;
 			}
 
-			// Subharmonic angle over the ratio multiplier
-			float theta = 4.f * (float)M_PI * chan.subPhase * (float)ratio;
-			float modX = 0.f;
-			float modY = 0.f;
+			// Base Frequency tracking
+			float f0 = (syncConnected && chan.syncPeriod > 0.f) ? (1.f / chan.syncPeriod) : defaultF0;
 
-			switch (warpMode) {
-				case WARP_BIFURCATION: {
-					// Subharmonic period doubling cascade (sub-octave undertone)
-					float baseMod = std::cos(theta);
-					float subOctave = std::cos(0.5f * theta);
-					float combined = (1.0f - warp) * baseMod + warp * subOctave;
-					modX = combined;
-					modY = combined;
-					break;
-				}
-				case WARP_WAVEFOLD: {
-					// Multi-tier rosette wavefolding into concentric layers
-					float drive = 1.0f + 2.5f * warp;
-					float folded = std::sin(drive * std::cos(theta) * (float)(M_PI * 0.5));
-					modX = folded;
-					modY = folded;
-					break;
-				}
-				case WARP_SKEW: {
-					// Quadrature phase skew twisting rosettes into spinning pinwheels
-					float skewAngle = warp * (float)M_PI;
-					modX = std::cos(theta);
-					modY = std::cos(theta + skewAngle);
-					break;
-				}
-				default: {
-					modX = std::cos(theta);
-					modY = std::cos(theta);
-					break;
-				}
+			// Frequency 1V/Oct modulation
+			float freqCv = inputs[FREQ_CV_INPUT].getPolyVoltage(c);
+			float fineCv = inputs[FINE_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float fineTotal = clampf(fineParam + fineCv * fineTrim, -1.f, 1.f);
+			float fCarrier = f0 * std::pow(2.f, freqCv * fTrim + fineTotal * 0.10f);
+
+			// Linear FM modulation
+			float fActual;
+			if (!fmConnected) {
+				float carrierSelfMod = std::sin(2.f * (float)M_PI * chan.carrierPhase);
+				float deltaF = fCarrier * carrierSelfMod * fmTrim;
+				fActual = std::max(0.0001f, fCarrier + deltaF);
+			} else {
+				float extFmCv = inputs[FM_CV_INPUT].getPolyVoltage(c);
+				float scaleHz = (rangeMode == RANGE_VERY_SLOW) ? (fCarrier * 2.f) : (rangeMode == RANGE_LFO ? 100.f : 500.f);
+				float deltaF = (extFmCv / 5.f) * fmTrim * scaleHz;
+				fActual = std::max(0.0001f, fCarrier + deltaF);
 			}
 
-			// Bipolar ring modulation wet/dry crossfade
-			float wetX = inX * modX;
-			float wetY = inY * modY;
+			// Advance carrier phase
+			float deltaPhase = fActual * args.sampleTime;
+			chan.carrierPhase += deltaPhase;
 
-			float outX = (1.0f - depth) * inX + depth * wetX;
-			float outY = (1.0f - depth) * inY + depth * wetY;
+			// Master sync pulse trigger when carrier completes a cycle
+			if (!syncTriggered && chan.carrierPhase >= 1.f) {
+				chan.syncPulse.trigger(1e-4f);
+			}
+			chan.carrierPhase -= std::floor(chan.carrierPhase);
 
-			// Galvo-safe signal output clamping
-			outputs[X_OUTPUT].setVoltage(clampf(outX, -12.f, 12.f), c);
-			outputs[Y_OUTPUT].setVoltage(clampf(outY, -12.f, 12.f), c);
+			// Modulations
+			float pCv = inputs[PHASE_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float dCv = inputs[DIV_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float rCv = inputs[RATIO_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float sCv = inputs[SHAPE_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float depCv = inputs[DEPTH_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float spCv = inputs[SPLIT_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float foCv = inputs[FOLD_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float twCv = inputs[TWIST_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float stCv = inputs[STRETCH_CV_INPUT].getPolyVoltage(c) / 5.f;
+
+			float phaseDeg = clampf(phaseParam + pCv * phaseTrim, -1.f, 1.f) * 180.f;
+			int numDiv = (int)clampf(std::round(divParam + dCv * divTrim * 11.f), 1.f, 12.f);
+			int ratio = (int)clampf(std::round(ratioParam + rCv * ratioTrim * 11.f), 1.f, 12.f);
+			float shape = clampf(shapeParam + sCv * shapeTrim, 0.f, 1.f);
+			float depth = clampf(depthParam + depCv * depthTrim, 0.f, 1.f);
+			float split = clampf(splitParam + spCv * splitTrim, 0.f, 1.f);
+			float fold = clampf(foldParam + foCv * foldTrim, 0.f, 1.f);
+			float twist = clampf(twistParam + twCv * twistTrim, 0.f, 1.f);
+			float stretch = clampf(stretchParam + stCv * stretchTrim, -1.f, 1.f);
+
+			// Advance subharmonic phase spanning 2 * numDiv cycles
+			int totalCycles = 2 * numDiv;
+			chan.subPhase += deltaPhase / (float)totalCycles;
+			chan.subPhase -= std::floor(chan.subPhase);
+
+			// Internal Carrier Waveforms (Quadrature X and Y from Shape)
+			float phiX = chan.carrierPhase;
+			float phiY = chan.carrierPhase + 0.25f;
+			if (phiY >= 1.f) phiY -= 1.f;
+
+			float rawX = 5.f * garmire::waveformMorph(phiX, shape);
+			float rawY = 5.f * garmire::waveformMorph(phiY, shape);
+
+			// Subharmonic Rosette Modulation Angles
+			float thetaX = 4.f * (float)M_PI * chan.subPhase * (float)ratio;
+			float thetaY = thetaX + twist * (float)M_PI;
+
+			// 1. SPLIT (subharmonic period doubling undertone)
+			float splitModX = (1.f - split) * std::cos(thetaX) + split * std::cos(0.5f * thetaX);
+			float splitModY = (1.f - split) * std::cos(thetaY) + split * std::cos(0.5f * thetaY);
+
+			// 2. FOLD (multi-tier trigonometric wavefolding)
+			float drive = 1.0f + 2.5f * fold;
+			float modX = std::sin(drive * splitModX * (float)(M_PI * 0.5));
+			float modY = std::sin(drive * splitModY * (float)(M_PI * 0.5));
+
+			// 3. DEPTH (wet/dry ring mod crossfade)
+			float wetX = rawX * modX;
+			float wetY = rawY * modY;
+			float xModulated = (1.f - depth) * rawX + depth * wetX;
+			float yModulated = (1.f - depth) * rawY + depth * wetY;
+
+			// 4. PHASE (orbital plane 2D rotation)
+			float rad = phaseDeg * (float)(M_PI / 180.0);
+			float cosP = std::cos(rad);
+			float sinP = std::sin(rad);
+			float rotX = xModulated * cosP - yModulated * sinP;
+			float rotY = xModulated * sinP + yModulated * cosP;
+
+			// 5. STRETCH (bipolar logarithmic aspect ratio stretch, positive outward)
+			float scaleX = std::pow(2.f, stretch);
+			float scaleY = std::pow(2.f, -stretch);
+			float finalX = rotX * scaleX;
+			float finalY = rotY * scaleY;
+
+			// Outputs
+			outputs[X_OUTPUT].setVoltage(clampf(finalX, -12.f, 12.f), c);
+			outputs[Y_OUTPUT].setVoltage(clampf(finalY, -12.f, 12.f), c);
+			outputs[SYNC_OUTPUT].setVoltage(chan.syncPulse.process(args.sampleTime) ? 10.f : 0.f, c);
 		}
 	}
 
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
-		json_object_set_new(rootJ, "warpMode", json_integer((int)warpMode));
+		json_object_set_new(rootJ, "rangeMode", json_integer((int)rangeMode));
 		return rootJ;
 	}
 
 	void dataFromJson(json_t* rootJ) override {
-		json_t* wmJ = json_object_get(rootJ, "warpMode");
-		if (wmJ) {
-			warpMode = (WarpMode)json_integer_value(wmJ);
+		json_t* rmJ = json_object_get(rootJ, "rangeMode");
+		if (rmJ) {
+			rangeMode = (RangeMode)json_integer_value(rmJ);
 		}
 	}
 };
+
+template <typename TBase = GrayModuleLightWidget>
+struct TRangeLight : TBase {
+	TRangeLight() {
+		this->addBaseColor(nvgRGBA(0xe1, 0xbe, 0x6a, 0xff)); // Warm Gold (Very Slow)
+		this->addBaseColor(nvgRGBA(0x40, 0xb0, 0xa6, 0xff)); // Teal (LFO)
+		this->addBaseColor(nvgRGBA(0xd3, 0x5f, 0xb7, 0xff)); // Magenta (VCO)
+	}
+};
+struct RangeLightWidget : SmallLight<TRangeLight<>> {};
 
 struct MaudeWidget : ModuleWidget {
 	MaudeWidget(Maude* module) {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Maude.svg")));
 
-		// 6HP Screws
+		// 12 HP Screws
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
+		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
+		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		// Zone 1 & 2: Main Parameter Knobs
-		// Row 1: DIV (X = 7.62 mm) & RATIO (X = 22.86 mm) (Center Y = 21.59 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 21.59)), module, Maude::DIV_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 21.59)), module, Maude::RATIO_PARAM));
+		// 4 Standard Columns (7.62, 22.86, 38.10, 53.34 mm)
+		const float col_x[4] = {7.62f, 22.86f, 38.10f, 53.34f};
 
-		// Row 2: DEPTH (X = 7.62 mm) & WARP (X = 22.86 mm) (Center Y = 43.00 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 43.00)), module, Maude::DEPTH_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 43.00)), module, Maude::WARP_PARAM));
+		// ── Zone 1 & 2: Primary Parameter Knobs ──
+		// Row 1: FREQ, RANGE (Button + LED), FINE, PHASE (Center Y = 18.50 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 18.50)), module, Maude::FREQ_PARAM));
+		addChild(createLightCentered<RangeLightWidget>(mm2px(Vec(col_x[1], 13.50)), module, Maude::RANGE_LIGHT_YELLOW));
+		addParam(createParamCentered<TL1105>(mm2px(Vec(col_x[1], 18.50)), module, Maude::RANGE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 18.50)), module, Maude::FINE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 18.50)), module, Maude::PHASE_PARAM));
 
-		// Zone 3: CV Attenuverter Trimpots
-		// Row 1 Trimpots: DIV (7.62) & RATIO (22.86) (Center Y = 61.00 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(7.62, 61.00)), module, Maude::DIV_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.86, 61.00)), module, Maude::RATIO_TRIM_PARAM));
+		// Row 2: DIV, RATIO, SHAPE, DEPTH (Center Y = 32.00 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 32.00)), module, Maude::DIV_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 32.00)), module, Maude::RATIO_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 32.00)), module, Maude::SHAPE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 32.00)), module, Maude::DEPTH_PARAM));
 
-		// Row 2 Trimpots: DEPTH (7.62) & WARP (22.86) (Center Y = 73.00 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(7.62, 73.00)), module, Maude::DEPTH_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.86, 73.00)), module, Maude::WARP_TRIM_PARAM));
+		// Row 3: SPLIT, FOLD, TWIST, STRETCH (Center Y = 45.50 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 45.50)), module, Maude::SPLIT_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 45.50)), module, Maude::FOLD_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 45.50)), module, Maude::TWIST_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 45.50)), module, Maude::STRETCH_PARAM));
 
-		// Zone 4: Bottom I/O Jacks
-		// Row 1: Signal Inputs (Center Y = 89.50 mm): X IN (7.62), Y IN (22.86)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 89.50)), module, Maude::X_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 89.50)), module, Maude::Y_INPUT));
+		// ── Zone 3: CV Attenuverter Trimpots (3 Rows x 4 Trimpots) ──
+		// Trim Row 1: FREQ, FM, FINE, PHASE (Center Y = 56.50 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 56.50)), module, Maude::FREQ_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 56.50)), module, Maude::FM_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 56.50)), module, Maude::FINE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[3], 56.50)), module, Maude::PHASE_TRIM_PARAM));
 
-		// Row 2: DIV CV (X = 7.62 mm), RATIO CV (X = 22.86 mm) (Center Y = 99.00 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 99.00)), module, Maude::DIV_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 99.00)), module, Maude::RATIO_CV_INPUT));
+		// Trim Row 2: DIV, RATIO, SHAPE, DEPTH (Center Y = 64.50 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 64.50)), module, Maude::DIV_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 64.50)), module, Maude::RATIO_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 64.50)), module, Maude::SHAPE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[3], 64.50)), module, Maude::DEPTH_TRIM_PARAM));
 
-		// Row 3: DEPTH CV (X = 7.62 mm), WARP CV (X = 22.86 mm) (Center Y = 108.50 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 108.50)), module, Maude::DEPTH_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 108.50)), module, Maude::WARP_CV_INPUT));
+		// Trim Row 3: SPLIT, FOLD, TWIST, STRETCH (Center Y = 72.50 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 72.50)), module, Maude::SPLIT_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 72.50)), module, Maude::FOLD_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 72.50)), module, Maude::TWIST_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[3], 72.50)), module, Maude::STRETCH_TRIM_PARAM));
 
-		// Row 4: Signal Outputs (Center Y = 118.00 mm): X OUT (7.62), Y OUT (22.86)
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 118.00)), module, Maude::X_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 118.00)), module, Maude::Y_OUTPUT));
+		// ── Zone 4: I/O Jacks (4 Rows x 4 Jacks) ──
+		// Jack Row 1 (CV): FREQ, FM, FINE, PHASE (Center Y = 85.00 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 85.00)), module, Maude::FREQ_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 85.00)), module, Maude::FM_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 85.00)), module, Maude::FINE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 85.00)), module, Maude::PHASE_CV_INPUT));
+
+		// Jack Row 2 (CV): DIV, RATIO, SHAPE, DEPTH (Center Y = 96.00 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 96.00)), module, Maude::DIV_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 96.00)), module, Maude::RATIO_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 96.00)), module, Maude::SHAPE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 96.00)), module, Maude::DEPTH_CV_INPUT));
+
+		// Jack Row 3 (CV): SPLIT, FOLD, TWIST, STRETCH (Center Y = 107.00 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 107.00)), module, Maude::SPLIT_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 107.00)), module, Maude::FOLD_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 107.00)), module, Maude::TWIST_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 107.00)), module, Maude::STRETCH_CV_INPUT));
+
+		// Jack Row 4 (Fixed Bottom Signal/Sync Row: SYNC IN, X OUT, Y OUT, SYNC OUT, Center Y = 118.00 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 118.00)), module, Maude::SYNC_INPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 118.00)), module, Maude::X_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 118.00)), module, Maude::Y_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 118.00)), module, Maude::SYNC_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
@@ -363,19 +524,19 @@ struct MaudeWidget : ModuleWidget {
 		if (!module) return;
 
 		menu->addChild(new MenuSeparator());
-		menu->addChild(createMenuLabel("Warp Parameter Mode"));
+		menu->addChild(createMenuLabel("Oscillator Range"));
 
-		const char* modeLabels[] = {
-			"Bifurcation (Subharmonic Period Doubling)",
-			"Wavefold (Multi-Tier Concentric Rosettes)",
-			"Quadrature Skew (Pinwheel Twist & Spiral)"
+		const char* rangeLabels[] = {
+			"Very Slow (600s - 0.1s)",
+			"LFO (0.01 - 200 Hz)",
+			"VCO (150 Hz - 2 kHz)"
 		};
 
-		for (int i = 0; i < WARP_MODES_LEN; i++) {
-			WarpMode m = (WarpMode)i;
-			menu->addChild(createCheckMenuItem(modeLabels[i], "",
-				[=]() { return module->warpMode == m; },
-				[=]() { module->warpMode = m; }
+		for (int i = 0; i < 3; i++) {
+			Maude::RangeMode mode = (Maude::RangeMode)i;
+			menu->addChild(createCheckMenuItem(rangeLabels[i], "",
+				[=]() { return module->rangeMode == mode; },
+				[=]() { module->rangeMode = mode; }
 			));
 		}
 	}

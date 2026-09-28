@@ -433,9 +433,10 @@
     {
       "slug": "Maude",
       "name": "Maude",
-      "description": "Subharmonic ring modulator and bifurcating undertone folding orbital rosette processor with 1-12 integer divisions, 1-12 ring modulation ratio, continuous depth crossfade, and multi-mode warp (bifurcation period doubling, wavefolding, and quadrature skew)",
+      "description": "Subharmonic ring modulator and folding orbital rosette vector generator with Coarse/Fine timebase, 3-state Range oscillator (Very Slow / LFO / VCO), carrier waveshape morph, 1-12 integer divisions, 1-12 ring modulation ratio, continuous depth crossfade, dedicated Split (bifurcation), Fold (wavefolding), Twist (quadrature skew), and bipolar Stretch",
       "tags": [
         "Visual",
+        "Oscillator",
         "Utility",
         "Ring Modulator",
         "Dual"
