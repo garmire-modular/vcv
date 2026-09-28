@@ -98,56 +98,64 @@ def main():
         '    <rect x="0.000" y="67.806" width="2.540" height="40.894" fill="#005566" stroke="none"/>',
         '  </g>',
         '',
-        '  <!-- Delineator Line 1 (Main Controls / Attenuverters at Y = 67.50mm) -->',
-        f'  <line x1="2.54" y1="67.50" x2="{panel_w - 2.54:.2f}" y2="67.50" stroke="#999999" stroke-width="0.176"/>',
+        '  <!-- Delineator Line 1 (Main Controls / Attenuverters at Y = 63.50mm) -->',
+        f'  <line x1="2.54" y1="63.50" x2="{panel_w - 2.54:.2f}" y2="63.50" stroke="#999999" stroke-width="0.176"/>',
         '',
-        '  <!-- Delineator Line 2 (Attenuverters / I/O Jacks at Y = 93.00mm) -->',
-        f'  <line x1="2.54" y1="93.00" x2="{panel_w - 2.54:.2f}" y2="93.00" stroke="#999999" stroke-width="0.176"/>',
+        '  <!-- Delineator Line 2 (Attenuverters / I/O Jacks at Y = 86.00mm) -->',
+        f'  <line x1="2.54" y1="86.00" x2="{panel_w - 2.54:.2f}" y2="86.00" stroke="#999999" stroke-width="0.176"/>',
         ''
     ]
     svg_parts.extend(lisa_title_block)
     svg_parts.extend(version_block)
 
-    # Knob Columns: X_left = 10.82 mm, X_right = 29.82 mm, Center = 20.32 mm
-    # 4-Column Ports/Trimpots: 6.07, 15.57, 25.07, 34.57 mm
+    # Columns:
+    # 2-Knob Columns: 10.82, 29.82 mm (Center = 20.32 mm)
+    # 3-Column Ports & Trimpots: 8.82, 20.32, 31.82 mm (Equal 11.50 mm pitch, 8.82 mm margin)
+    # 4-Column Jacks Row 3: 6.07, 15.57, 25.07, 34.57 mm (Equal 9.50 mm pitch, 6.07 mm margin)
 
-    # Row 1 Knobs: FREQ & FINE (Knob center Y = 23.00, label Y = 14.500, scale = 0.002800)
+    # Row 1 Knobs: FREQ & FINE (Knob center Y = 21.59, label Y = 14.500)
     svg_parts.append(render_qs_text(qs_font, "FREQ", 10.82, 14.500, 0.002800, "#1c1c1c", "FREQ Knob Label"))
     svg_parts.append(render_qs_text(qs_font, "FINE", 29.82, 14.500, 0.002800, "#1c1c1c", "FINE Knob Label"))
 
-    # Row 2 Knobs: RATIO X & Y (Knob center Y = 42.00, label Y = 34.500)
-    svg_parts.append(render_qs_text(qs_font, "RATIO", 20.32, 32.200, 0.002000, "#2c2c2c", "RATIO Group Header"))
-    svg_parts.append(render_qs_text(qs_font, "X", 10.82, 34.500, 0.002800, "#1c1c1c", "X Ratio Knob Label"))
-    svg_parts.append(render_qs_text(qs_font, "Y", 29.82, 34.500, 0.002800, "#1c1c1c", "Y Ratio Knob Label"))
+    # Row 2 Knobs: RATIO X & Y (Knob center Y = 37.00, label Y = 30.500)
+    svg_parts.append(render_qs_text(qs_font, "RATIO", 20.32, 28.500, 0.001900, "#2c2c2c", "RATIO Group Header"))
+    svg_parts.append(render_qs_text(qs_font, "X", 10.82, 30.500, 0.002800, "#1c1c1c", "X Ratio Knob Label"))
+    svg_parts.append(render_qs_text(qs_font, "Y", 29.82, 30.500, 0.002800, "#1c1c1c", "Y Ratio Knob Label"))
 
-    # Row 3 Knobs: PHASE & DAMP (Knob center Y = 60.50, label Y = 53.000)
-    svg_parts.append(render_qs_text(qs_font, "PHASE", 10.82, 53.000, 0.002400, "#1c1c1c", "PHASE Knob Label"))
-    svg_parts.append(render_qs_text(qs_font, "DAMP", 29.82, 53.000, 0.002400, "#1c1c1c", "DAMP Knob Label"))
+    # Row 3 Knobs: PHASE & DAMP (Knob center Y = 52.50, label Y = 45.800)
+    svg_parts.append(render_qs_text(qs_font, "PHASE", 10.82, 45.800, 0.002400, "#1c1c1c", "PHASE Knob Label"))
+    svg_parts.append(render_qs_text(qs_font, "DAMP", 29.82, 45.800, 0.002400, "#1c1c1c", "DAMP Knob Label"))
 
-    # Zone 3: CV Attenuverter Trimpots
-    # Attenuverter Row 1: FREQ, FM, X, Y (Center Y = 75.50, label Y = 71.000)
-    svg_parts.append(render_qs_text(qs_font, "FREQ", 6.07, 71.000, 0.001900, "#2c2c2c", "FREQ CV Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "FM", 15.57, 71.000, 0.001900, "#2c2c2c", "FM CV Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "X", 25.07, 71.000, 0.001900, "#2c2c2c", "X Ratio CV Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "Y", 34.57, 71.000, 0.001900, "#2c2c2c", "Y Ratio CV Trim Label"))
+    # Zone 3: CV Attenuverter Trimpots (3 Columns: 8.82, 20.32, 31.82 mm)
+    # Attenuverter Row 1: FREQ, X, Y (Center Y = 70.00, label Y = 66.200)
+    svg_parts.append(render_qs_text(qs_font, "FREQ", 8.82, 66.200, 0.001800, "#2c2c2c", "FREQ CV Trim Label"))
+    svg_parts.append(render_qs_text(qs_font, "X", 20.32, 66.200, 0.002200, "#2c2c2c", "X Ratio CV Trim Label"))
+    svg_parts.append(render_qs_text(qs_font, "Y", 31.82, 66.200, 0.002200, "#2c2c2c", "Y Ratio CV Trim Label"))
 
-    # Attenuverter Row 2: PHASE, DAMP (Center Y = 86.50, label Y = 82.000)
-    svg_parts.append(render_qs_text(qs_font, "PHASE", 10.82, 82.000, 0.002000, "#2c2c2c", "PHASE CV Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "DAMP", 29.82, 82.000, 0.002000, "#2c2c2c", "DAMP CV Trim Label"))
+    # Attenuverter Row 2: FM, PHASE, DAMP (Center Y = 79.50, label Y = 75.700)
+    svg_parts.append(render_qs_text(qs_font, "FM", 8.82, 75.700, 0.001800, "#2c2c2c", "FM CV Trim Label"))
+    svg_parts.append(render_qs_text(qs_font, "PHASE", 20.32, 75.700, 0.001800, "#2c2c2c", "PHASE CV Trim Label"))
+    svg_parts.append(render_qs_text(qs_font, "DAMP", 31.82, 75.700, 0.001800, "#2c2c2c", "DAMP CV Trim Label"))
 
     # Zone 4: I/O Jacks
-    # Jack Row 1 (Inputs): FREQ, FM, X, Y (Center Y = 104.00, label Y = 98.000)
-    svg_parts.append(render_qs_text(qs_font, "FREQ", 6.07, 98.000, 0.001900, "#2c2c2c", "FREQ Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "FM", 15.57, 98.000, 0.001900, "#2c2c2c", "FM Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "X", 25.07, 98.000, 0.001900, "#2c2c2c", "X Ratio Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "Y", 34.57, 98.000, 0.001900, "#2c2c2c", "Y Ratio Jack Label"))
+    # Jack Row 1 (Inputs): FREQ, X, Y (Center Y = 94.50, label Y = 89.200)
+    svg_parts.append(render_qs_text(qs_font, "FREQ", 8.82, 89.200, 0.001800, "#2c2c2c", "FREQ Jack Label"))
+    svg_parts.append(render_qs_text(qs_font, "X", 20.32, 89.200, 0.002200, "#2c2c2c", "X Ratio Jack Label"))
+    svg_parts.append(render_qs_text(qs_font, "Y", 31.82, 89.200, 0.002200, "#2c2c2c", "Y Ratio Jack Label"))
 
-    # Jack Row 2 (Sync & Outputs): SYNC IN, X OUT, Y OUT, SYNC OUT (Center Y = 118.00)
-    svg_parts.append(render_qs_text(qs_font, "SYNC IN", 6.07, 112.500, 0.001700, "#2c2c2c", "SYNC IN Label"))
-    svg_parts.append(render_qs_text(qs_font, "OUT", 20.32, 110.200, 0.001700, "#2c2c2c", "OUT Shared Header"))
-    svg_parts.append(render_qs_text(qs_font, "X", 15.57, 112.500, 0.002200, "#3c3c3c", "X OUT Label"))
-    svg_parts.append(render_qs_text(qs_font, "Y", 25.07, 112.500, 0.002200, "#3c3c3c", "Y OUT Label"))
-    svg_parts.append(render_qs_text(qs_font, "SYNC OUT", 34.57, 112.500, 0.001700, "#2c2c2c", "SYNC OUT Label"))
+    # Jack Row 2 (Inputs): FM, PHASE, DAMP (Center Y = 106.00, label Y = 100.800)
+    svg_parts.append(render_qs_text(qs_font, "FM", 8.82, 100.800, 0.001800, "#2c2c2c", "FM Jack Label"))
+    svg_parts.append(render_qs_text(qs_font, "PHASE", 20.32, 100.800, 0.001800, "#2c2c2c", "PHASE Jack Label"))
+    svg_parts.append(render_qs_text(qs_font, "DAMP", 31.82, 100.800, 0.001800, "#2c2c2c", "DAMP Jack Label"))
+
+    # Jack Row 3 (Sync & Outputs): SYNC IN, X OUT, Y OUT, SYNC OUT (Center Y = 118.00)
+    svg_parts.append(render_qs_text(qs_font, "SYNC IN", 6.07, 112.800, 0.001600, "#2c2c2c", "SYNC IN Label"))
+    svg_parts.append(render_qs_text(qs_font, "X", 15.57, 112.800, 0.002200, "#3c3c3c", "X OUT Label"))
+    svg_parts.append(render_qs_text(qs_font, "Y", 25.07, 112.800, 0.002200, "#3c3c3c", "Y OUT Label"))
+    svg_parts.append(render_qs_text(qs_font, "SYNC OUT", 34.57, 112.800, 0.001600, "#2c2c2c", "SYNC OUT Label"))
+
+    # Under Jack Row 3: OUT Header (Y = 124.50 mm)
+    svg_parts.append(render_qs_text(qs_font, "OUT", 20.32, 124.500, 0.001800, "#2c2c2c", "OUT Bottom Subheader"))
 
     svg_parts.append('</svg>')
 
@@ -165,31 +173,33 @@ def main():
     draw = ImageDraw.Draw(im)
     r_px = (76 * 4) / panel_w
 
-    # Knobs at Y = 23.00, 42.00, 60.50 mm (radius ~ 4.75 mm, centered at 10.82 and 29.82 mm)
+    # Knobs at Y = 21.59, 37.00, 52.50 mm (radius ~ 4.75 mm, centered at 10.82 and 29.82 mm)
     kr = 4.75 * r_px
-    for ky in [23.00, 42.00, 60.50]:
+    for ky in [21.59, 37.00, 52.50]:
         for kx in [10.82, 29.82]:
             draw.ellipse([kx * r_px - kr, ky * r_px - kr, kx * r_px + kr, ky * r_px + kr], outline='#ffaa00', width=2)
 
     # Range Button and LED at center X = 20.32 mm
     led_r = 1.5 * r_px
-    draw.ellipse([20.32 * r_px - led_r, 17.50 * r_px - led_r, 20.32 * r_px + led_r, 17.50 * r_px + led_r], outline='#cc79a7', width=2)
+    draw.ellipse([20.32 * r_px - led_r, 16.50 * r_px - led_r, 20.32 * r_px + led_r, 16.50 * r_px + led_r], outline='#cc79a7', width=2)
     btn_r = 2.0 * r_px
-    draw.ellipse([20.32 * r_px - btn_r, 25.50 * r_px - btn_r, 20.32 * r_px + btn_r, 25.50 * r_px + btn_r], outline='#f0e442', width=2)
+    draw.ellipse([20.32 * r_px - btn_r, 24.50 * r_px - btn_r, 20.32 * r_px + btn_r, 24.50 * r_px + btn_r], outline='#f0e442', width=2)
 
-    # Trimpots (Row 1 at Y = 75.50 mm at 6.07, 15.57, 25.07, 34.57 mm)
+    # Trimpots: 3 Columns (8.82, 20.32, 31.82 mm at Y = 70.00 and 79.50 mm)
     tr = 2.5 * r_px
-    for tx in [6.07, 15.57, 25.07, 34.57]:
-        draw.ellipse([tx * r_px - tr, 75.50 * r_px - tr, tx * r_px + tr, 75.50 * r_px + tr], outline='#00ff88', width=2)
-    # Trimpots (Row 2 at Y = 86.50 mm at 10.82, 29.82 mm)
-    for tx in [10.82, 29.82]:
-        draw.ellipse([tx * r_px - tr, 86.50 * r_px - tr, tx * r_px + tr, 86.50 * r_px + tr], outline='#00ff88', width=2)
+    for ty in [70.00, 79.50]:
+        for tx in [8.82, 20.32, 31.82]:
+            draw.ellipse([tx * r_px - tr, ty * r_px - tr, tx * r_px + tr, ty * r_px + tr], outline='#00ff88', width=2)
 
-    # Jacks (Row 1 at Y = 104.00 mm, Row 2 at Y = 118.00 mm at 6.07, 15.57, 25.07, 34.57 mm)
+    # Jacks: Row 1 (94.50 mm) & Row 2 (106.00 mm) at 8.82, 20.32, 31.82 mm
     jr = 4.15 * r_px
-    for jy in [104.00, 118.00]:
-        for jx in [6.07, 15.57, 25.07, 34.57]:
+    for jy in [94.50, 106.00]:
+        for jx in [8.82, 20.32, 31.82]:
             draw.ellipse([jx * r_px - jr, jy * r_px - jr, jx * r_px + jr, jy * r_px + jr], outline='#00e5ff', width=2)
+
+    # Jacks: Row 3 (4 Columns: 6.07, 15.57, 25.07, 34.57 mm at Y = 118.00 mm)
+    for jx in [6.07, 15.57, 25.07, 34.57]:
+        draw.ellipse([jx * r_px - jr, 118.00 * r_px - jr, jx * r_px + jr, 118.00 * r_px + jr], outline='#00e5ff', width=2)
 
     im.save(verify_png)
     print(f"Rendered verification bitmap: {verify_png}")

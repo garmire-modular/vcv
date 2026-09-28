@@ -6,9 +6,9 @@
 //  Lisa — Lissajous Trajectory & Harmonic Orbital Generator (8 HP)
 //  Generate class module producing orthogonal sinusoidal oscillations
 //  with Coarse/Fine timebase, 3-state Range oscillator (Very Slow / LFO / VCO),
-//  carrier-normalized linear FM, harmonic frequency multipliers (1:1 to 10:10),
-//  bipolar phase shift (±180°), bipolar orbital dampening (±100%), and
-//  bidirectional frequency sync (Sync In & Sync Out).
+//  carrier-normalized linear FM (with external override), harmonic frequency
+//  multipliers (1:1 to 10:10), bipolar phase shift (±180°), bipolar orbital
+//  dampening (±100%), and bidirectional frequency sync (Sync In & Sync Out).
 // ─────────────────────────────────────────────────────────────────────
 
 #ifndef M_PI
@@ -47,10 +47,10 @@ struct Lisa : Module {
 		DAMP_PARAM,
 
 		FREQ_TRIM_PARAM,
-		FM_TRIM_PARAM,
 		X_RATIO_TRIM_PARAM,
 		Y_RATIO_TRIM_PARAM,
 
+		FM_TRIM_PARAM,
 		PHASE_TRIM_PARAM,
 		DAMP_TRIM_PARAM,
 
@@ -59,9 +59,13 @@ struct Lisa : Module {
 
 	enum InputId {
 		FREQ_CV_INPUT,
-		FM_CV_INPUT,
 		X_RATIO_CV_INPUT,
 		Y_RATIO_CV_INPUT,
+
+		FM_CV_INPUT,
+		PHASE_CV_INPUT,
+		DAMP_CV_INPUT,
+
 		SYNC_INPUT,
 
 		INPUTS_LEN
@@ -161,21 +165,30 @@ struct Lisa : Module {
 		configParam(DAMP_PARAM, -1.f, 1.f, 0.f, "Orbital dampening", "%", 0.f, 100.f);
 
 		// CV Attenuverters (Mandatory naming per AGENTS.md Section 6.5.4)
+		// Row 1 Attenuverters
 		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV depth", "%", 0.f, 100.f);
-		configParam(FM_TRIM_PARAM, -1.f, 1.f, 0.f, "FM CV depth", "%", 0.f, 100.f);
 		configParam(X_RATIO_TRIM_PARAM, -1.f, 1.f, 0.f, "X ratio CV depth", "%", 0.f, 100.f);
 		configParam(Y_RATIO_TRIM_PARAM, -1.f, 1.f, 0.f, "Y ratio CV depth", "%", 0.f, 100.f);
+
+		// Row 2 Attenuverters
+		configParam(FM_TRIM_PARAM, -1.f, 1.f, 0.f, "Linear FM CV depth", "%", 0.f, 100.f);
 		configParam(PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Phase CV depth", "%", 0.f, 100.f);
 		configParam(DAMP_TRIM_PARAM, -1.f, 1.f, 0.f, "Damp CV depth", "%", 0.f, 100.f);
 
-		// Inputs
-		configInput(FREQ_CV_INPUT, "Frequency (1V/Oct)");
-		configInput(FM_CV_INPUT, "Linear FM (Normalized to carrier)");
+		// Inputs: Row 1
+		configInput(FREQ_CV_INPUT, "Frequency CV");
 		configInput(X_RATIO_CV_INPUT, "X ratio CV");
 		configInput(Y_RATIO_CV_INPUT, "Y ratio CV");
+
+		// Inputs: Row 2
+		configInput(FM_CV_INPUT, "External FM");
+		configInput(PHASE_CV_INPUT, "Phase CV");
+		configInput(DAMP_CV_INPUT, "Damp CV");
+
+		// Sync
 		configInput(SYNC_INPUT, "Sync");
 
-		// Outputs
+		// Outputs: Row 3
 		configOutput(SYNC_OUTPUT, "Sync");
 		configOutput(X_OUTPUT, "X");
 		configOutput(Y_OUTPUT, "Y");
@@ -204,20 +217,21 @@ struct Lisa : Module {
 			rangeMode = (RangeMode)((rangeMode + 1) % 3);
 		}
 
-		// Update 3-Color Range LED
-		// Yellow = Very Slow, Orange = LFO, Purple = VCO
+		// Update 3-Color Range LED (Yellow = Very Slow, Orange = LFO, Purple = VCO)
 		lights[RANGE_LIGHT_YELLOW].setBrightness(rangeMode == RANGE_VERY_SLOW ? 1.f : 0.f);
 		lights[RANGE_LIGHT_ORANGE].setBrightness(rangeMode == RANGE_LFO ? 1.f : 0.f);
 		lights[RANGE_LIGHT_PURPLE].setBrightness(rangeMode == RANGE_VCO ? 1.f : 0.f);
 
-		// Determine polyphony channel count
+		// Polyphony channel count
 		int fCvCh  = inputs[FREQ_CV_INPUT].getChannels();
 		int fmCvCh = inputs[FM_CV_INPUT].getChannels();
 		int xCvCh  = inputs[X_RATIO_CV_INPUT].getChannels();
 		int yCvCh  = inputs[Y_RATIO_CV_INPUT].getChannels();
+		int pCvCh  = inputs[PHASE_CV_INPUT].getChannels();
+		int dCvCh  = inputs[DAMP_CV_INPUT].getChannels();
 		int sCh    = inputs[SYNC_INPUT].getChannels();
 
-		int numChannels = std::max({fCvCh, fmCvCh, xCvCh, yCvCh, sCh, 1});
+		int numChannels = std::max({fCvCh, fmCvCh, xCvCh, yCvCh, pCvCh, dCvCh, sCh, 1});
 		outputs[SYNC_OUTPUT].setChannels(numChannels);
 		outputs[X_OUTPUT].setChannels(numChannels);
 		outputs[Y_OUTPUT].setChannels(numChannels);
@@ -239,7 +253,9 @@ struct Lisa : Module {
 		float phaseTrim  = params[PHASE_TRIM_PARAM].getValue();
 		float dampTrim   = params[DAMP_TRIM_PARAM].getValue();
 
+		bool fmConnected  = inputs[FM_CV_INPUT].isConnected();
 		bool yCvConnected = inputs[Y_RATIO_CV_INPUT].isConnected();
+		bool dCvConnected = inputs[DAMP_CV_INPUT].isConnected();
 		bool syncConnected = inputs[SYNC_INPUT].isConnected();
 
 		for (int c = 0; c < numChannels; c++) {
@@ -270,16 +286,25 @@ struct Lisa : Module {
 			float freqCv = inputs[FREQ_CV_INPUT].getPolyVoltage(c);
 			float fCarrier = f0 * std::pow(2.f, freqCv * fTrim);
 
-			// Linear FM normalized to carrier frequency: Δf = fCarrier * (V_fm / 5V) * trim
-			float fmCv = inputs[FM_CV_INPUT].getPolyVoltage(c);
-			float deltaF = fCarrier * (fmCv / 5.f) * fmTrim;
-			float fActual = std::max(0.0001f, fCarrier + deltaF);
+			// Linear FM modulation:
+			// If External FM input is unpatched, normalize to carrier frequency (+/- N% of carrier frequency)
+			// If External FM input is patched, external voltage overrides that behaviour
+			float fActual;
+			if (!fmConnected) {
+				float carrierSelfMod = std::sin(2.f * (float)M_PI * vs.phaseX);
+				float deltaF = fCarrier * carrierSelfMod * fmTrim;
+				fActual = std::max(0.0001f, fCarrier + deltaF);
+			} else {
+				float extFmCv = inputs[FM_CV_INPUT].getPolyVoltage(c);
+				float scaleHz = (rangeMode == RANGE_VERY_SLOW) ? (fCarrier * 2.f) : (rangeMode == RANGE_LFO ? 100.f : 500.f);
+				float deltaF = (extFmCv / 5.f) * fmTrim * scaleHz;
+				fActual = std::max(0.0001f, fCarrier + deltaF);
+			}
 
-			// CV inputs with normalization: Y Ratio CV normalizes from X Ratio CV
+			// Ratio CV inputs: Y Ratio normalizes from X Ratio
 			float xCv = inputs[X_RATIO_CV_INPUT].getPolyVoltage(c) / 5.f;
 			float yCv = yCvConnected ? (inputs[Y_RATIO_CV_INPUT].getPolyVoltage(c) / 5.f) : xCv;
 
-			// Frequency ratios clamped to [0.05, 20.0]
 			float rx = clampf(xRatioParam + xCv * xRatioTrim * 9.f, 0.05f, 20.f);
 			float ry = clampf(yRatioParam + yCv * yRatioTrim * 9.f, 0.05f, 20.f);
 
@@ -290,7 +315,7 @@ struct Lisa : Module {
 			vs.phaseX += fx * args.sampleTime;
 			vs.phaseY += fy * args.sampleTime;
 
-			// Emit sync pulse when voice completes a master period
+			// Emit sync pulse when voice completes a master cycle
 			if (!syncTriggered && vs.phaseY >= 1.f) {
 				vs.syncPulse.trigger(1e-4f);
 			}
@@ -299,13 +324,13 @@ struct Lisa : Module {
 			vs.phaseX -= std::floor(vs.phaseX);
 			vs.phaseY -= std::floor(vs.phaseY);
 
-			// Phase shift modulation (bipolar ±180°) - normalizes from FM CV or X Ratio CV
-			float pCv = inputs[FM_CV_INPUT].isConnected() ? (inputs[FM_CV_INPUT].getPolyVoltage(c) / 5.f) : xCv;
+			// Phase shift modulation (bipolar ±180°)
+			float pCv = inputs[PHASE_CV_INPUT].getPolyVoltage(c) / 5.f;
 			float phaseDeg = clampf(phaseParam + pCv * phaseTrim * 180.f, -180.f, 180.f);
 			float phaseRad = phaseDeg * (float)(M_PI / 180.0);
 
-			// Orbital Dampening modulation (bipolar ±100%) - normalizes from Y Ratio CV
-			float dCv = yCv;
+			// Orbital Dampening modulation (bipolar ±100%): Damp normalizes from Phase CV if unpatched
+			float dCv = dCvConnected ? (inputs[DAMP_CV_INPUT].getPolyVoltage(c) / 5.f) : pCv;
 			float dampVal = clampf(dampParam + dCv * dampTrim, -1.f, 1.f);
 
 			// Orthogonal Sinusoidal Oscillations
@@ -384,41 +409,45 @@ struct LisaWidget : ModuleWidget {
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		// Row 1: FREQ & FINE Knobs (10.82 and 29.82 mm at Center Y = 23.00 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 23.00)), module, Lisa::FREQ_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 23.00)), module, Lisa::FINE_PARAM));
+		// Row 1: FREQ & FINE Knobs (10.82 and 29.82 mm at Center Y = 21.59 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 21.59)), module, Lisa::FREQ_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 21.59)), module, Lisa::FINE_PARAM));
 
-		// Row 1 Center: Range LED (17.50 mm) and Range Button (25.50 mm)
-		addChild(createLightCentered<RangeLightWidget>(mm2px(Vec(20.32, 17.50)), module, Lisa::RANGE_LIGHT_YELLOW));
-		addParam(createParamCentered<TL1105>(mm2px(Vec(20.32, 25.50)), module, Lisa::RANGE_PARAM));
+		// Row 1 Center: Range LED (16.50 mm) and Range Button (24.50 mm)
+		addChild(createLightCentered<RangeLightWidget>(mm2px(Vec(20.32, 16.50)), module, Lisa::RANGE_LIGHT_YELLOW));
+		addParam(createParamCentered<TL1105>(mm2px(Vec(20.32, 24.50)), module, Lisa::RANGE_PARAM));
 
-		// Row 2: Harmonic Ratio Knobs (Center Y = 42.00 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 42.00)), module, Lisa::X_RATIO_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 42.00)), module, Lisa::Y_RATIO_PARAM));
+		// Row 2: Harmonic Ratio Knobs (Center Y = 37.00 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 37.00)), module, Lisa::X_RATIO_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 37.00)), module, Lisa::Y_RATIO_PARAM));
 
-		// Row 3: Phase & Damp Knobs (Center Y = 60.50 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 60.50)), module, Lisa::PHASE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 60.50)), module, Lisa::DAMP_PARAM));
+		// Row 3: Phase & Damp Knobs (Center Y = 52.50 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 52.50)), module, Lisa::PHASE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 52.50)), module, Lisa::DAMP_PARAM));
 
-		// Zone 3: CV Attenuverter Trimpots
-		// Row 1: FREQ, FM, X, Y (Center Y = 75.50 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(6.07, 75.50)), module, Lisa::FREQ_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(15.57, 75.50)), module, Lisa::FM_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(25.07, 75.50)), module, Lisa::X_RATIO_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(34.57, 75.50)), module, Lisa::Y_RATIO_TRIM_PARAM));
+		// Zone 3: CV Attenuverter Trimpots (3 Columns: 8.82, 20.32, 31.82 mm)
+		// Row 1 Attenuverters: FREQ, X, Y (Center Y = 70.00 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(8.82, 70.00)), module, Lisa::FREQ_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 70.00)), module, Lisa::X_RATIO_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 70.00)), module, Lisa::Y_RATIO_TRIM_PARAM));
 
-		// Row 2: PHASE, DAMP (Center Y = 86.50 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(10.82, 86.50)), module, Lisa::PHASE_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(29.82, 86.50)), module, Lisa::DAMP_TRIM_PARAM));
+		// Row 2 Attenuverters: FM, PHASE, DAMP (Center Y = 79.50 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(8.82, 79.50)), module, Lisa::FM_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 79.50)), module, Lisa::PHASE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 79.50)), module, Lisa::DAMP_TRIM_PARAM));
 
 		// Zone 4: I/O Jacks
-		// Row 1 (Inputs): FREQ, FM, X, Y (Center Y = 104.00 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(6.07, 104.00)), module, Lisa::FREQ_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.57, 104.00)), module, Lisa::FM_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(25.07, 104.00)), module, Lisa::X_RATIO_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(34.57, 104.00)), module, Lisa::Y_RATIO_CV_INPUT));
+		// Row 1 (Inputs): FREQ, X, Y (Center Y = 94.50 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.82, 94.50)), module, Lisa::FREQ_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 94.50)), module, Lisa::X_RATIO_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 94.50)), module, Lisa::Y_RATIO_CV_INPUT));
 
-		// Row 2 (Sync & Outputs): SYNC IN, X OUT, Y OUT, SYNC OUT (Center Y = 118.00 mm)
+		// Row 2 (Inputs): FM, PHASE, DAMP (Center Y = 106.00 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.82, 106.00)), module, Lisa::FM_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 106.00)), module, Lisa::PHASE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 106.00)), module, Lisa::DAMP_CV_INPUT));
+
+		// Row 3 (Sync & Outputs): SYNC IN, X OUT, Y OUT, SYNC OUT (Center Y = 118.00 mm)
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(6.07, 118.00)), module, Lisa::SYNC_INPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.57, 118.00)), module, Lisa::X_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(25.07, 118.00)), module, Lisa::Y_OUTPUT));
