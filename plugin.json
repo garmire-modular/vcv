@@ -393,7 +393,7 @@
     {
       "slug": "Lisa",
       "name": "Lisa",
-      "description": "Lissajous curve and harmonic orbital trajectory generator with perpendicular X/Y frequency multipliers, bipolar phase shift, and orbital dampening",
+      "description": "Lissajous curve and harmonic orbital trajectory generator with Coarse/Fine timebase, 3-state Range oscillator (Very Slow / LFO / VCO), carrier-normalized linear FM, X/Y harmonic ratios, bipolar phase shift, and orbital dampening",
       "tags": [
         "Visual",
         "Oscillator",

@@ -1671,7 +1671,7 @@
   "Lisa": {
     "module": "Lisa",
     "slug": "Lisa",
-    "hp": 6,
+    "hp": 8,
     "mode": "Generate",
     "anchor": "charcoal",
     "anchorColor": "#1A1A1A",
