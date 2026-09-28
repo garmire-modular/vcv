@@ -220,6 +220,21 @@ struct Polly : Module {
 		}
 	};
 
+	struct SidesParamQuantity : ParamQuantity {
+		std::string getDisplayValueString() override {
+			int s = (int)std::round(getValue());
+			return std::to_string(s);
+		}
+
+		void setDisplayValueString(std::string s) override {
+			char* endPtr = nullptr;
+			float val = std::strtof(s.c_str(), &endPtr);
+			if (endPtr != s.c_str()) {
+				setValue(clampf(std::round(val), getMinValue(), getMaxValue()));
+			}
+		}
+	};
+
 	Polly() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
@@ -227,7 +242,8 @@ struct Polly : Module {
 		configParam<FreqParamQuantity>(FREQ_PARAM, 0.f, 1.f, 0.5477f, "Frequency", "");
 		configButton(RANGE_PARAM, "Range time-scale");
 		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine frequency", "%", 0.f, 10.f);
-		configParam(SIDES_PARAM, 3.f, 32.f, 4.f, "Sides", "");
+		configParam<SidesParamQuantity>(SIDES_PARAM, 3.f, 32.f, 4.f, "Sides", "");
+		paramQuantities[SIDES_PARAM]->snapEnabled = true;
 		configParam(ANGLE_PARAM, -180.f, 180.f, 0.f, "Angle", "°");
 
 		// Row 2: Distribution Parameters (SPLIT, PAIR, TRIO, GROUP, BUNCH)
@@ -437,13 +453,13 @@ struct Polly : Module {
 				float theta = baseAngleRad + baseTheta;
 				float step = (float)M_PI / (float)N;
 
-				// 1. Bunch (k=1 dipole: bunches toward one pole)
+				// 1. Bunch (k=1 dipole: bunches toward one pole, 3x strength)
 				if (std::abs(bunchVal) > 0.001f) {
-					theta += bunchVal * step * std::sin(theta);
+					theta += bunchVal * 3.f * step * std::sin(theta);
 				}
-				// 2. Group (k=2 quadrupole: bilateral compression/expansion)
+				// 2. Group (k=2 quadrupole: bilateral compression/expansion, 3x strength)
 				if (std::abs(groupVal) > 0.001f) {
-					theta += groupVal * step * std::sin(2.f * theta);
+					theta += groupVal * 3.f * step * std::sin(2.f * theta);
 				}
 				// 3. Trio (discrete 3-grouping: pulls triplets together ••• —— •••)
 				if (std::abs(trioVal) > 0.001f) {
