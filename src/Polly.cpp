@@ -414,15 +414,15 @@ struct Polly : Module {
 			float phaseVal = (phaseParam + (inputs[PHASE_CV_INPUT].getPolyVoltage(c) / 5.f) * phaseTrim * 180.f) * (float)(M_PI / 180.0);
 			float bulgeVal = clampf(bulgeParam + (inputs[BULGE_CV_INPUT].getPolyVoltage(c) / 5.f) * bulgeTrim, -1.f, 1.f);
 
-			// Distribution parameters: Cluster CV modulates cluster; other distribution patterns normalize from cluster CV if unpatched
+			// Distribution parameters: Cluster CV modulates cluster
 			float clustCv = inputs[CLUST_CV_INPUT].getPolyVoltage(c) / 5.f;
 			float clustVal = clampf(clustParam + clustCv * clustTrim, -1.f, 1.f);
-			float harmVal = clampf(harmParam + clustCv * clustTrim, -1.f, 1.f);
-			float triadVal = clampf(triadParam + clustCv * clustTrim, -1.f, 1.f);
-			float swingVal = clampf(swingParam + clustCv * clustTrim, -1.f, 1.f);
+			float harmVal = clampf(harmParam, -1.f, 1.f);
+			float triadVal = clampf(triadParam, -1.f, 1.f);
+			float swingVal = clampf(swingParam, -1.f, 1.f);
 
-			// Split parameter: modulated by Split CV if patched, else unpatched normalizes from cluster CV
-			float splitCv = splitConnected ? (inputs[SPLIT_CV_INPUT].getPolyVoltage(c) / 5.f) : clustCv;
+			// Split parameter: modulated by Split CV if patched
+			float splitCv = splitConnected ? (inputs[SPLIT_CV_INPUT].getPolyVoltage(c) / 5.f) : 0.f;
 			float splitVal = clampf(splitParam + splitCv * clustTrim, -1.f, 1.f);
 
 			// Master phase traversal across polygon sides
@@ -440,19 +440,21 @@ struct Polly : Module {
 				float theta = baseAngleRad + baseTheta;
 				float step = (float)M_PI / (float)N;
 
-				// 1. Cluster (k=1 dipole)
+				// 1. Cluster (k=1 dipole: bunches toward one pole)
 				if (std::abs(clustVal) > 0.001f) {
 					theta += clustVal * step * std::sin(theta);
 				}
-				// 2. Harmonic (k=2 quadrupole)
+				// 2. Harmonic (k=2 quadrupole: bilateral compression/expansion)
 				if (std::abs(harmVal) > 0.001f) {
 					theta += harmVal * step * std::sin(2.f * theta);
 				}
-				// 3. Triad (k=3 sextupole)
+				// 3. Triad (discrete 3-grouping: pulls triplets together ••• —— •••)
 				if (std::abs(triadVal) > 0.001f) {
-					theta += triadVal * step * std::cos(3.f * theta);
+					int triadMod = idx % 3;
+					float triadShift = (triadMod == 0) ? 1.0f : ((triadMod == 2) ? -1.0f : 0.0f);
+					theta += triadVal * step * triadShift;
 				}
-				// 4. Swing (alternating adjacent edges)
+				// 4. Swing (alternating adjacent edges: •• — •• — ••)
 				if (std::abs(swingVal) > 0.001f) {
 					theta += swingVal * step * ((idx % 2 == 0) ? 1.f : -1.f);
 				}
