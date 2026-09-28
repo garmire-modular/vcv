@@ -240,6 +240,66 @@ html_content = f'''<!DOCTYPE html>
       flex-shrink: 0;
     }}
 
+    /* Fine Badge Width Slider */
+    .slider-group {{
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }}
+
+    .slider-label {{
+      font-size: 11px;
+      font-weight: 700;
+      color: #7b808e;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }}
+
+    .range-slider {{
+      -webkit-appearance: none;
+      appearance: none;
+      width: 72px;
+      height: 4px;
+      background: #2a2d37;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }}
+
+    .range-slider::-webkit-slider-thumb {{
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #56B4E9;
+      cursor: pointer;
+      border: 1px solid #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      transition: transform 0.1s;
+    }}
+
+    .range-slider::-webkit-slider-thumb:hover {{
+      transform: scale(1.2);
+    }}
+
+    .range-slider::-moz-range-thumb {{
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #56B4E9;
+      cursor: pointer;
+      border: 1px solid #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }}
+
+    .slider-val {{
+      font-family: 'consola', monospace;
+      font-size: 11px;
+      color: #e5e5e5;
+      min-width: 48px;
+    }}
+
     .btn-save {{
       background: #0072B2;
       color: #ffffff;
@@ -546,6 +606,15 @@ html_content = f'''<!DOCTYPE html>
 
         <div class="divider"></div>
 
+        <!-- Width Slider (Fine 0 to 2.5mm) -->
+        <div class="slider-group" title="Badge Width (0.00 to 2.50 mm)">
+          <span class="slider-label">Width</span>
+          <input type="range" class="range-slider" id="slider-width" min="0" max="2.5" step="0.05" value="2.50" oninput="onWidthChange(this.value)">
+          <span class="slider-val" id="val-width">2.50 mm</span>
+        </div>
+
+        <div class="divider"></div>
+
         <!-- Panel Color Selector (#7C7C7C, #6E6E6E, #333333) -->
         <div class="group panel-color-group">
           <button class="btn panel-btn active" id="b-panel-7c7c7c" onclick="setPanelColor('#7C7C7C')" title="Panel Fill: #7C7C7C (Default)">
@@ -647,10 +716,17 @@ html_content = f'''<!DOCTYPE html>
       ]
     }};
 
-    // Locked In Dimensions: 2.54mm width, 88.9mm height, centered at 64.25mm (yOffset = 0)
-    const BADGE_WIDTH_MM  = 2.54;  // 0.10 inch
+    // Dimensions
+    let badgeWidthMm      = 2.50;  // Fine adjustable: 0.00 to 2.50 mm (step 0.05)
     const BADGE_HEIGHT_MM = 88.90; // 3.50 inch
     const BADGE_Y_OFFSET  = 0.00;  // Center locked at 0
+
+    function onWidthChange(val) {{
+      badgeWidthMm = parseFloat(val);
+      const valEl = document.getElementById('val-width');
+      if (valEl) valEl.textContent = badgeWidthMm.toFixed(2) + ' mm';
+      renderFaceplateAndSwatches();
+    }}
 
     // State
     const ANCHORS = {{
@@ -787,6 +863,11 @@ html_content = f'''<!DOCTYPE html>
         if (saved.panelColor) {{
           selectedPanelColor = saved.panelColor;
         }}
+        if (saved.badgeGeometry && saved.badgeGeometry.widthMm !== undefined) {{
+          badgeWidthMm = Math.min(2.5, Math.max(0, saved.badgeGeometry.widthMm));
+        }} else {{
+          badgeWidthMm = 2.50;
+        }}
         updateControlUI();
 
         currentPalette = {{
@@ -796,6 +877,8 @@ html_content = f'''<!DOCTYPE html>
         renderFaceplateAndSwatches();
       }} else {{
         savedPill.classList.remove('active');
+        badgeWidthMm = 2.50;
+        updateControlUI();
         generate();
       }}
     }}
@@ -813,6 +896,10 @@ html_content = f'''<!DOCTYPE html>
         const btn = document.getElementById('b-panel-' + c);
         if (btn) btn.classList.toggle('active', selectedPanelColor.toLowerCase() === ('#' + c));
       }});
+      const slider = document.getElementById('slider-width');
+      const valLabel = document.getElementById('val-width');
+      if (slider) slider.value = badgeWidthMm;
+      if (valLabel) valLabel.textContent = badgeWidthMm.toFixed(2) + ' mm';
     }}
 
     function setPanelColor(colorHex) {{
@@ -976,7 +1063,7 @@ html_content = f'''<!DOCTYPE html>
           const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
           rect.setAttribute('x', '0');
           rect.setAttribute('y', curYMm.toFixed(3));
-          rect.setAttribute('width', BADGE_WIDTH_MM.toFixed(3));
+          rect.setAttribute('width', badgeWidthMm.toFixed(3));
           rect.setAttribute('height', bandHeightMm.toFixed(3));
           rect.setAttribute('fill', hex);
           rect.style.cursor = 'pointer';
@@ -1125,7 +1212,7 @@ html_content = f'''<!DOCTYPE html>
         colors: [...currentPalette.colors],
         weights: currentPalette.weights,
         badgeGeometry: {{
-          widthMm: BADGE_WIDTH_MM,
+          widthMm: Number(badgeWidthMm.toFixed(3)),
           heightMm: BADGE_HEIGHT_MM,
           yOffsetMm: BADGE_Y_OFFSET,
           x: 0.0,
