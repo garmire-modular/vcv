@@ -6,7 +6,8 @@
 //  Lisa — Lissajous Trajectory & Harmonic Orbital Generator
 //  Generate class module producing orthogonal sinusoidal oscillations
 //  with harmonic frequency multipliers (1:1 to 10:10), bipolar phase
-//  offset (±180°), and bipolar orbital dampening (±100%).
+//  offset (±180°), bipolar orbital dampening (±100%), and bidirectional
+//  frequency sync (Sync In & Sync Out).
 // ─────────────────────────────────────────────────────────────────────
 
 #ifndef M_PI
@@ -41,11 +42,13 @@ struct Lisa : Module {
 		Y_FREQ_CV_INPUT,
 		PHASE_CV_INPUT,
 		DAMP_CV_INPUT,
+		SYNC_INPUT,
 
 		INPUTS_LEN
 	};
 
 	enum OutputId {
+		SYNC_OUTPUT,
 		X_OUTPUT,
 		Y_OUTPUT,
 
@@ -78,6 +81,10 @@ struct Lisa : Module {
 		float phaseX = 0.f;
 		float phaseY = 0.f;
 		float basePhase = 0.f;
+		float timeSinceSync = 0.f;
+		float syncPeriod = 0.f;
+		rack::dsp::SchmittTrigger syncTrigger;
+		rack::dsp::PulseGenerator syncPulse;
 	};
 
 	VoiceState voices[16];
@@ -106,8 +113,10 @@ struct Lisa : Module {
 		configInput(Y_FREQ_CV_INPUT, "Y freq CV");
 		configInput(PHASE_CV_INPUT, "Phase CV");
 		configInput(DAMP_CV_INPUT, "Dampening CV");
+		configInput(SYNC_INPUT, "Sync");
 
 		// Outputs (Rack automatically appends "output" to tooltips)
+		configOutput(SYNC_OUTPUT, "Sync");
 		configOutput(X_OUTPUT, "X");
 		configOutput(Y_OUTPUT, "Y");
 	}
@@ -129,12 +138,14 @@ struct Lisa : Module {
 		int yCvCh = inputs[Y_FREQ_CV_INPUT].getChannels();
 		int pCvCh = inputs[PHASE_CV_INPUT].getChannels();
 		int dCvCh = inputs[DAMP_CV_INPUT].getChannels();
+		int sCh   = inputs[SYNC_INPUT].getChannels();
 
-		int numChannels = std::max({xCvCh, yCvCh, pCvCh, dCvCh, 1});
+		int numChannels = std::max({xCvCh, yCvCh, pCvCh, dCvCh, sCh, 1});
+		outputs[SYNC_OUTPUT].setChannels(numChannels);
 		outputs[X_OUTPUT].setChannels(numChannels);
 		outputs[Y_OUTPUT].setChannels(numChannels);
 
-		float f0 = getBaseFrequency();
+		float defaultF0 = getBaseFrequency();
 
 		float xFreqParam = params[X_FREQ_PARAM].getValue();
 		float yFreqParam = params[Y_FREQ_PARAM].getValue();
@@ -147,9 +158,32 @@ struct Lisa : Module {
 		float dampTrim  = params[DAMP_TRIM_PARAM].getValue();
 
 		bool yCvConnected = inputs[Y_FREQ_CV_INPUT].isConnected();
+		bool syncConnected = inputs[SYNC_INPUT].isConnected();
 
 		for (int c = 0; c < numChannels; c++) {
 			VoiceState& vs = voices[c];
+
+			// External Hard Frequency Sync
+			bool syncTriggered = false;
+			if (syncConnected) {
+				vs.timeSinceSync += args.sampleTime;
+				if (vs.syncTrigger.process(inputs[SYNC_INPUT].getPolyVoltage(c), 0.1f, 2.0f)) {
+					if (vs.timeSinceSync > 0.0005f) {
+						vs.syncPeriod = vs.timeSinceSync;
+					}
+					vs.timeSinceSync = 0.f;
+					vs.basePhase = 0.f;
+					vs.phaseX = 0.f;
+					vs.phaseY = 0.f;
+					syncTriggered = true;
+					vs.syncPulse.trigger(1e-4f);
+				}
+			} else {
+				vs.syncPeriod = 0.f;
+			}
+
+			// Base Frequency: track sync frequency if locked, else internal reference
+			float f0 = (syncConnected && vs.syncPeriod > 0.f) ? (1.f / vs.syncPeriod) : defaultF0;
 
 			// CV inputs with normalization: Y Freq CV normalizes from X Freq CV
 			float xCv = inputs[X_FREQ_CV_INPUT].getPolyVoltage(c) / 5.f;
@@ -168,20 +202,23 @@ struct Lisa : Module {
 			// Orbital Dampening in [-1.0, 1.0]
 			float damp = clampf(dampParam + dCv * dampTrim, -1.f, 1.f);
 
-			// Advance fundamental cycle and voice phases
-			vs.basePhase += f0 * args.sampleTime;
-			if (vs.basePhase >= 1.f) {
-				vs.basePhase -= std::floor(vs.basePhase);
-			}
+			// Advance fundamental cycle
+			if (!syncTriggered) {
+				vs.basePhase += f0 * args.sampleTime;
+				if (vs.basePhase >= 1.f) {
+					vs.basePhase -= std::floor(vs.basePhase);
+					vs.syncPulse.trigger(1e-4f);
+				}
 
-			vs.phaseX += (f0 * rx) * args.sampleTime;
-			if (vs.phaseX >= 1.f) {
-				vs.phaseX -= std::floor(vs.phaseX);
-			}
+				vs.phaseX += (f0 * rx) * args.sampleTime;
+				if (vs.phaseX >= 1.f) {
+					vs.phaseX -= std::floor(vs.phaseX);
+				}
 
-			vs.phaseY += (f0 * ry) * args.sampleTime;
-			if (vs.phaseY >= 1.f) {
-				vs.phaseY -= std::floor(vs.phaseY);
+				vs.phaseY += (f0 * ry) * args.sampleTime;
+				if (vs.phaseY >= 1.f) {
+					vs.phaseY -= std::floor(vs.phaseY);
+				}
 			}
 
 			// Compute orbital dampening envelope along the fundamental orbit
@@ -201,6 +238,10 @@ struct Lisa : Module {
 			// Orthogonal sinusoidal generation: standard Eurorack 5V nominal amplitude
 			float rawX = 5.f * env * std::sin(2.f * (float)M_PI * vs.phaseX);
 			float rawY = 5.f * env * std::sin(2.f * (float)M_PI * vs.phaseY + deltaPhi);
+
+			// Sync trigger pulse out: 10V Eurorack trigger
+			float syncOutV = vs.syncPulse.process(args.sampleTime) ? 10.f : 0.f;
+			outputs[SYNC_OUTPUT].setVoltage(syncOutV, c);
 
 			// Hardware laser safety voltage bounds (-12V to +12V)
 			outputs[X_OUTPUT].setVoltage(clampf(rawX, -12.f, 12.f), c);
@@ -243,29 +284,33 @@ struct LisaWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 21.59)), module, Lisa::X_FREQ_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 21.59)), module, Lisa::Y_FREQ_PARAM));
 
-		// Row 2: Phase Shift (7.62 mm) & Orbital Dampening (22.86 mm) Knobs (Center Y = 42.50 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 42.50)), module, Lisa::PHASE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 42.50)), module, Lisa::DAMP_PARAM));
+		// Row 2: Phase Shift (7.62 mm) & Orbital Dampening (22.86 mm) Knobs (Center Y = 40.00 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 40.00)), module, Lisa::PHASE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 40.00)), module, Lisa::DAMP_PARAM));
 
 		// Attenuverter Trimpots
-		// Trimpot Row 1: X & Y Freq CV depths (Center Y = 68.00 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(7.62, 68.00)), module, Lisa::X_FREQ_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.86, 68.00)), module, Lisa::Y_FREQ_TRIM_PARAM));
+		// Trimpot Row 1: X & Y Freq CV depths (Center Y = 61.50 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(7.62, 61.50)), module, Lisa::X_FREQ_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.86, 61.50)), module, Lisa::Y_FREQ_TRIM_PARAM));
 
-		// Trimpot Row 2: Phase & Damp CV depths (Center Y = 80.00 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(7.62, 80.00)), module, Lisa::PHASE_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.86, 80.00)), module, Lisa::DAMP_TRIM_PARAM));
+		// Trimpot Row 2: Phase & Damp CV depths (Center Y = 73.00 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(7.62, 73.00)), module, Lisa::PHASE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.86, 73.00)), module, Lisa::DAMP_TRIM_PARAM));
 
-		// Bottom I/O Jacks
-		// Row 1: Freq CV Inputs (Center Y = 99.00 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 99.00)), module, Lisa::X_FREQ_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 99.00)), module, Lisa::Y_FREQ_CV_INPUT));
+		// Bottom I/O Jacks (4 Rows bottom-aligned upward from Y = 118.00 mm)
+		// Row 1: Freq CV Inputs (Center Y = 89.50 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 89.50)), module, Lisa::X_FREQ_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 89.50)), module, Lisa::Y_FREQ_CV_INPUT));
 
-		// Row 2: Phase CV & Damp CV Inputs (Center Y = 108.50 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 108.50)), module, Lisa::PHASE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 108.50)), module, Lisa::DAMP_CV_INPUT));
+		// Row 2: Phase CV & Damp CV Inputs (Center Y = 99.00 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 99.00)), module, Lisa::PHASE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 99.00)), module, Lisa::DAMP_CV_INPUT));
 
-		// Row 3: Signal Outputs (Center Y = 118.00 mm)
+		// Row 3: Sync In (Left 7.62 mm) & Sync Out (Right 22.86 mm) (Center Y = 108.50 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 108.50)), module, Lisa::SYNC_INPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 108.50)), module, Lisa::SYNC_OUTPUT));
+
+		// Row 4: Signal Outputs (Center Y = 118.00 mm)
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 118.00)), module, Lisa::X_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 118.00)), module, Lisa::Y_OUTPUT));
 	}

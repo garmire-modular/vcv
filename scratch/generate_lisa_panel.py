@@ -2,7 +2,6 @@ import os
 import re
 import sys
 
-# Ensure MSYS2 DLLs are found for cairosvg / libcairo
 msys_bin = r'C:\msys64\mingw64\bin'
 if os.path.exists(msys_bin):
     os.environ['PATH'] = msys_bin + os.path.pathsep + os.environ.get('PATH', '')
@@ -95,11 +94,11 @@ def main():
         '    <rect x="0.000" y="67.806" width="1.350" height="40.894" fill="#005566" stroke="none"/>',
         '  </g>',
         '',
-        '  <!-- Delineator Line 1 (Main Controls / Attenuverters at Y = 58.00mm) -->',
-        '  <line x1="2.54" y1="58.00" x2="27.94" y2="58.00" stroke="#999999" stroke-width="0.176"/>',
+        '  <!-- Delineator Line 1 (Main Controls / Attenuverters at Y = 52.50mm) -->',
+        '  <line x1="2.54" y1="52.50" x2="27.94" y2="52.50" stroke="#999999" stroke-width="0.176"/>',
         '',
-        '  <!-- Delineator Line 2 (Attenuverters / I/O Jacks at Y = 90.00mm) -->',
-        '  <line x1="2.54" y1="90.00" x2="27.94" y2="90.00" stroke="#999999" stroke-width="0.176"/>',
+        '  <!-- Delineator Line 2 (Attenuverters / I/O Jacks at Y = 80.50mm) -->',
+        '  <line x1="2.54" y1="80.50" x2="27.94" y2="80.50" stroke="#999999" stroke-width="0.176"/>',
         ''
     ]
     svg_parts.extend(lisa_title_block)
@@ -110,24 +109,28 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "Y", 22.86, 13.070, 0.003000, "#1c1c1c", "Y Knob Header"))
     svg_parts.append(render_qs_text(qs_font, "FREQ", 15.24, 15.000, 0.002200, "#2c2c2c", "Row 1 Function Header"))
 
-    # Row 2 Knobs: PHASE & DAMP labels (Knob center Y = 42.50, label Y = 34.000, scale = 0.002400)
-    svg_parts.append(render_qs_text(qs_font, "PHASE", 7.62, 34.000, 0.002400, "#1c1c1c", "PHASE Knob Label"))
-    svg_parts.append(render_qs_text(qs_font, "DAMP", 22.86, 34.000, 0.002400, "#1c1c1c", "DAMP Knob Label"))
+    # Row 2 Knobs: PHASE & DAMP labels (Knob center Y = 40.00, label Y = 32.500, scale = 0.002400)
+    svg_parts.append(render_qs_text(qs_font, "PHASE", 7.62, 32.500, 0.002400, "#1c1c1c", "PHASE Knob Label"))
+    svg_parts.append(render_qs_text(qs_font, "DAMP", 22.86, 32.500, 0.002400, "#1c1c1c", "DAMP Knob Label"))
 
-    # Trimpot Row 1: Single centered "FREQ" (Trimpot center Y = 68.00, label Y = 63.500)
-    svg_parts.append(render_qs_text(qs_font, "FREQ", 15.24, 63.500, 0.002000, "#2c2c2c", "FREQ CV Attenuverter Label"))
+    # Trimpot Row 1: Single centered "FREQ" (Trimpot center Y = 61.50, label Y = 57.000)
+    svg_parts.append(render_qs_text(qs_font, "FREQ", 15.24, 57.000, 0.002000, "#2c2c2c", "FREQ CV Attenuverter Label"))
 
-    # Trimpot Row 2: PHASE & DAMP (Trimpot center Y = 80.00, label Y = 75.500)
-    svg_parts.append(render_qs_text(qs_font, "PHASE", 7.62, 75.500, 0.002000, "#2c2c2c", "PHASE CV Attenuverter Label"))
-    svg_parts.append(render_qs_text(qs_font, "DAMP", 22.86, 75.500, 0.002000, "#2c2c2c", "DAMP CV Attenuverter Label"))
+    # Trimpot Row 2: PHASE & DAMP (Trimpot center Y = 73.00, label Y = 68.500)
+    svg_parts.append(render_qs_text(qs_font, "PHASE", 7.62, 68.500, 0.002000, "#2c2c2c", "PHASE CV Attenuverter Label"))
+    svg_parts.append(render_qs_text(qs_font, "DAMP", 22.86, 68.500, 0.002000, "#2c2c2c", "DAMP CV Attenuverter Label"))
 
-    # Jack Row 1 (Freq CV): Single centered "FREQ" (Jack center Y = 99.00, label Y = 97.500)
-    svg_parts.append(render_qs_text(qs_font, "FREQ", 15.24, 97.500, 0.002000, "#2c2c2c", "FREQ CV Jack Row Label"))
+    # Jack Row 1 (Freq CV): Single centered "FREQ" (Jack center Y = 89.50, label Y = 88.000)
+    svg_parts.append(render_qs_text(qs_font, "FREQ", 15.24, 88.000, 0.002000, "#2c2c2c", "FREQ CV Jack Row Label"))
 
-    # Jack Row 2 (Phase & Damp CV): Centered "CV" (Jack center Y = 108.50, label Y = 107.000)
-    svg_parts.append(render_qs_text(qs_font, "CV", 15.24, 107.000, 0.002000, "#2c2c2c", "CV Jack Row Label"))
+    # Jack Row 2 (Phase & Damp CV): Centered "MOD" (Jack center Y = 99.00, label Y = 97.500)
+    svg_parts.append(render_qs_text(qs_font, "MOD", 15.24, 97.500, 0.002000, "#2c2c2c", "MOD CV Jack Row Label"))
 
-    # Jack Row 3 (Signal Outputs): Centered "OUT" (Jack center Y = 118.00, label Y = 116.500)
+    # Jack Row 3 (Sync In & Sync Out): "SYNC" and "IN / OUT" (Jack center Y = 108.50)
+    svg_parts.append(render_qs_text(qs_font, "SYNC", 15.24, 105.800, 0.001900, "#2c2c2c", "SYNC Header"))
+    svg_parts.append(render_qs_text(qs_font, "IN   OUT", 15.24, 108.600, 0.001500, "#3c3c3c", "SYNC IN / OUT Direction Label"))
+
+    # Jack Row 4 (Signal Outputs): Centered "OUT" (Jack center Y = 118.00, label Y = 116.500)
     svg_parts.append(render_qs_text(qs_font, "OUT", 15.24, 116.500, 0.002400, "#2c2c2c", "OUT Jack Row Label"))
 
     svg_parts.append('</svg>')
@@ -146,21 +149,21 @@ def main():
     draw = ImageDraw.Draw(im)
     r_px = (57 * 4) / 30.48
 
-    # Knobs at Y = 21.59 mm and Y = 42.50 mm (radius ~ 4.5 mm)
+    # Knobs at Y = 21.59 mm and Y = 40.00 mm (radius ~ 4.5 mm)
     kr = 4.5 * r_px
-    for ky in [21.59, 42.50]:
+    for ky in [21.59, 40.00]:
         draw.ellipse([7.62 * r_px - kr, ky * r_px - kr, 7.62 * r_px + kr, ky * r_px + kr], outline='#ffaa00', width=2)
         draw.ellipse([22.86 * r_px - kr, ky * r_px - kr, 22.86 * r_px + kr, ky * r_px + kr], outline='#ffaa00', width=2)
 
-    # Trimpots at Y = 68.00 mm and Y = 80.00 mm (radius ~ 2.5 mm)
+    # Trimpots at Y = 61.50 mm and Y = 73.00 mm (radius ~ 2.5 mm)
     tr = 2.5 * r_px
-    for ty in [68.00, 80.00]:
+    for ty in [61.50, 73.00]:
         draw.ellipse([7.62 * r_px - tr, ty * r_px - tr, 7.62 * r_px + tr, ty * r_px + tr], outline='#00ff88', width=2)
         draw.ellipse([22.86 * r_px - tr, ty * r_px - tr, 22.86 * r_px + tr, ty * r_px + tr], outline='#00ff88', width=2)
 
-    # Jacks (Row 1: 99.00, Row 2: 108.50, Row 3: 118.00)
+    # Jacks (Row 1: 89.50, Row 2: 99.00, Row 3: 108.50, Row 4: 118.00)
     jr = 4.15 * r_px
-    for jy in [99.00, 108.50, 118.00]:
+    for jy in [89.50, 99.00, 108.50, 118.00]:
         draw.ellipse([7.62 * r_px - jr, jy * r_px - jr, 7.62 * r_px + jr, jy * r_px + jr], outline='#00e5ff', width=2)
         draw.ellipse([22.86 * r_px - jr, jy * r_px - jr, 22.86 * r_px + jr, jy * r_px + jr], outline='#00e5ff', width=2)
 
