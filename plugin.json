@@ -413,7 +413,7 @@
     {
       "slug": "Polly",
       "name": "Polly",
-      "description": "Polygon vector synthesizer and geometric oscillator with variable vertex sides, rotation, pinch/twist secondary vertices, corner fillet, 5-stage serial vertex distribution (Cluster, Harmonic, Triad, Swing, Split), bipolar phase shift, and logarithmic bulge",
+      "description": "Polygon vector synthesizer and geometric oscillator with variable vertex sides, rotation, pinch/twist secondary vertices, corner bevel, 5-stage serial vertex distribution (Split, Pair, Trio, Group, Bunch), bipolar phase shift, and logarithmic bulge",
       "tags": [
         "Visual",
         "Oscillator",

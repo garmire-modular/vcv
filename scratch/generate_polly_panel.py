@@ -125,12 +125,14 @@ def main():
         svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 14.500, 0.002600, "#1c1c1c", f"Row 1: {lbl}"))
 
     # Row 2 Labels: Distribution (Knob center Y = 37.00 mm, Label Y = 30.500 mm, Scale 0.0026, Color #1c1c1c)
-    row2_labels = ["CLUST", "HARM", "TRIAD", "SWING", "SPLIT"]
+    # SPLIT, PAIR, TRIO, GROUP, BUNCH
+    row2_labels = ["SPLIT", "PAIR", "TRIO", "GROUP", "BUNCH"]
     for i, lbl in enumerate(row2_labels):
         svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 30.500, 0.002600, "#1c1c1c", f"Row 2 (Dist): {lbl}"))
 
     # Row 3 Labels: Shape Modifiers (Knob center Y = 52.50 mm, Label Y = 45.800 mm, Scale 0.0024, Color #1c1c1c)
-    row3_labels = ["PINCH", "TWIST", "FILLET", "PHASE", "BULGE"]
+    # PINCH, TWIST, BEVEL, PHASE, BULGE
+    row3_labels = ["PINCH", "TWIST", "BEVEL", "PHASE", "BULGE"]
     for i, lbl in enumerate(row3_labels):
         svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 45.800, 0.002400, "#1c1c1c", f"Row 3: {lbl}"))
 
@@ -139,7 +141,6 @@ def main():
     twist_w = get_text_width(qs_font, "TWIST", 0.002400)
     pinch_right = col_x[0] + pinch_w / 2.0
     twist_left = col_x[1] - twist_w / 2.0
-    # Add padding on either side
     line_x1 = pinch_right + 1.20
     line_x2 = twist_left - 1.20
     line_y = 45.800 - 0.90  # Vertically aligned with font cap height
@@ -153,7 +154,7 @@ def main():
         svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 66.200, 0.001800, "#2c2c2c", f"Trim 1: {lbl}"))
 
     # Row 2 Attenuverters (Center Y = 79.50 mm, Label Y = 75.700 mm, Scale 0.0018, Color #2c2c2c)
-    trim2_labels = ["FM", "DIST", "FILLET", "PHASE", "BULGE"]
+    trim2_labels = ["FM", "DIST", "BEVEL", "PHASE", "BULGE"]
     for i, lbl in enumerate(trim2_labels):
         svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 75.700, 0.001800, "#2c2c2c", f"Trim 2: {lbl}"))
 
@@ -164,7 +165,7 @@ def main():
         svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 89.200, 0.001800, "#2c2c2c", f"Jack 1: {lbl}"))
 
     # Jack Row 2 (Inputs) (Center Y = 106.00 mm, Label Y = 100.800 mm, Scale 0.0018, Color #2c2c2c)
-    jack2_labels = ["FM", "DIST", "FILLET", "PHASE", "BULGE"]
+    jack2_labels = ["FM", "DIST", "BEVEL", "PHASE", "BULGE"]
     for i, lbl in enumerate(jack2_labels):
         svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 100.800, 0.001800, "#2c2c2c", f"Jack 2: {lbl}"))
 
