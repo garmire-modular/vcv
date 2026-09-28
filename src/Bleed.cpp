@@ -3,48 +3,51 @@
 #include <algorithm>
 
 // ─────────────────────────────────────────────────────────────────────
-//  Bleed — Cross-Channel X/Y Mix, Crosstalk & Phase Feedback Engine
-//  6 HP module with bidirectional per-channel bleed crosstalk and
-//  quadrature all-pass phase-delayed feedback recursion.
+//  Bleed — Dual X/Y Pair Cross-Bleed & Phase Feedback Recursion Engine
+//  8 HP module processing two independent pairs of X/Y signals with
+//  bidirectional per-channel bleed crosstalk and all-pass phase-delayed
+//  recursive feedback loops.
 // ─────────────────────────────────────────────────────────────────────
 
 struct Bleed : Module {
 	enum ParamId {
 		X_BLEED_PARAM,
 		Y_BLEED_PARAM,
-		MOD1_PARAM,
-		MOD2_PARAM,
+		X_FEEDBACK_PARAM,
+		Y_FEEDBACK_PARAM,
+		X_PHASE_PARAM,
+		Y_PHASE_PARAM,
 		X_BLEED_TRIM_PARAM,
 		Y_BLEED_TRIM_PARAM,
-		MOD1_TRIM_PARAM,
-		MOD2_TRIM_PARAM,
+		X_FEEDBACK_TRIM_PARAM,
+		Y_FEEDBACK_TRIM_PARAM,
+		X_PHASE_TRIM_PARAM,
+		Y_PHASE_TRIM_PARAM,
 		PARAMS_LEN
 	};
 	enum InputId {
-		X_INPUT,
-		Y_INPUT,
+		X1_INPUT,
+		Y1_INPUT,
+		X2_INPUT,
+		Y2_INPUT,
 		X_BLEED_CV_INPUT,
 		Y_BLEED_CV_INPUT,
-		MOD1_CV_INPUT,
-		MOD2_CV_INPUT,
+		X_FEEDBACK_CV_INPUT,
+		Y_FEEDBACK_CV_INPUT,
+		X_PHASE_CV_INPUT,
+		Y_PHASE_CV_INPUT,
 		INPUTS_LEN
 	};
 	enum OutputId {
-		X_OUTPUT,
-		Y_OUTPUT,
+		X1_OUTPUT,
+		Y1_OUTPUT,
+		X2_OUTPUT,
+		Y2_OUTPUT,
 		OUTPUTS_LEN
 	};
 	enum LightId {
 		LIGHTS_LEN
 	};
-
-	enum ModMode {
-		MODE_DUAL_FEEDBACK = 0,
-		MODE_DUAL_PHASE = 1,
-		MODE_MASTER_FB_PHASE = 2
-	};
-
-	int modMode = MODE_DUAL_FEEDBACK;
 
 	// First-order all-pass filter for frequency-dependent phase delay
 	struct AllPassFilter {
@@ -67,62 +70,15 @@ struct Bleed : Module {
 		}
 	};
 
-	AllPassFilter apX[16];
-	AllPassFilter apY[16];
-	float fbStateX[16] = {0};
-	float fbStateY[16] = {0};
+	AllPassFilter apX1[16];
+	AllPassFilter apY1[16];
+	AllPassFilter apX2[16];
+	AllPassFilter apY2[16];
 
-	struct Mod1ParamQuantity : ParamQuantity {
-		std::string getLabel() override {
-			Bleed* m = dynamic_cast<Bleed*>(module);
-			if (!m) return "Mod 1";
-			switch (m->modMode) {
-				case MODE_DUAL_FEEDBACK: return "X feedback";
-				case MODE_DUAL_PHASE: return "X phase";
-				case MODE_MASTER_FB_PHASE: return "Feedback";
-				default: return "Mod 1";
-			}
-		}
-	};
-
-	struct Mod2ParamQuantity : ParamQuantity {
-		std::string getLabel() override {
-			Bleed* m = dynamic_cast<Bleed*>(module);
-			if (!m) return "Mod 2";
-			switch (m->modMode) {
-				case MODE_DUAL_FEEDBACK: return "Y feedback";
-				case MODE_DUAL_PHASE: return "Y phase";
-				case MODE_MASTER_FB_PHASE: return "Phase";
-				default: return "Mod 2";
-			}
-		}
-	};
-
-	struct Mod1TrimParamQuantity : ParamQuantity {
-		std::string getLabel() override {
-			Bleed* m = dynamic_cast<Bleed*>(module);
-			if (!m) return "Mod 1 CV depth";
-			switch (m->modMode) {
-				case MODE_DUAL_FEEDBACK: return "X feedback CV depth";
-				case MODE_DUAL_PHASE: return "X phase CV depth";
-				case MODE_MASTER_FB_PHASE: return "Feedback CV depth";
-				default: return "Mod 1 CV depth";
-			}
-		}
-	};
-
-	struct Mod2TrimParamQuantity : ParamQuantity {
-		std::string getLabel() override {
-			Bleed* m = dynamic_cast<Bleed*>(module);
-			if (!m) return "Mod 2 CV depth";
-			switch (m->modMode) {
-				case MODE_DUAL_FEEDBACK: return "Y feedback CV depth";
-				case MODE_DUAL_PHASE: return "Y phase CV depth";
-				case MODE_MASTER_FB_PHASE: return "Phase CV depth";
-				default: return "Mod 2 CV depth";
-			}
-		}
-	};
+	float fbStateX1[16] = {0};
+	float fbStateY1[16] = {0};
+	float fbStateX2[16] = {0};
+	float fbStateY2[16] = {0};
 
 	Bleed() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -131,136 +87,153 @@ struct Bleed : Module {
 		configParam(X_BLEED_PARAM, -1.f, 1.f, 0.f, "X bleed", "%", 0.f, 100.f);
 		configParam(Y_BLEED_PARAM, -1.f, 1.f, 0.f, "Y bleed", "%", 0.f, 100.f);
 
-		// Row 2: Mode-dependent MOD 1 & MOD 2 Knobs (0.0 to 1.0)
-		configParam<Mod1ParamQuantity>(MOD1_PARAM, 0.f, 1.f, 0.f, "Mod 1", "%", 0.f, 100.f);
-		configParam<Mod2ParamQuantity>(MOD2_PARAM, 0.f, 1.f, 0.f, "Mod 2", "%", 0.f, 100.f);
+		// Row 2: Feedback Knobs (0% to 125%)
+		configParam(X_FEEDBACK_PARAM, 0.f, 1.25f, 0.f, "X feedback", "%", 0.f, 100.f);
+		configParam(Y_FEEDBACK_PARAM, 0.f, 1.25f, 0.f, "Y feedback", "%", 0.f, 100.f);
 
-		// Trimpots (CV Attenuverters)
+		// Row 3: Phase Knobs (0% to 100%)
+		configParam(X_PHASE_PARAM, 0.f, 1.f, 0.5f, "X phase", "%", 0.f, 100.f);
+		configParam(Y_PHASE_PARAM, 0.f, 1.f, 0.5f, "Y phase", "%", 0.f, 100.f);
+
+		// Trimpots (CV Attenuverters) — AGENTS.md Standard Tooltip Naming
 		configParam(X_BLEED_TRIM_PARAM, -1.f, 1.f, 0.f, "X bleed CV depth", "%", 0.f, 100.f);
 		configParam(Y_BLEED_TRIM_PARAM, -1.f, 1.f, 0.f, "Y bleed CV depth", "%", 0.f, 100.f);
-		configParam<Mod1TrimParamQuantity>(MOD1_TRIM_PARAM, -1.f, 1.f, 0.f, "Mod 1 CV depth", "%", 0.f, 100.f);
-		configParam<Mod2TrimParamQuantity>(MOD2_TRIM_PARAM, -1.f, 1.f, 0.f, "Mod 2 CV depth", "%", 0.f, 100.f);
+		configParam(X_FEEDBACK_TRIM_PARAM, -1.f, 1.f, 0.f, "X feedback CV depth", "%", 0.f, 100.f);
+		configParam(Y_FEEDBACK_TRIM_PARAM, -1.f, 1.f, 0.f, "Y feedback CV depth", "%", 0.f, 100.f);
+		configParam(X_PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "X phase CV depth", "%", 0.f, 100.f);
+		configParam(Y_PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Y phase CV depth", "%", 0.f, 100.f);
 
 		// Inputs (Rack automatically appends "input" to tooltips)
-		configInput(X_INPUT, "X");
-		configInput(Y_INPUT, "Y");
+		configInput(X1_INPUT, "X 1");
+		configInput(Y1_INPUT, "Y 1");
+		configInput(X2_INPUT, "X 2");
+		configInput(Y2_INPUT, "Y 2");
+
 		configInput(X_BLEED_CV_INPUT, "X bleed CV");
 		configInput(Y_BLEED_CV_INPUT, "Y bleed CV");
-		configInput(MOD1_CV_INPUT, "Mod 1 CV");
-		configInput(MOD2_CV_INPUT, "Mod 2 CV");
+		configInput(X_FEEDBACK_CV_INPUT, "X feedback CV");
+		configInput(Y_FEEDBACK_CV_INPUT, "Y feedback CV");
+		configInput(X_PHASE_CV_INPUT, "X phase CV");
+		configInput(Y_PHASE_CV_INPUT, "Y phase CV");
 
 		// Outputs (Rack automatically appends "output" to tooltips)
-		configOutput(X_OUTPUT, "X");
-		configOutput(Y_OUTPUT, "Y");
-	}
-
-	json_t* dataToJson() override {
-		json_t* rootJ = json_object();
-		json_object_set_new(rootJ, "modMode", json_integer(modMode));
-		return rootJ;
-	}
-
-	void dataFromJson(json_t* rootJ) override {
-		json_t* modeJ = json_object_get(rootJ, "modMode");
-		if (modeJ) {
-			modMode = json_integer_value(modeJ);
-		}
+		configOutput(X1_OUTPUT, "X 1");
+		configOutput(Y1_OUTPUT, "Y 1");
+		configOutput(X2_OUTPUT, "X 2");
+		configOutput(Y2_OUTPUT, "Y 2");
 	}
 
 	void onReset() override {
 		for (int i = 0; i < 16; i++) {
-			apX[i].reset();
-			apY[i].reset();
-			fbStateX[i] = 0.0f;
-			fbStateY[i] = 0.0f;
+			apX1[i].reset();
+			apY1[i].reset();
+			apX2[i].reset();
+			apY2[i].reset();
+			fbStateX1[i] = 0.0f;
+			fbStateY1[i] = 0.0f;
+			fbStateX2[i] = 0.0f;
+			fbStateY2[i] = 0.0f;
 		}
 	}
 
 	void process(const ProcessArgs& args) override {
-		int xChannels = inputs[X_INPUT].getChannels();
-		int yChannels = inputs[Y_INPUT].getChannels();
-		int numChannels = std::max({xChannels, yChannels, 1});
+		int channels = std::max({
+			inputs[X1_INPUT].getChannels(),
+			inputs[Y1_INPUT].getChannels(),
+			inputs[X2_INPUT].getChannels(),
+			inputs[Y2_INPUT].getChannels(),
+			1
+		});
 
-		outputs[X_OUTPUT].setChannels(numChannels);
-		outputs[Y_OUTPUT].setChannels(numChannels);
+		outputs[X1_OUTPUT].setChannels(channels);
+		outputs[Y1_OUTPUT].setChannels(channels);
+		outputs[X2_OUTPUT].setChannels(channels);
+		outputs[Y2_OUTPUT].setChannels(channels);
 
-		float xBleedParam = params[X_BLEED_PARAM].getValue();
-		float yBleedParam = params[Y_BLEED_PARAM].getValue();
-		float mod1Param = params[MOD1_PARAM].getValue();
-		float mod2Param = params[MOD2_PARAM].getValue();
+		float xBleedVal = params[X_BLEED_PARAM].getValue();
+		float yBleedVal = params[Y_BLEED_PARAM].getValue();
+		float xFbVal = params[X_FEEDBACK_PARAM].getValue();
+		float yFbVal = params[Y_FEEDBACK_PARAM].getValue();
+		float xPhaseVal = params[X_PHASE_PARAM].getValue();
+		float yPhaseVal = params[Y_PHASE_PARAM].getValue();
 
 		float xBleedTrim = params[X_BLEED_TRIM_PARAM].getValue();
 		float yBleedTrim = params[Y_BLEED_TRIM_PARAM].getValue();
-		float mod1Trim = params[MOD1_TRIM_PARAM].getValue();
-		float mod2Trim = params[MOD2_TRIM_PARAM].getValue();
+		float xFbTrim = params[X_FEEDBACK_TRIM_PARAM].getValue();
+		float yFbTrim = params[Y_FEEDBACK_TRIM_PARAM].getValue();
+		float xPhaseTrim = params[X_PHASE_TRIM_PARAM].getValue();
+		float yPhaseTrim = params[Y_PHASE_TRIM_PARAM].getValue();
 
-		bool yInputConnected = inputs[Y_INPUT].isConnected();
+		bool y1Connected = inputs[Y1_INPUT].isConnected();
+		bool x2Connected = inputs[X2_INPUT].isConnected();
+		bool y2Connected = inputs[Y2_INPUT].isConnected();
+
 		bool cvYBleedConnected = inputs[Y_BLEED_CV_INPUT].isConnected();
-		bool cvMod2Connected = inputs[MOD2_CV_INPUT].isConnected();
+		bool cvYFbConnected = inputs[Y_FEEDBACK_CV_INPUT].isConnected();
+		bool cvYPhaseConnected = inputs[Y_PHASE_CV_INPUT].isConnected();
 
 		float sampleRate = args.sampleRate;
 
-		for (int c = 0; c < numChannels; c++) {
-			float inX = inputs[X_INPUT].getPolyVoltage(c);
-			float inY = yInputConnected ? inputs[Y_INPUT].getPolyVoltage(c) : inX;
+		for (int c = 0; c < channels; c++) {
+			float inX1 = inputs[X1_INPUT].getPolyVoltage(c);
+			float inY1 = y1Connected ? inputs[Y1_INPUT].getPolyVoltage(c) : inX1;
+			float inX2 = x2Connected ? inputs[X2_INPUT].getPolyVoltage(c) : inX1;
+			float inY2 = y2Connected ? inputs[Y2_INPUT].getPolyVoltage(c) : (x2Connected ? inX2 : inY1);
 
-			// Bleed CV modulation
-			float cvXBleed = inputs[X_BLEED_CV_INPUT].getPolyVoltage(c) / 5.0f;
-			float cvYBleed = cvYBleedConnected ? inputs[Y_BLEED_CV_INPUT].getPolyVoltage(c) / 5.0f : cvXBleed;
-			float kYX = clamp(xBleedParam + cvXBleed * xBleedTrim, -1.0f, 1.0f);
-			float kXY = clamp(yBleedParam + cvYBleed * yBleedTrim, -1.0f, 1.0f);
+			// CV Modulation (0.2x scaling -> 5V = 100%)
+			float cvXBleed = inputs[X_BLEED_CV_INPUT].getPolyVoltage(c) * 0.2f;
+			float cvYBleed = cvYBleedConnected ? inputs[Y_BLEED_CV_INPUT].getPolyVoltage(c) * 0.2f : cvXBleed;
 
-			// Mod CV modulation
-			float cvMod1 = inputs[MOD1_CV_INPUT].getPolyVoltage(c) / 5.0f;
-			float cvMod2 = cvMod2Connected ? inputs[MOD2_CV_INPUT].getPolyVoltage(c) / 5.0f : cvMod1;
-			float m1 = clamp(mod1Param + cvMod1 * mod1Trim, 0.0f, 1.0f);
-			float m2 = clamp(mod2Param + cvMod2 * mod2Trim, 0.0f, 1.0f);
+			float cvXFb = inputs[X_FEEDBACK_CV_INPUT].getPolyVoltage(c) * 0.2f;
+			float cvYFb = cvYFbConnected ? inputs[Y_FEEDBACK_CV_INPUT].getPolyVoltage(c) * 0.2f : cvXFb;
 
-			float fbGainX = 0.0f;
-			float fbGainY = 0.0f;
-			float fcX = 500.0f;
-			float fcY = 500.0f;
+			float cvXPhase = inputs[X_PHASE_CV_INPUT].getPolyVoltage(c) * 0.2f;
+			float cvYPhase = cvYPhaseConnected ? inputs[Y_PHASE_CV_INPUT].getPolyVoltage(c) * 0.2f : cvXPhase;
 
-			if (modMode == MODE_DUAL_FEEDBACK) {
-				// MOD 1 = X feedback (0.0 to 1.25), MOD 2 = Y feedback (0.0 to 1.25)
-				fbGainX = m1 * 1.25f;
-				fbGainY = m2 * 1.25f;
-				fcX = 400.0f;
-				fcY = 600.0f; // quadrature all-pass offset
-			} else if (modMode == MODE_DUAL_PHASE) {
-				// MOD 1 = X phase, MOD 2 = Y phase (30 Hz to 12 kHz)
-				fbGainX = 0.85f;
-				fbGainY = 0.85f;
-				fcX = 30.0f * std::pow(400.0f, m1);
-				fcY = 30.0f * std::pow(400.0f, m2);
-			} else { // MODE_MASTER_FB_PHASE
-				// MOD 1 = Master feedback (0.0 to 1.25), MOD 2 = Master phase (30 Hz to 12 kHz)
-				fbGainX = m1 * 1.25f;
-				fbGainY = m1 * 1.25f;
-				float fcMaster = 30.0f * std::pow(400.0f, m2);
-				fcX = fcMaster;
-				fcY = fcMaster * 1.414f; // 90° quadrature offset
-			}
+			float kBleedX = clamp(xBleedVal + cvXBleed * xBleedTrim, -1.0f, 1.0f);
+			float kBleedY = clamp(yBleedVal + cvYBleed * yBleedTrim, -1.0f, 1.0f);
 
-			// Process feedback through all-pass delay filters
-			float apSigX = apX[c].process(fbStateX[c], fcX, sampleRate);
-			float apSigY = apY[c].process(fbStateY[c], fcY, sampleRate);
+			float fbX = clamp(xFbVal + cvXFb * xFbTrim, 0.0f, 1.25f);
+			float fbY = clamp(yFbVal + cvYFb * yFbTrim, 0.0f, 1.25f);
 
-			// Inject feedback
-			float injX = inX + fbGainX * apSigX;
-			float injY = inY + fbGainY * apSigY;
+			float mPhaseX = clamp(xPhaseVal + cvXPhase * xPhaseTrim, 0.0f, 1.0f);
+			float mPhaseY = clamp(yPhaseVal + cvYPhase * yPhaseTrim, 0.0f, 1.0f);
 
-			// Apply bidirectional cross-channel bleed
-			float outX = injX + kYX * injY;
-			float outY = injY + kXY * injX;
+			// Exponential frequency sweep for all-pass filters (30 Hz to 12 kHz)
+			float fcX = 30.0f * std::pow(400.0f, mPhaseX);
+			float fcY = 30.0f * std::pow(400.0f, mPhaseY);
 
-			// Soft saturation (tanh) in feedback state to keep recursive gain self-stabilizing
-			fbStateX[c] = 5.0f * std::tanh(outX / 5.0f);
-			fbStateY[c] = 5.0f * std::tanh(outY / 5.0f);
+			// All-pass filter phase delay on feedback signal
+			float apSigX1 = apX1[c].process(fbStateX1[c], fcX, sampleRate);
+			float apSigY1 = apY1[c].process(fbStateY1[c], fcY, sampleRate);
+			float apSigX2 = apX2[c].process(fbStateX2[c], fcX, sampleRate);
+			float apSigY2 = apY2[c].process(fbStateY2[c], fcY, sampleRate);
 
-			// Laser safety bounds (-12V to +12V)
-			outputs[X_OUTPUT].setVoltage(clamp(outX, -12.0f, 12.0f), c);
-			outputs[Y_OUTPUT].setVoltage(clamp(outY, -12.0f, 12.0f), c);
+			// Feedback recursion injection into each independent pair
+			float injX1 = inX1 + fbX * apSigX1;
+			float injY1 = inY1 + fbY * apSigY1;
+			float injX2 = inX2 + fbX * apSigX2;
+			float injY2 = inY2 + fbY * apSigY2;
+
+			// Cross-channel bleed between Pair 1 and Pair 2:
+			// Out1 = Inj1 + Bleed * Inj2
+			// Out2 = Inj2 + Bleed * Inj1
+			float outX1 = injX1 + kBleedX * injX2;
+			float outX2 = injX2 + kBleedX * injX1;
+			float outY1 = injY1 + kBleedY * injY2;
+			float outY2 = injY2 + kBleedY * injY1;
+
+			// Soft saturation in feedback loop to maintain bounded oscillation
+			fbStateX1[c] = 5.0f * std::tanh(outX1 / 5.0f);
+			fbStateY1[c] = 5.0f * std::tanh(outY1 / 5.0f);
+			fbStateX2[c] = 5.0f * std::tanh(outX2 / 5.0f);
+			fbStateY2[c] = 5.0f * std::tanh(outY2 / 5.0f);
+
+			// Galvo safety bounds (-12V to +12V)
+			outputs[X1_OUTPUT].setVoltage(clamp(outX1, -12.0f, 12.0f), c);
+			outputs[Y1_OUTPUT].setVoltage(clamp(outY1, -12.0f, 12.0f), c);
+			outputs[X2_OUTPUT].setVoltage(clamp(outX2, -12.0f, 12.0f), c);
+			outputs[Y2_OUTPUT].setVoltage(clamp(outY2, -12.0f, 12.0f), c);
 		}
 	}
 };
@@ -270,74 +243,60 @@ struct BleedWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Bleed.svg")));
 
-		// 6HP Screws
+		// 8 HP Standard Eurorack Screws
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		// Main Controls
-		// Row 1: X Bleed (7.62 mm) & Y Bleed (22.86 mm) Knobs (Center Y = 21.59 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 21.59)), module, Bleed::X_BLEED_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 21.59)), module, Bleed::Y_BLEED_PARAM));
+		// Knob Columns: X = 10.82 mm, Y = 29.82 mm
+		// Row 1: Bleed Knobs (Center Y = 20.00 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 20.00)), module, Bleed::X_BLEED_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 20.00)), module, Bleed::Y_BLEED_PARAM));
 
-		// Row 2: MOD 1 (7.62 mm) & MOD 2 (22.86 mm) Knobs (Center Y = 40.00 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 40.00)), module, Bleed::MOD1_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 40.00)), module, Bleed::MOD2_PARAM));
+		// Row 2: Feedback Knobs (Center Y = 34.50 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 34.50)), module, Bleed::X_FEEDBACK_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 34.50)), module, Bleed::Y_FEEDBACK_PARAM));
 
-		// Attenuverter Trimpots (Zone 3)
-		// Row 1: X Bleed CV (7.62 mm), Y Bleed CV (22.86 mm) (Center Y = 61.50 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(7.62, 61.50)), module, Bleed::X_BLEED_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.86, 61.50)), module, Bleed::Y_BLEED_TRIM_PARAM));
+		// Row 3: Phase Knobs (Center Y = 49.00 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 49.00)), module, Bleed::X_PHASE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 49.00)), module, Bleed::Y_PHASE_PARAM));
 
-		// Row 2: MOD 1 CV (7.62 mm), MOD 2 CV (22.86 mm) (Center Y = 73.00 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(7.62, 73.00)), module, Bleed::MOD1_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(22.86, 73.00)), module, Bleed::MOD2_TRIM_PARAM));
+		// Zone 3: CV Attenuverter Trimpots
+		// Row 1: Bleed CV Depth (Center Y = 61.50 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(10.82, 61.50)), module, Bleed::X_BLEED_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(29.82, 61.50)), module, Bleed::Y_BLEED_TRIM_PARAM));
 
-		// Bottom I/O Jacks (Zone 4)
-		// Row 1: Signal Inputs (Center Y = 89.50 mm): X IN (7.62), Y IN (22.86)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 89.50)), module, Bleed::X_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 89.50)), module, Bleed::Y_INPUT));
+		// Row 2: Feedback CV Depth (Center Y = 69.50 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(10.82, 69.50)), module, Bleed::X_FEEDBACK_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(29.82, 69.50)), module, Bleed::Y_FEEDBACK_TRIM_PARAM));
 
-		// Row 2: Bleed CV Inputs (Center Y = 99.00 mm): X Bleed CV (7.62), Y Bleed CV (22.86)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 99.00)), module, Bleed::X_BLEED_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 99.00)), module, Bleed::Y_BLEED_CV_INPUT));
+		// Row 3: Phase CV Depth (Center Y = 77.50 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(10.82, 77.50)), module, Bleed::X_PHASE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(29.82, 77.50)), module, Bleed::Y_PHASE_TRIM_PARAM));
 
-		// Row 3: Mod CV Inputs (Center Y = 108.50 mm): MOD 1 CV (7.62), MOD 2 CV (22.86)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 108.50)), module, Bleed::MOD1_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(22.86, 108.50)), module, Bleed::MOD2_CV_INPUT));
+		// Zone 4: I/O Jacks (4 Columns: 6.07, 15.57, 25.07, 34.57 mm)
+		// Row 1: Signal Inputs (Center Y = 89.50 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(6.07, 89.50)), module, Bleed::X1_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.57, 89.50)), module, Bleed::Y1_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(25.07, 89.50)), module, Bleed::X2_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(34.57, 89.50)), module, Bleed::Y2_INPUT));
 
-		// Row 4: Signal Outputs (Center Y = 118.00 mm): X OUT (7.62), Y OUT (22.86)
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 118.00)), module, Bleed::X_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 118.00)), module, Bleed::Y_OUTPUT));
-	}
+		// Row 2: Bleed & Feedback CV Inputs (Center Y = 99.00 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(6.07, 99.00)), module, Bleed::X_BLEED_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.57, 99.00)), module, Bleed::Y_BLEED_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(25.07, 99.00)), module, Bleed::X_FEEDBACK_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(34.57, 99.00)), module, Bleed::Y_FEEDBACK_CV_INPUT));
 
-	void appendContextMenu(Menu* menu) override {
-		Bleed* module = dynamic_cast<Bleed*>(this->module);
-		if (!module) return;
+		// Row 3: Phase CV Inputs (Center Y = 108.50 mm, at 10.82 and 29.82 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(10.82, 108.50)), module, Bleed::X_PHASE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(29.82, 108.50)), module, Bleed::Y_PHASE_CV_INPUT));
 
-		menu->addChild(new MenuSeparator);
-		menu->addChild(createMenuLabel("Modulation Mode"));
-
-		struct ModeItem : MenuItem {
-			Bleed* module;
-			int mode;
-			void onAction(const event::Action& e) override {
-				module->modMode = mode;
-			}
-		};
-
-		auto addModeItem = [&](const std::string& label, int m) {
-			ModeItem* item = createMenuItem<ModeItem>(label);
-			item->module = module;
-			item->mode = m;
-			item->rightText = (module->modMode == m) ? "✔" : "";
-			menu->addChild(item);
-		};
-
-		addModeItem("Dual Feedback (X Feedback / Y Feedback)", Bleed::MODE_DUAL_FEEDBACK);
-		addModeItem("Dual Phase (X Phase / Y Phase)", Bleed::MODE_DUAL_PHASE);
-		addModeItem("Master Feedback & Phase", Bleed::MODE_MASTER_FB_PHASE);
+		// Row 4: Signal Outputs (Center Y = 118.00 mm)
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(6.07, 118.00)), module, Bleed::X1_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.57, 118.00)), module, Bleed::Y1_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(25.07, 118.00)), module, Bleed::X2_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(34.57, 118.00)), module, Bleed::Y2_OUTPUT));
 	}
 };
 
