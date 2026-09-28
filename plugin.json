@@ -399,6 +399,16 @@
         "Oscillator",
         "Dual"
       ]
+    },
+    {
+      "slug": "Rose",
+      "name": "Rose",
+      "description": "Rhodonea rose curve and Limaçon trajectory generator with harmonic petal count (k), center offset morph, bidirectional frequency sync, and XY outputs",
+      "tags": [
+        "Visual",
+        "Oscillator",
+        "Dual"
+      ]
     }
   ]
 }

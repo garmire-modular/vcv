@@ -52,6 +52,7 @@ modules = [
     ('Rescale', 57, 240),
     ('Bleed', 76, 240),
     ('Lisa', 57, 240),
+    ('Rose', 57, 240),
 ]
 
 for slug, width, height in modules:

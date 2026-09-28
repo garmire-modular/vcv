@@ -39,6 +39,7 @@ SOURCES += src/ChopXL.cpp
 SOURCES += src/Rescale.cpp
 SOURCES += src/Bleed.cpp
 SOURCES += src/Lisa.cpp
+SOURCES += src/Rose.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res
