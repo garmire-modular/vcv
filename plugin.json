@@ -403,7 +403,7 @@
     {
       "slug": "Rose",
       "name": "Rose",
-      "description": "Rhodonea rose curve and Limaçon trajectory generator with harmonic petal count (k), center offset morph, bidirectional frequency sync, and XY outputs",
+      "description": "Rhodonea rose curve and Limaçon trajectory generator with Coarse/Fine timebase, 3-state Range oscillator (Very Slow / LFO / VCO), carrier-normalized linear FM, harmonic petal count, center offset, bipolar phase shift, and bulge control",
       "tags": [
         "Visual",
         "Oscillator",

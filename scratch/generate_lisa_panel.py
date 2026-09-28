@@ -154,9 +154,6 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "Y", 25.07, 112.800, 0.002200, "#3c3c3c", "Y OUT Label"))
     svg_parts.append(render_qs_text(qs_font, "SYNC OUT", 34.57, 112.800, 0.001600, "#2c2c2c", "SYNC OUT Label"))
 
-    # Under Jack Row 3: OUT Header (Y = 124.50 mm)
-    svg_parts.append(render_qs_text(qs_font, "OUT", 20.32, 124.500, 0.001800, "#2c2c2c", "OUT Bottom Subheader"))
-
     svg_parts.append('</svg>')
 
     os.makedirs('res', exist_ok=True)
@@ -168,6 +165,11 @@ def main():
     # Render verification bitmap (76 x 240 at 4x resolution = 304 x 960)
     verify_png = 'scratch/lisa_verify.png'
     cairosvg.svg2png(url=svg_path, write_to=verify_png, output_width=76 * 4, output_height=240 * 4)
+
+    # Render MetaModule asset (76 x 240)
+    os.makedirs('metamodule/assets', exist_ok=True)
+    cairosvg.svg2png(url=svg_path, write_to='metamodule/assets/Lisa.png', output_width=76, output_height=240)
+    print("Rendered metamodule/assets/Lisa.png successfully.")
 
     im = Image.open(verify_png)
     draw = ImageDraw.Draw(im)
