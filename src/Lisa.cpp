@@ -1,14 +1,16 @@
 #include "plugin.hpp"
 #include <cmath>
 #include <algorithm>
+#include <cctype>
+#include <cstdlib>
 
 // ─────────────────────────────────────────────────────────────────────
 //  Lisa — Lissajous Trajectory & Harmonic Orbital Generator (8 HP)
 //  Generate class module producing orthogonal sinusoidal oscillations
 //  with Coarse/Fine timebase, 3-state Range oscillator (Very Slow / LFO / VCO),
 //  carrier-normalized linear FM (with external override), harmonic frequency
-//  multipliers (1:1 to 10:10), bipolar phase shift (±180°), bipolar orbital
-//  dampening (±100%), and bidirectional frequency sync (Sync In & Sync Out).
+//  multipliers (1:1 to 10:10), bipolar phase shift (±180°), bipolar bulge
+//  (±100%), and bidirectional frequency sync (Sync In & Sync Out).
 // ─────────────────────────────────────────────────────────────────────
 
 #ifndef M_PI
@@ -40,7 +42,7 @@ struct Lisa : Module {
 		Y_RATIO_PARAM,
 
 		PHASE_PARAM,
-		DAMP_PARAM,
+		BULGE_PARAM,
 
 		FREQ_TRIM_PARAM,
 		X_RATIO_TRIM_PARAM,
@@ -48,7 +50,7 @@ struct Lisa : Module {
 
 		FM_TRIM_PARAM,
 		PHASE_TRIM_PARAM,
-		DAMP_TRIM_PARAM,
+		BULGE_TRIM_PARAM,
 
 		PARAMS_LEN
 	};
@@ -60,7 +62,7 @@ struct Lisa : Module {
 
 		FM_CV_INPUT,
 		PHASE_CV_INPUT,
-		DAMP_CV_INPUT,
+		BULGE_CV_INPUT,
 
 		SYNC_INPUT,
 
@@ -103,31 +105,178 @@ struct Lisa : Module {
 			return dynamic_cast<Lisa*>(module);
 		}
 
-		std::string getDisplayValueString() override {
+		float getDisplayValue() override {
 			Lisa* lisa = getLisa();
-			if (!lisa) return ParamQuantity::getDisplayValueString();
+			if (!lisa) return ParamQuantity::getDisplayValue();
 
 			float coarse = getValue();
 			float fine = (lisa->paramQuantities.size() > Lisa::FINE_PARAM) ? lisa->params[Lisa::FINE_PARAM].getValue() : 0.f;
 
-			char buf[32];
 			if (lisa->rangeMode == Lisa::RANGE_VERY_SLOW) {
 				// Period T in seconds: 600.0s to 0.1s
 				float tCoarse = 600.0f * std::pow(0.1f / 600.0f, coarse);
-				float t = clampf(tCoarse * (1.0f - fine * 0.10f), 0.05f, 1000.0f);
-				std::snprintf(buf, sizeof(buf), "%.1f", t);
+				return clampf(tCoarse * (1.0f - fine * 0.10f), 0.05f, 1000.0f);
 			} else if (lisa->rangeMode == Lisa::RANGE_LFO) {
 				// Frequency in Hz: 0.00 to 200.00 Hz
 				float fCoarse = 200.0f * coarse * coarse;
-				float f = clampf(fCoarse + fine * 20.0f, 0.0f, 250.0f);
-				std::snprintf(buf, sizeof(buf), "%.2f", f);
+				return clampf(fCoarse + fine * 20.0f, 0.0f, 250.0f);
 			} else {
 				// Frequency in Hz: 150.00 to 2000.00 Hz
 				float fCoarse = 150.0f * std::pow(2000.0f / 150.0f, coarse);
-				float f = clampf(fCoarse * (1.0f + fine * 0.10f), 100.0f, 2500.0f);
-				std::snprintf(buf, sizeof(buf), "%.2f", f);
+				return clampf(fCoarse * (1.0f + fine * 0.10f), 100.0f, 2500.0f);
+			}
+		}
+
+		std::string getDisplayValueString() override {
+			Lisa* lisa = getLisa();
+			if (!lisa) return ParamQuantity::getDisplayValueString();
+
+			float val = getDisplayValue();
+			char buf[32];
+			if (lisa->rangeMode == Lisa::RANGE_VERY_SLOW) {
+				std::snprintf(buf, sizeof(buf), "%.1f", val);
+			} else {
+				std::snprintf(buf, sizeof(buf), "%.2f", val);
 			}
 			return std::string(buf);
+		}
+
+		void setFrequencyValue(float rawVal, bool isPeriod) {
+			Lisa* lisa = getLisa();
+			if (!lisa) return;
+
+			float fine = (lisa->paramQuantities.size() > Lisa::FINE_PARAM) ? lisa->params[Lisa::FINE_PARAM].getValue() : 0.f;
+			float newCoarse = getValue();
+
+			if (lisa->rangeMode == Lisa::RANGE_VERY_SLOW) {
+				float targetPeriodS = isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 1e6f);
+				if (targetPeriodS <= 1e-5f) targetPeriodS = 1e-5f;
+
+				float fineFactor = 1.0f - fine * 0.10f;
+				if (std::abs(fineFactor) < 1e-4f) fineFactor = 1e-4f;
+				float tCoarse = targetPeriodS / fineFactor;
+				if (tCoarse <= 1e-6f) tCoarse = 1e-6f;
+
+				// tCoarse = 600.0 * (0.1 / 600.0)^coarse
+				float ratio = tCoarse / 600.0f;
+				if (ratio <= 0.f) ratio = 1e-6f;
+				newCoarse = std::log(ratio) / std::log(0.1f / 600.0f);
+			} else if (lisa->rangeMode == Lisa::RANGE_LFO) {
+				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 0.f);
+				float fCoarse = targetHz - fine * 20.0f;
+				if (fCoarse <= 0.f) {
+					newCoarse = 0.0f;
+				} else {
+					newCoarse = std::sqrt(fCoarse / 200.0f);
+				}
+			} else { // RANGE_VCO
+				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 100.f);
+				float fineFactor = 1.0f + fine * 0.10f;
+				if (std::abs(fineFactor) < 1e-4f) fineFactor = 1e-4f;
+				float fCoarse = targetHz / fineFactor;
+				if (fCoarse <= 1.0f) fCoarse = 1.0f;
+
+				// fCoarse = 150.0 * (2000.0 / 150.0)^coarse
+				float ratio = fCoarse / 150.0f;
+				if (ratio <= 0.f) ratio = 1e-6f;
+				newCoarse = std::log(ratio) / std::log(2000.0f / 150.0f);
+			}
+
+			setValue(clampf(newCoarse, 0.0f, 1.0f));
+		}
+
+		void setDisplayValue(float displayValue) override {
+			Lisa* lisa = getLisa();
+			if (!lisa) {
+				ParamQuantity::setDisplayValue(displayValue);
+				return;
+			}
+			bool isPeriod = (lisa->rangeMode == Lisa::RANGE_VERY_SLOW);
+			setFrequencyValue(displayValue, isPeriod);
+		}
+
+		void setDisplayValueString(std::string s) override {
+			Lisa* lisa = getLisa();
+			if (!lisa) {
+				ParamQuantity::setDisplayValueString(s);
+				return;
+			}
+
+			std::string str = s;
+			while (!str.empty() && std::isspace((unsigned char)str.front())) {
+				str.erase(str.begin());
+			}
+			while (!str.empty() && std::isspace((unsigned char)str.back())) {
+				str.pop_back();
+			}
+			if (str.empty()) return;
+
+			std::string lowerStr = str;
+			for (char& c : lowerStr) {
+				c = (char)std::tolower((unsigned char)c);
+			}
+
+			enum UnitType { UNIT_DEFAULT, UNIT_HZ, UNIT_KHZ, UNIT_MHZ, UNIT_SEC, UNIT_MS };
+			UnitType unitType = UNIT_DEFAULT;
+
+			if (lowerStr.length() >= 4 && lowerStr.substr(lowerStr.length() - 4) == "secs") {
+				unitType = UNIT_SEC;
+				str = str.substr(0, str.length() - 4);
+			} else if (lowerStr.length() >= 3 && lowerStr.substr(lowerStr.length() - 3) == "sec") {
+				unitType = UNIT_SEC;
+				str = str.substr(0, str.length() - 3);
+			} else if (lowerStr.length() >= 3 && lowerStr.substr(lowerStr.length() - 3) == "khz") {
+				unitType = UNIT_KHZ;
+				str = str.substr(0, str.length() - 3);
+			} else if (lowerStr.length() >= 3 && lowerStr.substr(lowerStr.length() - 3) == "mhz") {
+				unitType = UNIT_MHZ;
+				str = str.substr(0, str.length() - 3);
+			} else if (lowerStr.length() >= 2 && lowerStr.substr(lowerStr.length() - 2) == "hz") {
+				unitType = UNIT_HZ;
+				str = str.substr(0, str.length() - 2);
+			} else if (lowerStr.length() >= 2 && lowerStr.substr(lowerStr.length() - 2) == "ms") {
+				unitType = UNIT_MS;
+				str = str.substr(0, str.length() - 2);
+			} else if (!lowerStr.empty() && lowerStr.back() == 's') {
+				unitType = UNIT_SEC;
+				str.pop_back();
+			} else if (!lowerStr.empty() && lowerStr.back() == 'k') {
+				unitType = UNIT_KHZ;
+				str.pop_back();
+			}
+
+			while (!str.empty() && std::isspace((unsigned char)str.back())) {
+				str.pop_back();
+			}
+
+			char* endPtr = nullptr;
+			float rawVal = std::strtof(str.c_str(), &endPtr);
+			if (endPtr == str.c_str()) return;
+
+			bool isPeriod;
+			float finalVal;
+
+			if (unitType == UNIT_SEC) {
+				isPeriod = true;
+				finalVal = rawVal;
+			} else if (unitType == UNIT_MS) {
+				isPeriod = true;
+				finalVal = rawVal * 0.001f;
+			} else if (unitType == UNIT_HZ) {
+				isPeriod = false;
+				finalVal = rawVal;
+			} else if (unitType == UNIT_KHZ) {
+				isPeriod = false;
+				finalVal = rawVal * 1000.0f;
+			} else if (unitType == UNIT_MHZ) {
+				isPeriod = false;
+				finalVal = rawVal * 1000000.0f;
+			} else {
+				isPeriod = (lisa->rangeMode == Lisa::RANGE_VERY_SLOW);
+				finalVal = rawVal;
+			}
+
+			setFrequencyValue(finalVal, isPeriod);
 		}
 
 		std::string getUnit() override {
@@ -156,8 +305,8 @@ struct Lisa : Module {
 		// Phase Shift (Bipolar ±180°)
 		configParam(PHASE_PARAM, -180.f, 180.f, 0.f, "Phase offset", "°", 0.f, 1.f);
 
-		// Orbital Dampening (Bipolar ±100%)
-		configParam(DAMP_PARAM, -1.f, 1.f, 0.f, "Orbital dampening", "%", 0.f, 100.f);
+		// Bulge (Bipolar ±100%)
+		configParam(BULGE_PARAM, -1.f, 1.f, 0.f, "Bulge", "%", 0.f, 100.f);
 
 		// CV Attenuverters (Mandatory naming per AGENTS.md Section 6.5.4)
 		// Row 1 Attenuverters
@@ -168,7 +317,7 @@ struct Lisa : Module {
 		// Row 2 Attenuverters
 		configParam(FM_TRIM_PARAM, -1.f, 1.f, 0.f, "Linear FM CV depth", "%", 0.f, 100.f);
 		configParam(PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Phase CV depth", "%", 0.f, 100.f);
-		configParam(DAMP_TRIM_PARAM, -1.f, 1.f, 0.f, "Damp CV depth", "%", 0.f, 100.f);
+		configParam(BULGE_TRIM_PARAM, -1.f, 1.f, 0.f, "Bulge CV depth", "%", 0.f, 100.f);
 
 		// Inputs: Row 1
 		configInput(FREQ_CV_INPUT, "Frequency CV");
@@ -178,7 +327,7 @@ struct Lisa : Module {
 		// Inputs: Row 2
 		configInput(FM_CV_INPUT, "External FM");
 		configInput(PHASE_CV_INPUT, "Phase CV");
-		configInput(DAMP_CV_INPUT, "Damp CV");
+		configInput(BULGE_CV_INPUT, "Bulge CV");
 
 		// Sync
 		configInput(SYNC_INPUT, "Sync");
@@ -223,10 +372,10 @@ struct Lisa : Module {
 		int xCvCh  = inputs[X_RATIO_CV_INPUT].getChannels();
 		int yCvCh  = inputs[Y_RATIO_CV_INPUT].getChannels();
 		int pCvCh  = inputs[PHASE_CV_INPUT].getChannels();
-		int dCvCh  = inputs[DAMP_CV_INPUT].getChannels();
+		int bCvCh  = inputs[BULGE_CV_INPUT].getChannels();
 		int sCh    = inputs[SYNC_INPUT].getChannels();
 
-		int numChannels = std::max({fCvCh, fmCvCh, xCvCh, yCvCh, pCvCh, dCvCh, sCh, 1});
+		int numChannels = std::max({fCvCh, fmCvCh, xCvCh, yCvCh, pCvCh, bCvCh, sCh, 1});
 		outputs[SYNC_OUTPUT].setChannels(numChannels);
 		outputs[X_OUTPUT].setChannels(numChannels);
 		outputs[Y_OUTPUT].setChannels(numChannels);
@@ -239,18 +388,18 @@ struct Lisa : Module {
 		float xRatioParam = params[X_RATIO_PARAM].getValue();
 		float yRatioParam = params[Y_RATIO_PARAM].getValue();
 		float phaseParam  = params[PHASE_PARAM].getValue();
-		float dampParam   = params[DAMP_PARAM].getValue();
+		float bulgeParam  = params[BULGE_PARAM].getValue();
 
 		float fTrim      = params[FREQ_TRIM_PARAM].getValue();
 		float fmTrim     = params[FM_TRIM_PARAM].getValue();
 		float xRatioTrim = params[X_RATIO_TRIM_PARAM].getValue();
 		float yRatioTrim = params[Y_RATIO_TRIM_PARAM].getValue();
 		float phaseTrim  = params[PHASE_TRIM_PARAM].getValue();
-		float dampTrim   = params[DAMP_TRIM_PARAM].getValue();
+		float bulgeTrim  = params[BULGE_TRIM_PARAM].getValue();
 
 		bool fmConnected  = inputs[FM_CV_INPUT].isConnected();
 		bool yCvConnected = inputs[Y_RATIO_CV_INPUT].isConnected();
-		bool dCvConnected = inputs[DAMP_CV_INPUT].isConnected();
+		bool bCvConnected = inputs[BULGE_CV_INPUT].isConnected();
 		bool syncConnected = inputs[SYNC_INPUT].isConnected();
 
 		for (int c = 0; c < numChannels; c++) {
@@ -324,9 +473,9 @@ struct Lisa : Module {
 			float phaseDeg = clampf(phaseParam + pCv * phaseTrim * 180.f, -180.f, 180.f);
 			float phaseRad = phaseDeg * (float)(M_PI / 180.0);
 
-			// Orbital Dampening modulation (bipolar ±100%): Damp normalizes from Phase CV if unpatched
-			float dCv = dCvConnected ? (inputs[DAMP_CV_INPUT].getPolyVoltage(c) / 5.f) : pCv;
-			float dampVal = clampf(dampParam + dCv * dampTrim, -1.f, 1.f);
+			// Bulge modulation (bipolar ±100%): Bulge normalizes from Phase CV if unpatched
+			float bCv = bCvConnected ? (inputs[BULGE_CV_INPUT].getPolyVoltage(c) / 5.f) : pCv;
+			float bulgeVal = clampf(bulgeParam + bCv * bulgeTrim, -1.f, 1.f);
 
 			// Orthogonal Sinusoidal Oscillations
 			float angX = 2.f * (float)M_PI * vs.phaseX + phaseRad;
@@ -335,10 +484,10 @@ struct Lisa : Module {
 			float rawX = std::sin(angX);
 			float rawY = std::sin(angY);
 
-			// Apply Orbital Dampening (Hardcoded Harmonograph Logarithmic Spiral with 0.68 depth)
-			if (std::abs(dampVal) > 1e-4f) {
+			// Apply Bulge (Hardcoded Harmonograph Logarithmic Spiral with 0.68 depth)
+			if (std::abs(bulgeVal) > 1e-4f) {
 				float r = std::sqrt(rawX * rawX + rawY * rawY);
-				float dampFactor = 1.0f - dampVal * 0.68f * (1.0f - r);
+				float dampFactor = 1.0f - bulgeVal * 0.68f * (1.0f - r);
 				rawX *= dampFactor;
 				rawY *= dampFactor;
 			}
@@ -403,9 +552,9 @@ struct LisaWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 37.00)), module, Lisa::X_RATIO_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 37.00)), module, Lisa::Y_RATIO_PARAM));
 
-		// Row 3: Phase & Damp Knobs (Center Y = 52.50 mm)
+		// Row 3: Phase & Bulge Knobs (Center Y = 52.50 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 52.50)), module, Lisa::PHASE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 52.50)), module, Lisa::DAMP_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 52.50)), module, Lisa::BULGE_PARAM));
 
 		// Zone 3: CV Attenuverter Trimpots (3 Columns: 8.82, 20.32, 31.82 mm)
 		// Row 1 Attenuverters: FREQ, X, Y (Center Y = 70.00 mm)
@@ -413,10 +562,10 @@ struct LisaWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 70.00)), module, Lisa::X_RATIO_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 70.00)), module, Lisa::Y_RATIO_TRIM_PARAM));
 
-		// Row 2 Attenuverters: FM, PHASE, DAMP (Center Y = 79.50 mm)
+		// Row 2 Attenuverters: FM, PHASE, BULGE (Center Y = 79.50 mm)
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(8.82, 79.50)), module, Lisa::FM_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 79.50)), module, Lisa::PHASE_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 79.50)), module, Lisa::DAMP_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 79.50)), module, Lisa::BULGE_TRIM_PARAM));
 
 		// Zone 4: I/O Jacks
 		// Row 1 (Inputs): FREQ, X, Y (Center Y = 94.50 mm)
@@ -424,10 +573,10 @@ struct LisaWidget : ModuleWidget {
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 94.50)), module, Lisa::X_RATIO_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 94.50)), module, Lisa::Y_RATIO_CV_INPUT));
 
-		// Row 2 (Inputs): FM, PHASE, DAMP (Center Y = 106.00 mm)
+		// Row 2 (Inputs): FM, PHASE, BULGE (Center Y = 106.00 mm)
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.82, 106.00)), module, Lisa::FM_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 106.00)), module, Lisa::PHASE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 106.00)), module, Lisa::DAMP_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 106.00)), module, Lisa::BULGE_CV_INPUT));
 
 		// Row 3 (Sync & Outputs): SYNC IN, X OUT, Y OUT, SYNC OUT (Center Y = 118.00 mm)
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(6.07, 118.00)), module, Lisa::SYNC_INPUT));
