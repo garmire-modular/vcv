@@ -216,29 +216,6 @@ html_content = f'''<!DOCTYPE html>
       background: #282a32;
     }}
 
-    .panel-color-group {{
-      display: flex;
-      align-items: center;
-      gap: 3px;
-    }}
-
-    .panel-btn {{
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 9px;
-      font-size: 11px;
-      font-family: 'consola', monospace;
-    }}
-
-    .color-dot {{
-      display: inline-block;
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      flex-shrink: 0;
-    }}
 
 
     .btn-save {{
@@ -333,7 +310,7 @@ html_content = f'''<!DOCTYPE html>
       justify-content: center;
       height: 560px;
       box-shadow: 0 24px 50px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.4);
-      background: #7c7c7c;
+      background: #6e6e6e;
       border-radius: 2px;
       overflow: hidden;
     }}
@@ -546,20 +523,6 @@ html_content = f'''<!DOCTYPE html>
         <button class="btn" onclick="generate()" title="Re-roll Palette (Spacebar)">&#x21bb;</button>
 
 
-        <div class="divider"></div>
-
-        <!-- Panel Color Selector (#7C7C7C, #6E6E6E, #333333) -->
-        <div class="group panel-color-group">
-          <button class="btn panel-btn active" id="b-panel-7c7c7c" onclick="setPanelColor('#7C7C7C')" title="Panel Fill: #7C7C7C (Default)">
-            <span class="color-dot" style="background:#7C7C7C;"></span>#7C7C7C
-          </button>
-          <button class="btn panel-btn" id="b-panel-6e6e6e" onclick="setPanelColor('#6E6E6E')" title="Panel Fill: #6E6E6E">
-            <span class="color-dot" style="background:#6E6E6E;"></span>#6E6E6E
-          </button>
-          <button class="btn panel-btn" id="b-panel-333333" onclick="setPanelColor('#333333')" title="Panel Fill: #333333">
-            <span class="color-dot" style="background:#333333;"></span>#333333
-          </button>
-        </div>
 
         <div class="divider"></div>
 
@@ -665,7 +628,7 @@ html_content = f'''<!DOCTYPE html>
     let currentModule = null;
     let bandCount = 3;
     let moduleMode = 'Transform'; // 'Transform' | 'Generate' | 'Utility' | 'Control'
-    let selectedPanelColor = '#7C7C7C'; // '#7C7C7C' | '#6E6E6E' | '#333333'
+    const PANEL_COLOR = '#6E6E6E'; // Locked panel background fill
     let currentPalette = null; // {{ colors: [], weights: [] }}
     let pendingSaveCallback = null;
     let fileHandle = null; // Native File System Access API handle if linked
@@ -785,9 +748,6 @@ html_content = f'''<!DOCTYPE html>
         }} else {{
           moduleMode = (saved.colors && saved.colors[0] === '#1A1A1A') ? 'Generate' : 'Transform';
         }}
-        if (saved.panelColor) {{
-          selectedPanelColor = saved.panelColor;
-        }}
         updateControlUI();
 
         currentPalette = {{
@@ -811,16 +771,6 @@ html_content = f'''<!DOCTYPE html>
         const btn = document.getElementById('b-' + m);
         if (btn) btn.classList.toggle('active', moduleMode.toLowerCase() === m);
       }});
-      ['7c7c7c', '6e6e6e', '333333'].forEach(c => {{
-        const btn = document.getElementById('b-panel-' + c);
-        if (btn) btn.classList.toggle('active', selectedPanelColor.toLowerCase() === ('#' + c));
-      }});
-    }}
-
-    function setPanelColor(colorHex) {{
-      selectedPanelColor = colorHex;
-      updateControlUI();
-      renderFaceplateAndSwatches();
     }}
 
     // Actively avoid rolling already reserved palettes
@@ -956,7 +906,7 @@ html_content = f'''<!DOCTYPE html>
         for (const r of allRects) {{
           const h = parseFloat(r.getAttribute('height'));
           if (h >= 128.0) {{
-            r.setAttribute('fill', selectedPanelColor);
+            r.setAttribute('fill', PANEL_COLOR);
             break;
           }}
         }}
@@ -1133,7 +1083,7 @@ html_content = f'''<!DOCTYPE html>
           x: 0.0,
           y: Number(yStartMm.toFixed(3))
         }},
-        panelColor: selectedPanelColor,
+        panelColor: PANEL_COLOR,
         savedAt: new Date().toISOString()
       }};
 

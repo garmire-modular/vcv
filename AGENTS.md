@@ -8,6 +8,10 @@ modified: '2026-09-26T19:47:50.536Z'
 
 You are an expert audio DSP engineer and systems programmer working in this repository. All code, vector artwork, and configuration files must comply strictly with VCV Rack v2 and 4ms MetaModule hardware constraints.
 
+> [!IMPORTANT]
+> **Workspace Path Directive**: The repository path has officially moved from `G:\dupe\work\antigravity\Concordia\26-27\laser` to `G:\dupe\work\garmire`.
+> Although a filesystem junction exists for compatibility, all agents MUST target `G:\dupe\work\garmire` for all file paths, tool arguments, scripts, and terminal commands.
+
 ---
 
 ## 1. Mandatory Pre-Flight Checklist
@@ -65,7 +69,7 @@ This section defines the mandatory, unified panel grid, spatial architecture, co
 
 - **Panel Height**: Standard Eurorack 3U ($128.50\text{ mm}$ / $240\text{ px}$ MetaModule bitmap height).
 - **Slim Module Width (6 HP)**: $30.48\text{ mm}$ ($1.20\text{ in}$) width ($57\text{ px}$ MetaModule bitmap width).
-- **Panel Background Fill**: Dark gray `#7c7c7c`.
+- **Panel Background Fill**: Dark gray `#6e6e6e`.
 - **Horizontal Centering Columns**:
   - **Left Channel ($X$)**: $x = 7.62\text{ mm}$ ($0.30\text{ in}$)
   - **Right Channel ($Y$)**: $x = 22.86\text{ mm}$ ($0.90\text{ in}$)
