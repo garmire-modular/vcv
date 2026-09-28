@@ -30,10 +30,6 @@ struct Lisa : Module {
 		RANGE_VCO             // 150 Hz - 2 kHz
 	};
 
-	enum DampingMode {
-		DAMP_SPIRAL = 0, // Logarithmic Spiral (Harmonograph)
-		DAMP_TAPER       // Smooth Orbital Taper
-	};
 
 	enum ParamId {
 		FREQ_PARAM,
@@ -88,7 +84,6 @@ struct Lisa : Module {
 	};
 
 	RangeMode rangeMode = RANGE_LFO;
-	DampingMode dampingMode = DAMP_SPIRAL;
 
 	dsp::BooleanTrigger rangeTrigger;
 
@@ -340,20 +335,12 @@ struct Lisa : Module {
 			float rawX = std::sin(angX);
 			float rawY = std::sin(angY);
 
-			// Apply Orbital Dampening
+			// Apply Orbital Dampening (Hardcoded Harmonograph Logarithmic Spiral with 3x depth)
 			if (std::abs(dampVal) > 1e-4f) {
-				if (dampingMode == DAMP_SPIRAL) {
-					// Harmonograph logarithmic spiral dampening
-					float r = std::sqrt(rawX * rawX + rawY * rawY);
-					float dampFactor = 1.0f - dampVal * 0.45f * (1.0f - r);
-					rawX *= dampFactor;
-					rawY *= dampFactor;
-				} else {
-					// Smooth orbital taper
-					float decay = std::exp(-dampVal * vs.phaseY * 1.5f);
-					rawX *= decay;
-					rawY *= decay;
-				}
+				float r = std::sqrt(rawX * rawX + rawY * rawY);
+				float dampFactor = 1.0f - dampVal * 1.35f * (1.0f - r);
+				rawX *= dampFactor;
+				rawY *= dampFactor;
 			}
 
 			// Eurorack standard 10Vpp (±5V) normalized vector coordinates
@@ -368,7 +355,6 @@ struct Lisa : Module {
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "rangeMode", json_integer((int)rangeMode));
-		json_object_set_new(rootJ, "dampingMode", json_integer((int)dampingMode));
 		return rootJ;
 	}
 
@@ -377,23 +363,19 @@ struct Lisa : Module {
 		if (rmJ) {
 			rangeMode = (RangeMode)json_integer_value(rmJ);
 		}
-		json_t* dmJ = json_object_get(rootJ, "dampingMode");
-		if (dmJ) {
-			dampingMode = (DampingMode)json_integer_value(dmJ);
-		}
 	}
 };
 
-// ── Custom 3-Color Range Light Widget (Okabe-Ito Palette) ───────────
+// ── Custom 3-Color Range Light Widget (Palette: #e1be6a, #40b0a6, #d35fb7) ──
 template <typename TBase = GrayModuleLightWidget>
 struct TRangeLight : TBase {
 	TRangeLight() {
-		// Range 0: Very Slow = Yellow (#F0E442)
-		this->addBaseColor(nvgRGBA(0xf0, 0xe4, 0x42, 0xff));
-		// Range 1: LFO = Orange (#E69F00)
-		this->addBaseColor(nvgRGBA(0xe6, 0x9f, 0x00, 0xff));
-		// Range 2: VCO = Reddish Purple (#CC79A7)
-		this->addBaseColor(nvgRGBA(0xcc, 0x79, 0xa7, 0xff));
+		// Range 0: Very Slow = #e1be6a (Warm Gold)
+		this->addBaseColor(nvgRGBA(0xe1, 0xbe, 0x6a, 0xff));
+		// Range 1: LFO = #40b0a6 (Teal)
+		this->addBaseColor(nvgRGBA(0x40, 0xb0, 0xa6, 0xff));
+		// Range 2: VCO = #d35fb7 (Magenta)
+		this->addBaseColor(nvgRGBA(0xd3, 0x5f, 0xb7, 0xff));
 	}
 };
 struct RangeLightWidget : SmallLight<TRangeLight<>> {};
@@ -475,18 +457,6 @@ struct LisaWidget : ModuleWidget {
 			));
 		}
 
-		menu->addChild(new MenuSeparator());
-		menu->addChild(createMenuLabel("Orbital Damping"));
-
-		menu->addChild(createCheckMenuItem("Logarithmic Spiral (Harmonograph)", "",
-			[=]() { return module->dampingMode == Lisa::DAMP_SPIRAL; },
-			[=]() { module->dampingMode = Lisa::DAMP_SPIRAL; }
-		));
-
-		menu->addChild(createCheckMenuItem("Orbital Taper", "",
-			[=]() { return module->dampingMode == Lisa::DAMP_TAPER; },
-			[=]() { module->dampingMode = Lisa::DAMP_TAPER; }
-		));
 	}
 };
 
