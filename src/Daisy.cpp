@@ -10,7 +10,7 @@
 //  with Coarse/Fine timebase, 3-state Range oscillator (Very Slow / LFO / VCO),
 //  carrier-normalized linear FM (with external override), harmonic petal count
 //  (k = 1 to 12), center offset Limaçon morph (Cardioid / Limaçon), bipolar phase
-//  shift (±180°), bipolar bulge (±100%), and bidirectional frequency sync
+//  shift (±180°), bipolar stretch (±100%), and bidirectional frequency sync
 //  (Sync In & Sync Out).
 // ─────────────────────────────────────────────────────────────────────
 
@@ -47,7 +47,7 @@ struct Daisy : Module {
 		OFFSET_PARAM,
 
 		PHASE_PARAM,
-		BULGE_PARAM,
+		STRETCH_PARAM,
 
 		FREQ_TRIM_PARAM,
 		COROLLA_TRIM_PARAM,
@@ -55,7 +55,7 @@ struct Daisy : Module {
 
 		FM_TRIM_PARAM,
 		PHASE_TRIM_PARAM,
-		BULGE_TRIM_PARAM,
+		STRETCH_TRIM_PARAM,
 
 		PARAMS_LEN
 	};
@@ -67,7 +67,7 @@ struct Daisy : Module {
 
 		FM_CV_INPUT,
 		PHASE_CV_INPUT,
-		BULGE_CV_INPUT,
+		STRETCH_CV_INPUT,
 
 		SYNC_INPUT,
 
@@ -352,8 +352,8 @@ struct Daisy : Module {
 		// Phase Shift (Bipolar ±180°)
 		configParam(PHASE_PARAM, -180.f, 180.f, 0.f, "Phase offset", "°", 0.f, 1.f);
 
-		// Bulge (Bipolar ±100%)
-		configParam(BULGE_PARAM, -1.f, 1.f, 0.f, "Bulge", "%", 0.f, 100.f);
+		// Stretch (Bipolar ±100%)
+		configParam(STRETCH_PARAM, -1.f, 1.f, 0.f, "Stretch", "%", 0.f, 100.f);
 
 		// CV Attenuverters (Mandatory naming per AGENTS.md Section 6.5.4)
 		// Row 1 Attenuverters
@@ -364,7 +364,7 @@ struct Daisy : Module {
 		// Row 2 Attenuverters
 		configParam(FM_TRIM_PARAM, -1.f, 1.f, 0.f, "Linear FM CV depth", "%", 0.f, 100.f);
 		configParam(PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Phase CV depth", "%", 0.f, 100.f);
-		configParam(BULGE_TRIM_PARAM, -1.f, 1.f, 0.f, "Bulge CV depth", "%", 0.f, 100.f);
+		configParam(STRETCH_TRIM_PARAM, -1.f, 1.f, 0.f, "Stretch CV depth", "%", 0.f, 100.f);
 
 		// Inputs: Row 1
 		configInput(FREQ_CV_INPUT, "Frequency CV");
@@ -374,7 +374,7 @@ struct Daisy : Module {
 		// Inputs: Row 2
 		configInput(FM_CV_INPUT, "External FM");
 		configInput(PHASE_CV_INPUT, "Phase CV");
-		configInput(BULGE_CV_INPUT, "Bulge CV");
+		configInput(STRETCH_CV_INPUT, "Stretch CV");
 
 		// Sync
 		configInput(SYNC_INPUT, "Sync");
@@ -419,7 +419,7 @@ struct Daisy : Module {
 		int kCvCh  = inputs[COROLLA_CV_INPUT].getChannels();
 		int aCvCh  = inputs[OFFSET_CV_INPUT].getChannels();
 		int pCvCh  = inputs[PHASE_CV_INPUT].getChannels();
-		int bCvCh  = inputs[BULGE_CV_INPUT].getChannels();
+		int bCvCh  = inputs[STRETCH_CV_INPUT].getChannels();
 		int sCh    = inputs[SYNC_INPUT].getChannels();
 
 		int numChannels = std::max({fCvCh, fmCvCh, kCvCh, aCvCh, pCvCh, bCvCh, sCh, 1});
@@ -435,18 +435,18 @@ struct Daisy : Module {
 		float corollaParam = params[COROLLA_PARAM].getValue();
 		float offsetParam  = params[OFFSET_PARAM].getValue();
 		float phaseParam   = params[PHASE_PARAM].getValue();
-		float bulgeParam   = params[BULGE_PARAM].getValue();
+		float stretchParam = params[STRETCH_PARAM].getValue();
 
 		float fTrim       = params[FREQ_TRIM_PARAM].getValue();
 		float fmTrim      = params[FM_TRIM_PARAM].getValue();
 		float corollaTrim = params[COROLLA_TRIM_PARAM].getValue();
 		float offsetTrim  = params[OFFSET_TRIM_PARAM].getValue();
 		float phaseTrim   = params[PHASE_TRIM_PARAM].getValue();
-		float bulgeTrim   = params[BULGE_TRIM_PARAM].getValue();
+		float stretchTrim = params[STRETCH_TRIM_PARAM].getValue();
 
 		bool fmConnected      = inputs[FM_CV_INPUT].isConnected();
 		bool offsetConnected  = inputs[OFFSET_CV_INPUT].isConnected();
-		bool bulgeConnected   = inputs[BULGE_CV_INPUT].isConnected();
+		bool stretchConnected = inputs[STRETCH_CV_INPUT].isConnected();
 		bool syncConnected    = inputs[SYNC_INPUT].isConnected();
 
 		for (int c = 0; c < numChannels; c++) {
@@ -529,14 +529,15 @@ struct Daisy : Module {
 			float rawX = scale * r * std::cos(theta);
 			float rawY = scale * r * std::sin(theta);
 
-			// Bulge modulation (bipolar ±100%): Bulge normalizes from Phase CV if unpatched
-			float bCv = bulgeConnected ? (inputs[BULGE_CV_INPUT].getPolyVoltage(c) / 5.f) : pCv;
-			float bulgeVal = clampf(bulgeParam + bCv * bulgeTrim, -1.f, 1.f);
+			// Stretch modulation (bipolar ±100%): Stretch normalizes from Phase CV if unpatched
+			float bCv = stretchConnected ? (inputs[STRETCH_CV_INPUT].getPolyVoltage(c) / 5.f) : pCv;
+			float stretchVal = clampf(stretchParam + bCv * stretchTrim, -1.f, 1.f);
 
-			// Apply Bulge (Hardcoded Harmonograph Logarithmic Spiral with 2.72 depth)
-			if (std::abs(bulgeVal) > 1e-4f) {
+			// Apply Stretch (Hardcoded Harmonograph Logarithmic Spiral with 2.72 depth)
+			// Positive voltage stretches/bloats outwards (+), negative voltage puckers/damps inwards (-)
+			if (std::abs(stretchVal) > 1e-4f) {
 				float radiusNorm = std::sqrt(rawX * rawX + rawY * rawY);
-				float dampFactor = 1.0f - bulgeVal * 2.72f * (1.0f - radiusNorm);
+				float dampFactor = 1.0f + stretchVal * 2.72f * (1.0f - radiusNorm);
 				rawX *= dampFactor;
 				rawY *= dampFactor;
 			}
@@ -606,9 +607,9 @@ struct DaisyWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 37.00)), module, Daisy::COROLLA_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 37.00)), module, Daisy::OFFSET_PARAM));
 
-		// Row 3: Phase & Bulge Knobs (Center Y = 52.50 mm)
+		// Row 3: Phase & Stretch Knobs (Center Y = 52.50 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 52.50)), module, Daisy::PHASE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 52.50)), module, Daisy::BULGE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 52.50)), module, Daisy::STRETCH_PARAM));
 
 		// Zone 3: CV Attenuverter Trimpots (3 Columns: 8.82, 20.32, 31.82 mm)
 		// Row 1 Attenuverters: FREQ, COROLLA, OFFSET (Center Y = 70.00 mm)
@@ -616,10 +617,10 @@ struct DaisyWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 70.00)), module, Daisy::COROLLA_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 70.00)), module, Daisy::OFFSET_TRIM_PARAM));
 
-		// Row 2 Attenuverters: FM, PHASE, BULGE (Center Y = 79.50 mm)
+		// Row 2 Attenuverters: FM, PHASE, STRETCH (Center Y = 79.50 mm)
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(8.82, 79.50)), module, Daisy::FM_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 79.50)), module, Daisy::PHASE_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 79.50)), module, Daisy::BULGE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 79.50)), module, Daisy::STRETCH_TRIM_PARAM));
 
 		// Zone 4: I/O Jacks
 		// Row 1 (Inputs): FREQ, COROLLA, OFFSET (Center Y = 94.50 mm)
@@ -627,10 +628,10 @@ struct DaisyWidget : ModuleWidget {
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 94.50)), module, Daisy::COROLLA_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 94.50)), module, Daisy::OFFSET_CV_INPUT));
 
-		// Row 2 (Inputs): FM, PHASE, BULGE (Center Y = 106.00 mm)
+		// Row 2 (Inputs): FM, PHASE, STRETCH (Center Y = 106.00 mm)
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.82, 106.00)), module, Daisy::FM_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 106.00)), module, Daisy::PHASE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 106.00)), module, Daisy::BULGE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 106.00)), module, Daisy::STRETCH_CV_INPUT));
 
 		// Row 3 (Sync & Outputs): SYNC IN, X OUT, Y OUT, SYNC OUT (Center Y = 118.00 mm)
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(6.07, 118.00)), module, Daisy::SYNC_INPUT));

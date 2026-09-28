@@ -131,8 +131,8 @@ def main():
         svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 30.500, 0.002600, "#1c1c1c", f"Row 2 (Dist): {lbl}"))
 
     # Row 3 Labels: Shape Modifiers (Knob center Y = 52.50 mm, Label Y = 45.800 mm, Scale 0.0024, Color #1c1c1c)
-    # PINCH, TWIST, BEVEL, PHASE, BULGE
-    row3_labels = ["PINCH", "TWIST", "BEVEL", "PHASE", "BULGE"]
+    # PINCH, TWIST, BEVEL, PHASE, STRETCH
+    row3_labels = ["PINCH", "TWIST", "BEVEL", "PHASE", "STRETCH"]
     for i, lbl in enumerate(row3_labels):
         svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 45.800, 0.002400, "#1c1c1c", f"Row 3: {lbl}"))
 
@@ -154,7 +154,7 @@ def main():
         svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 66.200, 0.001800, "#2c2c2c", f"Trim 1: {lbl}"))
 
     # Row 2 Attenuverters (Center Y = 79.50 mm, Label Y = 75.700 mm, Scale 0.0018, Color #2c2c2c)
-    trim2_labels = ["FM", "DIST", "BEVEL", "PHASE", "BULGE"]
+    trim2_labels = ["FM", "DIST", "BEVEL", "PHASE", "STRETCH"]
     for i, lbl in enumerate(trim2_labels):
         svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 75.700, 0.001800, "#2c2c2c", f"Trim 2: {lbl}"))
 
@@ -165,7 +165,7 @@ def main():
         svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 89.200, 0.001800, "#2c2c2c", f"Jack 1: {lbl}"))
 
     # Jack Row 2 (Inputs) (Center Y = 106.00 mm, Label Y = 100.800 mm, Scale 0.0018, Color #2c2c2c)
-    jack2_labels = ["FM", "DIST", "BEVEL", "PHASE", "BULGE"]
+    jack2_labels = ["FM", "DIST", "BEVEL", "PHASE", "STRETCH"]
     for i, lbl in enumerate(jack2_labels):
         svg_parts.append(render_qs_text(qs_font, lbl, col_x[i], 100.800, 0.001800, "#2c2c2c", f"Jack 2: {lbl}"))
 

@@ -114,9 +114,9 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "COROLLA", 10.82, 30.500, 0.002600, "#1c1c1c", "COROLLA Knob Label"))
     svg_parts.append(render_qs_text(qs_font, "OFFSET", 29.82, 30.500, 0.002800, "#1c1c1c", "OFFSET Knob Label"))
 
-    # Row 3 Knobs: PHASE & BULGE (Knob center Y = 52.50, label Y = 45.800)
+    # Row 3 Knobs: PHASE & STRETCH (Knob center Y = 52.50, label Y = 45.800)
     svg_parts.append(render_qs_text(qs_font, "PHASE", 10.82, 45.800, 0.002400, "#1c1c1c", "PHASE Knob Label"))
-    svg_parts.append(render_qs_text(qs_font, "BULGE", 29.82, 45.800, 0.002400, "#1c1c1c", "BULGE Knob Label"))
+    svg_parts.append(render_qs_text(qs_font, "STRETCH", 29.82, 45.800, 0.002200, "#1c1c1c", "STRETCH Knob Label"))
 
     # Zone 3: CV Attenuverter Trimpots (3 Columns: 8.82, 20.32, 31.82 mm)
     # Attenuverter Row 1: FREQ, COROLLA, OFFSET (Center Y = 70.00, label Y = 66.200)
@@ -124,10 +124,10 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "COROLLA", 20.32, 66.200, 0.001600, "#2c2c2c", "COROLLA CV Trim Label"))
     svg_parts.append(render_qs_text(qs_font, "OFFSET", 31.82, 66.200, 0.001800, "#2c2c2c", "OFFSET CV Trim Label"))
 
-    # Attenuverter Row 2: FM, PHASE, BULGE (Center Y = 79.50, label Y = 75.700)
+    # Attenuverter Row 2: FM, PHASE, STRETCH (Center Y = 79.50, label Y = 75.700)
     svg_parts.append(render_qs_text(qs_font, "FM", 8.82, 75.700, 0.001800, "#2c2c2c", "FM CV Trim Label"))
     svg_parts.append(render_qs_text(qs_font, "PHASE", 20.32, 75.700, 0.001800, "#2c2c2c", "PHASE CV Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "BULGE", 31.82, 75.700, 0.001800, "#2c2c2c", "BULGE CV Trim Label"))
+    svg_parts.append(render_qs_text(qs_font, "STRETCH", 31.82, 75.700, 0.001600, "#2c2c2c", "STRETCH CV Trim Label"))
 
     # Zone 4: I/O Jacks
     # Jack Row 1 (Inputs): FREQ, COROLLA, OFFSET (Center Y = 94.50, label Y = 89.200)
@@ -135,10 +135,10 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "COROLLA", 20.32, 89.200, 0.001600, "#2c2c2c", "COROLLA Jack Label"))
     svg_parts.append(render_qs_text(qs_font, "OFFSET", 31.82, 89.200, 0.001800, "#2c2c2c", "OFFSET Jack Label"))
 
-    # Jack Row 2 (Inputs): FM, PHASE, BULGE (Center Y = 106.00, label Y = 100.800)
+    # Jack Row 2 (Inputs): FM, PHASE, STRETCH (Center Y = 106.00, label Y = 100.800)
     svg_parts.append(render_qs_text(qs_font, "FM", 8.82, 100.800, 0.001800, "#2c2c2c", "FM Jack Label"))
     svg_parts.append(render_qs_text(qs_font, "PHASE", 20.32, 100.800, 0.001800, "#2c2c2c", "PHASE Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "BULGE", 31.82, 100.800, 0.001800, "#2c2c2c", "BULGE Jack Label"))
+    svg_parts.append(render_qs_text(qs_font, "STRETCH", 31.82, 100.800, 0.001600, "#2c2c2c", "STRETCH Jack Label"))
 
     # Jack Row 3 (Sync & Outputs): SYNC, X, Y, SYNC (Center Y = 118.00)
     svg_parts.append(render_qs_text(qs_font, "SYNC", 6.07, 112.800, 0.001800, "#2c2c2c", "SYNC IN Jack Label"))
