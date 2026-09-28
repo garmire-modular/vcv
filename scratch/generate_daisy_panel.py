@@ -110,8 +110,8 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "FREQ", 10.82, 14.500, 0.002800, "#1c1c1c", "FREQ Knob Label"))
     svg_parts.append(render_qs_text(qs_font, "FINE", 29.82, 14.500, 0.002800, "#1c1c1c", "FINE Knob Label"))
 
-    # Row 2 Knobs: PETALS & OFFSET (Knob center Y = 37.00, label Y = 30.500)
-    svg_parts.append(render_qs_text(qs_font, "PETALS", 10.82, 30.500, 0.002800, "#1c1c1c", "PETALS Knob Label"))
+    # Row 2 Knobs: COROLLA & OFFSET (Knob center Y = 37.00, label Y = 30.500)
+    svg_parts.append(render_qs_text(qs_font, "COROLLA", 10.82, 30.500, 0.002600, "#1c1c1c", "COROLLA Knob Label"))
     svg_parts.append(render_qs_text(qs_font, "OFFSET", 29.82, 30.500, 0.002800, "#1c1c1c", "OFFSET Knob Label"))
 
     # Row 3 Knobs: PHASE & BULGE (Knob center Y = 52.50, label Y = 45.800)
@@ -119,9 +119,9 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "BULGE", 29.82, 45.800, 0.002400, "#1c1c1c", "BULGE Knob Label"))
 
     # Zone 3: CV Attenuverter Trimpots (3 Columns: 8.82, 20.32, 31.82 mm)
-    # Attenuverter Row 1: FREQ, PETALS, OFFSET (Center Y = 70.00, label Y = 66.200)
+    # Attenuverter Row 1: FREQ, COROLLA, OFFSET (Center Y = 70.00, label Y = 66.200)
     svg_parts.append(render_qs_text(qs_font, "FREQ", 8.82, 66.200, 0.001800, "#2c2c2c", "FREQ CV Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "PETALS", 20.32, 66.200, 0.001800, "#2c2c2c", "PETALS CV Trim Label"))
+    svg_parts.append(render_qs_text(qs_font, "COROLLA", 20.32, 66.200, 0.001600, "#2c2c2c", "COROLLA CV Trim Label"))
     svg_parts.append(render_qs_text(qs_font, "OFFSET", 31.82, 66.200, 0.001800, "#2c2c2c", "OFFSET CV Trim Label"))
 
     # Attenuverter Row 2: FM, PHASE, BULGE (Center Y = 79.50, label Y = 75.700)
@@ -130,9 +130,9 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "BULGE", 31.82, 75.700, 0.001800, "#2c2c2c", "BULGE CV Trim Label"))
 
     # Zone 4: I/O Jacks
-    # Jack Row 1 (Inputs): FREQ, PETALS, OFFSET (Center Y = 94.50, label Y = 89.200)
+    # Jack Row 1 (Inputs): FREQ, COROLLA, OFFSET (Center Y = 94.50, label Y = 89.200)
     svg_parts.append(render_qs_text(qs_font, "FREQ", 8.82, 89.200, 0.001800, "#2c2c2c", "FREQ Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "PETALS", 20.32, 89.200, 0.001800, "#2c2c2c", "PETALS Jack Label"))
+    svg_parts.append(render_qs_text(qs_font, "COROLLA", 20.32, 89.200, 0.001600, "#2c2c2c", "COROLLA Jack Label"))
     svg_parts.append(render_qs_text(qs_font, "OFFSET", 31.82, 89.200, 0.001800, "#2c2c2c", "OFFSET Jack Label"))
 
     # Jack Row 2 (Inputs): FM, PHASE, BULGE (Center Y = 106.00, label Y = 100.800)
@@ -140,16 +140,11 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "PHASE", 20.32, 100.800, 0.001800, "#2c2c2c", "PHASE Jack Label"))
     svg_parts.append(render_qs_text(qs_font, "BULGE", 31.82, 100.800, 0.001800, "#2c2c2c", "BULGE Jack Label"))
 
-    # Jack Row 3 (Sync & Outputs): ⇥ (Sync In), X, Y, ↦ (Sync Out) (Center Y = 118.00)
-    # Visual height = 1.555 mm, vertically centered at Y = 112.031 mm
-    arrow_in_d = "M 231.0 664.0 L 231.0 530.0 L 1280.0 530.0 L 1159.0 412.0 L 1159.0 264.0 L 1479.0 596.0 L 1479.0 600.0 L 1159.0 932.0 L 1159.0 784.0 L 1282.0 664.0 Z M 1618.0 932.0 L 1485.0 932.0 L 1485.0 264.0 L 1618.0 264.0 Z"
-    arrow_out_d = "M 231.0 264.0 L 365.0 264.0 L 365.0 530.0 L 1419.0 530.0 L 1298.0 412.0 L 1298.0 264.0 L 1618.0 596.0 L 1618.0 600.0 L 1298.0 932.0 L 1298.0 784.0 L 1421.0 664.0 L 365.0 664.0 L 365.0 932.0 L 231.0 932.0 Z"
-    svg_parts.append('  <!-- Label: "Sync In (⇥)" -->')
-    svg_parts.append(f'    <g transform="translate(3.917, 113.424) scale(0.002328, -0.002328)"><path d="{arrow_in_d}" fill="#3c3c3c"/></g>')
+    # Jack Row 3 (Sync & Outputs): SYNC, X, Y, SYNC (Center Y = 118.00)
+    svg_parts.append(render_qs_text(qs_font, "SYNC", 6.07, 112.800, 0.001800, "#2c2c2c", "SYNC IN Jack Label"))
     svg_parts.append(render_qs_text(qs_font, "X", 15.57, 112.800, 0.002200, "#3c3c3c", "X OUT Label"))
     svg_parts.append(render_qs_text(qs_font, "Y", 25.07, 112.800, 0.002200, "#3c3c3c", "Y OUT Label"))
-    svg_parts.append('  <!-- Label: "Sync Out (↦)" -->')
-    svg_parts.append(f'    <g transform="translate(32.417, 113.424) scale(0.002328, -0.002328)"><path d="{arrow_out_d}" fill="#3c3c3c"/></g>')
+    svg_parts.append(render_qs_text(qs_font, "SYNC", 34.57, 112.800, 0.001800, "#2c2c2c", "SYNC OUT Jack Label"))
 
     svg_parts.append('</svg>')
 

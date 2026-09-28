@@ -43,14 +43,14 @@ struct Daisy : Module {
 		FINE_PARAM,
 		RANGE_PARAM,
 
-		PETALS_PARAM,
+		COROLLA_PARAM,
 		OFFSET_PARAM,
 
 		PHASE_PARAM,
 		BULGE_PARAM,
 
 		FREQ_TRIM_PARAM,
-		PETALS_TRIM_PARAM,
+		COROLLA_TRIM_PARAM,
 		OFFSET_TRIM_PARAM,
 
 		FM_TRIM_PARAM,
@@ -62,7 +62,7 @@ struct Daisy : Module {
 
 	enum InputId {
 		FREQ_CV_INPUT,
-		PETALS_CV_INPUT,
+		COROLLA_CV_INPUT,
 		OFFSET_CV_INPUT,
 
 		FM_CV_INPUT,
@@ -291,6 +291,46 @@ struct Daisy : Module {
 		}
 	};
 
+	struct CorollaParamQuantity : ParamQuantity {
+		std::string getDisplayValueString() override {
+			float val = getValue();
+			int nearestInt = (int)std::round(val);
+			if (std::abs(val - nearestInt) < 0.05f && nearestInt >= 1 && nearestInt <= 12) {
+				int petals = (nearestInt % 2 == 0) ? (2 * nearestInt) : nearestInt;
+				char buf[32];
+				if (petals == 1) {
+					std::snprintf(buf, sizeof(buf), "%.1f (1 lobe)", val);
+				} else {
+					std::snprintf(buf, sizeof(buf), "%.1f (%d petals)", val, petals);
+				}
+				return std::string(buf);
+			}
+			char buf[32];
+			std::snprintf(buf, sizeof(buf), "%.2f", val);
+			return std::string(buf);
+		}
+
+		void setDisplayValueString(std::string s) override {
+			std::string lowerStr = s;
+			for (char& c : lowerStr) c = (char)std::tolower((unsigned char)c);
+			if (lowerStr.find("petal") != std::string::npos || lowerStr.find("lobe") != std::string::npos) {
+				char* endPtr = nullptr;
+				float num = std::strtof(lowerStr.c_str(), &endPtr);
+				if (endPtr != lowerStr.c_str()) {
+					int p = (int)std::round(num);
+					if (p % 2 == 0 && p >= 4) {
+						setValue(clampf((float)(p / 2), getMinValue(), getMaxValue()));
+						return;
+					} else if (p % 2 == 1 && p >= 1) {
+						setValue(clampf((float)p, getMinValue(), getMaxValue()));
+						return;
+					}
+				}
+			}
+			ParamQuantity::setDisplayValueString(s);
+		}
+	};
+
 	Daisy() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
@@ -303,8 +343,8 @@ struct Daisy : Module {
 		// Momentary Range Button
 		configButton(RANGE_PARAM, "Range time-scale");
 
-		// Petals Multiplier (k = 1.0 to 12.0, default 3.0)
-		configParam(PETALS_PARAM, 1.f, 12.f, 3.f, "Petals", "", 0.f, 1.f);
+		// Corolla Multiplier (k = 1.0 to 12.0, default 4.0 producing 8 petals)
+		configParam<CorollaParamQuantity>(COROLLA_PARAM, 1.f, 12.f, 4.f, "Corolla", "");
 
 		// Center Offset Limaçon (-2.0 to +2.0, default 0.0 for pure Rhodonea rose)
 		configParam(OFFSET_PARAM, -2.f, 2.f, 0.f, "Center offset", "", 0.f, 1.f);
@@ -318,7 +358,7 @@ struct Daisy : Module {
 		// CV Attenuverters (Mandatory naming per AGENTS.md Section 6.5.4)
 		// Row 1 Attenuverters
 		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV depth", "%", 0.f, 100.f);
-		configParam(PETALS_TRIM_PARAM, -1.f, 1.f, 0.f, "Petals CV depth", "%", 0.f, 100.f);
+		configParam(COROLLA_TRIM_PARAM, -1.f, 1.f, 0.f, "Corolla CV depth", "%", 0.f, 100.f);
 		configParam(OFFSET_TRIM_PARAM, -1.f, 1.f, 0.f, "Offset CV depth", "%", 0.f, 100.f);
 
 		// Row 2 Attenuverters
@@ -328,7 +368,7 @@ struct Daisy : Module {
 
 		// Inputs: Row 1
 		configInput(FREQ_CV_INPUT, "Frequency CV");
-		configInput(PETALS_CV_INPUT, "Petals CV");
+		configInput(COROLLA_CV_INPUT, "Corolla CV");
 		configInput(OFFSET_CV_INPUT, "Offset CV");
 
 		// Inputs: Row 2
@@ -376,7 +416,7 @@ struct Daisy : Module {
 		// Polyphony channel count
 		int fCvCh  = inputs[FREQ_CV_INPUT].getChannels();
 		int fmCvCh = inputs[FM_CV_INPUT].getChannels();
-		int kCvCh  = inputs[PETALS_CV_INPUT].getChannels();
+		int kCvCh  = inputs[COROLLA_CV_INPUT].getChannels();
 		int aCvCh  = inputs[OFFSET_CV_INPUT].getChannels();
 		int pCvCh  = inputs[PHASE_CV_INPUT].getChannels();
 		int bCvCh  = inputs[BULGE_CV_INPUT].getChannels();
@@ -392,17 +432,17 @@ struct Daisy : Module {
 
 		float defaultF0 = calculateBaseFrequency(coarseParam, fineParam);
 
-		float petalsParam = params[PETALS_PARAM].getValue();
-		float offsetParam = params[OFFSET_PARAM].getValue();
-		float phaseParam  = params[PHASE_PARAM].getValue();
-		float bulgeParam  = params[BULGE_PARAM].getValue();
+		float corollaParam = params[COROLLA_PARAM].getValue();
+		float offsetParam  = params[OFFSET_PARAM].getValue();
+		float phaseParam   = params[PHASE_PARAM].getValue();
+		float bulgeParam   = params[BULGE_PARAM].getValue();
 
-		float fTrim      = params[FREQ_TRIM_PARAM].getValue();
-		float fmTrim     = params[FM_TRIM_PARAM].getValue();
-		float petalsTrim = params[PETALS_TRIM_PARAM].getValue();
-		float offsetTrim = params[OFFSET_TRIM_PARAM].getValue();
-		float phaseTrim  = params[PHASE_TRIM_PARAM].getValue();
-		float bulgeTrim  = params[BULGE_TRIM_PARAM].getValue();
+		float fTrim       = params[FREQ_TRIM_PARAM].getValue();
+		float fmTrim      = params[FM_TRIM_PARAM].getValue();
+		float corollaTrim = params[COROLLA_TRIM_PARAM].getValue();
+		float offsetTrim  = params[OFFSET_TRIM_PARAM].getValue();
+		float phaseTrim   = params[PHASE_TRIM_PARAM].getValue();
+		float bulgeTrim   = params[BULGE_TRIM_PARAM].getValue();
 
 		bool fmConnected      = inputs[FM_CV_INPUT].isConnected();
 		bool offsetConnected  = inputs[OFFSET_CV_INPUT].isConnected();
@@ -451,11 +491,11 @@ struct Daisy : Module {
 				fActual = std::max(0.0001f, fCarrier + deltaF);
 			}
 
-			// CV inputs: Offset normalizes from Petals if unpatched
-			float kCv = inputs[PETALS_CV_INPUT].getPolyVoltage(c) / 5.f;
+			// CV inputs: Offset normalizes from Corolla if unpatched
+			float kCv = inputs[COROLLA_CV_INPUT].getPolyVoltage(c) / 5.f;
 			float aCv = offsetConnected ? (inputs[OFFSET_CV_INPUT].getPolyVoltage(c) / 5.f) : kCv;
 
-			float k = clampf(petalsParam + kCv * petalsTrim * 11.f, 0.1f, 24.f);
+			float k = clampf(corollaParam + kCv * corollaTrim * 11.f, 0.1f, 24.f);
 			float a = clampf(offsetParam + aCv * offsetTrim * 2.f, -4.f, 4.f);
 
 			// Advance base phase
@@ -493,10 +533,10 @@ struct Daisy : Module {
 			float bCv = bulgeConnected ? (inputs[BULGE_CV_INPUT].getPolyVoltage(c) / 5.f) : pCv;
 			float bulgeVal = clampf(bulgeParam + bCv * bulgeTrim, -1.f, 1.f);
 
-			// Apply Bulge (Hardcoded Harmonograph Logarithmic Spiral with 1.36 depth)
+			// Apply Bulge (Hardcoded Harmonograph Logarithmic Spiral with 2.72 depth)
 			if (std::abs(bulgeVal) > 1e-4f) {
 				float radiusNorm = std::sqrt(rawX * rawX + rawY * rawY);
-				float dampFactor = 1.0f - bulgeVal * 1.36f * (1.0f - radiusNorm);
+				float dampFactor = 1.0f - bulgeVal * 2.72f * (1.0f - radiusNorm);
 				rawX *= dampFactor;
 				rawY *= dampFactor;
 			}
@@ -562,8 +602,8 @@ struct DaisyWidget : ModuleWidget {
 		addChild(createLightCentered<DaisyRangeLightWidget>(mm2px(Vec(20.32, 15.50)), module, Daisy::RANGE_LIGHT_YELLOW));
 		addParam(createParamCentered<TL1105>(mm2px(Vec(20.32, 21.59)), module, Daisy::RANGE_PARAM));
 
-		// Row 2: Module-Specific Parameter Knobs: PETALS & OFFSET (Center Y = 37.00 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 37.00)), module, Daisy::PETALS_PARAM));
+		// Row 2: Module-Specific Parameter Knobs: COROLLA & OFFSET (Center Y = 37.00 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 37.00)), module, Daisy::COROLLA_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 37.00)), module, Daisy::OFFSET_PARAM));
 
 		// Row 3: Phase & Bulge Knobs (Center Y = 52.50 mm)
@@ -571,9 +611,9 @@ struct DaisyWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 52.50)), module, Daisy::BULGE_PARAM));
 
 		// Zone 3: CV Attenuverter Trimpots (3 Columns: 8.82, 20.32, 31.82 mm)
-		// Row 1 Attenuverters: FREQ, PETALS, OFFSET (Center Y = 70.00 mm)
+		// Row 1 Attenuverters: FREQ, COROLLA, OFFSET (Center Y = 70.00 mm)
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(8.82, 70.00)), module, Daisy::FREQ_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 70.00)), module, Daisy::PETALS_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 70.00)), module, Daisy::COROLLA_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 70.00)), module, Daisy::OFFSET_TRIM_PARAM));
 
 		// Row 2 Attenuverters: FM, PHASE, BULGE (Center Y = 79.50 mm)
@@ -582,9 +622,9 @@ struct DaisyWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 79.50)), module, Daisy::BULGE_TRIM_PARAM));
 
 		// Zone 4: I/O Jacks
-		// Row 1 (Inputs): FREQ, PETALS, OFFSET (Center Y = 94.50 mm)
+		// Row 1 (Inputs): FREQ, COROLLA, OFFSET (Center Y = 94.50 mm)
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.82, 94.50)), module, Daisy::FREQ_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 94.50)), module, Daisy::PETALS_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 94.50)), module, Daisy::COROLLA_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 94.50)), module, Daisy::OFFSET_CV_INPUT));
 
 		// Row 2 (Inputs): FM, PHASE, BULGE (Center Y = 106.00 mm)

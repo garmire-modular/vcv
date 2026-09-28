@@ -148,16 +148,11 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "PHASE", 20.32, 100.800, 0.001800, "#2c2c2c", "PHASE Jack Label"))
     svg_parts.append(render_qs_text(qs_font, "BULGE", 31.82, 100.800, 0.001800, "#2c2c2c", "BULGE Jack Label"))
 
-    # Jack Row 3 (Sync & Outputs): ⇥ (Sync In), X, Y, ↦ (Sync Out) (Center Y = 118.00)
-    # Visual height = 1.555 mm, vertically centered at Y = 112.031 mm
-    arrow_in_d = "M 231.0 664.0 L 231.0 530.0 L 1280.0 530.0 L 1159.0 412.0 L 1159.0 264.0 L 1479.0 596.0 L 1479.0 600.0 L 1159.0 932.0 L 1159.0 784.0 L 1282.0 664.0 Z M 1618.0 932.0 L 1485.0 932.0 L 1485.0 264.0 L 1618.0 264.0 Z"
-    arrow_out_d = "M 231.0 264.0 L 365.0 264.0 L 365.0 530.0 L 1419.0 530.0 L 1298.0 412.0 L 1298.0 264.0 L 1618.0 596.0 L 1618.0 600.0 L 1298.0 932.0 L 1298.0 784.0 L 1421.0 664.0 L 365.0 664.0 L 365.0 932.0 L 231.0 932.0 Z"
-    svg_parts.append('  <!-- Label: "Sync In (⇥)" -->')
-    svg_parts.append(f'    <g transform="translate(3.917, 113.424) scale(0.002328, -0.002328)"><path d="{arrow_in_d}" fill="#3c3c3c"/></g>')
+    # Jack Row 3 (Sync & Outputs): SYNC, X, Y, SYNC (Center Y = 118.00)
+    svg_parts.append(render_qs_text(qs_font, "SYNC", 6.07, 112.800, 0.001800, "#2c2c2c", "SYNC IN Jack Label"))
     svg_parts.append(render_qs_text(qs_font, "X", 15.57, 112.800, 0.002200, "#3c3c3c", "X OUT Label"))
     svg_parts.append(render_qs_text(qs_font, "Y", 25.07, 112.800, 0.002200, "#3c3c3c", "Y OUT Label"))
-    svg_parts.append('  <!-- Label: "Sync Out (↦)" -->')
-    svg_parts.append(f'    <g transform="translate(32.417, 113.424) scale(0.002328, -0.002328)"><path d="{arrow_out_d}" fill="#3c3c3c"/></g>')
+    svg_parts.append(render_qs_text(qs_font, "SYNC", 34.57, 112.800, 0.001800, "#2c2c2c", "SYNC OUT Jack Label"))
 
     svg_parts.append('</svg>')
 
