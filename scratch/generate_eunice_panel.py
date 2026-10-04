@@ -107,10 +107,10 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "RISE", col_b, 32.500, 0.002400, "#1c1c1c", "RISE"))
     svg_parts.append(render_qs_text(qs_font, "FALL", col_c, 32.500, 0.002400, "#1c1c1c", "FALL"))
 
-    # Switch position indicators for Slew Dest on RIGHT side: S&H (top), BOTH (mid), T&H (bot)
+    # Switch position indicators for Slew Dest on RIGHT side: S&H (top), + (mid), T&H (bot)
     # Switch center is at x = col_a (8.13), Y = 40.00. Indicators at x = 12.80 mm
     svg_parts.append(render_qs_text(qs_font, "S&H", col_a + 4.70, 37.50, 0.001600, "#2c2c2c", "S&H POS"))
-    svg_parts.append(render_qs_text(qs_font, "BOTH", col_a + 4.70, 41.00, 0.001600, "#2c2c2c", "BOTH POS"))
+    svg_parts.append(render_qs_text(qs_font, "+", col_a + 4.70, 41.00, 0.002000, "#2c2c2c", "+ POS"))
     svg_parts.append(render_qs_text(qs_font, "T&H", col_a + 4.70, 44.50, 0.001600, "#2c2c2c", "T&H POS"))
 
     # ---------------- Zone 3: CV Attenuverters ----------------
