@@ -268,18 +268,29 @@ void testFullEngineProcessing() {
 
     engine.zScaleMode = bitterroot::Z_SCALE_5V;
 
+    // Test Serial Route Mode cell activity: matches blocks[i].mix percentage
+    for (int i = 0; i < 9; ++i) {
+        assert(std::abs(out1.cellActivity[i] - 1.0f) < 1e-3f);
+    }
+    // With dry blocks (mix = 0), cellActivity is 0.0f
+    for (int i = 0; i < 9; ++i) {
+        assert(outDry.cellActivity[i] == 0.0f);
+    }
+
     // Test Matrix Scan
     engine.routeMode = bitterroot::ROUTE_MATRIX_SCAN;
+    // With scan focus at center (0, 0), center cell (idx 4) should have highest activity
     auto out2 = engine.process(2.5f, -2.5f, blocks, 0.0f, 0.0f, 0.5f, 48000.0f);
     assert(std::isfinite(out2.outX) && std::isfinite(out2.outY) && std::isfinite(out2.outZ));
     assert(out2.outZ >= 0.0f && out2.outZ <= 5.0f);
 
-    // Verify cell activities
+    // Verify cell activities in matrix mode
+    assert(out2.cellActivity[4] > 0.8f); // Center cell (0, 0)
     for (int i = 0; i < 9; ++i) {
         assert(out2.cellActivity[i] >= 0.0f && out2.cellActivity[i] <= 1.0f);
     }
 
-    std::cout << "  -> Full Engine Processing, Mix Bypass & Z-Scaling PASSED." << std::endl;
+    std::cout << "  -> Full Engine Processing, Mix Bypass, LED Grid & Z-Scaling PASSED." << std::endl;
 }
 
 int main() {

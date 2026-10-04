@@ -103,6 +103,19 @@ def main():
         '',
         '  <!-- Delineator Line 2 (Between Master Section and 12x3 CV Matrix at Y = 88.50mm) -->',
         f'  <line x1="3.00" y1="88.50" x2="{panel_w - 3.00:.2f}" y2="88.50" stroke="#999999" stroke-width="0.176"/>',
+        '',
+        '  <!-- 3x3 Activity LED Matrix Bezel & Apertures (Centered at 49.50mm, 79.50mm) -->',
+        '  <rect x="43.500" y="73.500" width="12.000" height="12.000" rx="1.500" fill="#222222" stroke="#444444" stroke-width="0.300"/>',
+        '  <!-- 9 LED Apertures (Diameter 2.2mm) -->',
+        '  <circle cx="46.500" cy="76.500" r="1.100" fill="#151515" stroke="#333333" stroke-width="0.200"/>',
+        '  <circle cx="49.500" cy="76.500" r="1.100" fill="#151515" stroke="#333333" stroke-width="0.200"/>',
+        '  <circle cx="52.500" cy="76.500" r="1.100" fill="#151515" stroke="#333333" stroke-width="0.200"/>',
+        '  <circle cx="46.500" cy="79.500" r="1.100" fill="#151515" stroke="#333333" stroke-width="0.200"/>',
+        '  <circle cx="49.500" cy="79.500" r="1.100" fill="#151515" stroke="#333333" stroke-width="0.200"/>',
+        '  <circle cx="52.500" cy="79.500" r="1.100" fill="#151515" stroke="#333333" stroke-width="0.200"/>',
+        '  <circle cx="46.500" cy="82.500" r="1.100" fill="#151515" stroke="#333333" stroke-width="0.200"/>',
+        '  <circle cx="49.500" cy="82.500" r="1.100" fill="#151515" stroke="#333333" stroke-width="0.200"/>',
+        '  <circle cx="52.500" cy="82.500" r="1.100" fill="#151515" stroke="#333333" stroke-width="0.200"/>',
         ''
     ]
     svg_parts.extend(title_block)

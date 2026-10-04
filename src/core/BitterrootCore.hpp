@@ -655,9 +655,9 @@ public:
             float blockBlank = clamp(1.0f - ((1.0f - minBlockZ) * zBlankThreshold), 0.0f, 1.0f);
             float targetZ_V = normZToVoltage(hopBlank * blockBlank);
 
-            // Activity LED tracking
+            // Activity LED tracking: In Serial mode, light up with the percentage that mix is active
             for (int i = 0; i < 9; ++i) {
-                out.cellActivity[i] = blocks[i].active ? clamp(resPoints[i].z, 0.0f, 1.0f) : 0.0f;
+                out.cellActivity[i] = clamp(blocks[i].mix, 0.0f, 1.0f);
             }
 
             applySlew(targetX_V, targetY_V, targetZ_V, sampleRate);
@@ -693,10 +693,10 @@ public:
                 float dy = scanY - CELL_Y[i];
                 float dist2 = dx * dx + dy * dy;
                 float w = std::exp(-dist2 / SIGMA2);
-                if (!blocks[i].active) w *= 0.01f; // Heavily de-weight bypassed cells
                 weights[i] = w;
                 totalWeight += w;
-                out.cellActivity[i] = clamp(w * 1.5f * (blocks[i].active ? 1.0f : 0.2f), 0.0f, 1.0f);
+                // In Matrix Mode, LEDs visually trace the 2D scan cursor across the 3x3 plane
+                out.cellActivity[i] = clamp(w, 0.0f, 1.0f);
             }
 
             float sumX = 0.0f, sumY = 0.0f, sumZ = 0.0f;
