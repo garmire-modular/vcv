@@ -61,6 +61,7 @@ target_sources(Garmire PRIVATE
     ${SOURCE_DIR}/src/Bleed.cpp
     ${SOURCE_DIR}/src/Lisa.cpp
     ${SOURCE_DIR}/src/Rose.cpp
+    ${SOURCE_DIR}/src/Eunice.cpp
 )
 
 # ── Include paths ────────────────────────────────────────────────────

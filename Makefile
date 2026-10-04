@@ -43,6 +43,7 @@ SOURCES += src/Daisy.cpp
 SOURCES += src/Polly.cpp
 SOURCES += src/Circe.cpp
 SOURCES += src/Maude.cpp
+SOURCES += src/Eunice.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res

@@ -1,7 +1,7 @@
 {
   "slug": "Garmire",
   "name": "Garmire",
-  "version": "2.25.0",
+  "version": "2.26.0",
   "license": "GPL-3.0-or-later",
   "brand": "Garmire",
   "author": "Garmire",
@@ -440,6 +440,17 @@
         "Utility",
         "Ring Modulator",
         "Dual"
+      ]
+    },
+    {
+      "slug": "Eunice",
+      "name": "Eunice",
+      "description": "Organic dual sample/track & hold with internal noise-jittered triangle generator, distribution tilt shaping, correlation feedback, and asymmetrical slew limiter",
+      "tags": [
+        "Sample and hold",
+        "Random",
+        "Polyphonic",
+        "Utility"
       ]
     }
   ]
