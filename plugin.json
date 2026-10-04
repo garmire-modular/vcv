@@ -475,6 +475,17 @@
         "Dual",
         "Utility"
       ]
+    },
+    {
+      "slug": "RgbIVca",
+      "name": "RGB/I/VCA",
+      "description": "3HP Triple VCA for laser Z/intensity control and RGB signal scaling",
+      "tags": [
+        "Visual",
+        "Utility",
+        "VCA",
+        "Polyphonic"
+      ]
     }
   ]
 }

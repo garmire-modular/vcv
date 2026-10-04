@@ -50,3 +50,4 @@ extern Model* modelMaude;
 extern Model* modelEunice;
 extern Model* modelSteppedSlew;
 extern Model* modelBitterroot;
+extern Model* modelRgbIVca;

@@ -49,5 +49,6 @@ void init(Plugin* p) {
 	p->addModel(modelEunice);
 	p->addModel(modelSteppedSlew);
 	p->addModel(modelBitterroot);
+	p->addModel(modelRgbIVca);
 }
 
