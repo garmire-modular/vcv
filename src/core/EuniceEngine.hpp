@@ -81,8 +81,11 @@ struct Engine {
 
     // Mathematical transfer curve for Distribution Tilt
     static float applyDistribution(float vIn, float distParam, DistributionMode mode) {
-        // distParam is normalized [0, 1], with 0.5 = neutral
+        // distParam is normalized [0, 1], with 0.5 = neutral (exact 1:1 pass-through)
         distParam = std::max(0.0f, std::min(1.0f, distParam));
+        if (std::abs(distParam - 0.5f) < 1e-6f) {
+            return vIn;
+        }
 
         switch (mode) {
             case DIST_POWER_LAW: {

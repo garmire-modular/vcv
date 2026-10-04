@@ -2,6 +2,23 @@
 #include "core/EuniceEngine.hpp"
 #include <cmath>
 
+struct InAttenParamQuantity : ParamQuantity {
+	std::string getDisplayValueString() override {
+		float v = getValue();
+		char buf[32];
+		if (std::abs(v) < 0.005f) {
+			return "0%";
+		} else if (v < 0.f) {
+			snprintf(buf, sizeof(buf), "%.0f%% (inv)", std::abs(v) * 100.f);
+			return std::string(buf);
+		} else {
+			snprintf(buf, sizeof(buf), "%.0f%%", v * 100.f);
+			return std::string(buf);
+		}
+	}
+	std::string getUnit() override { return ""; }
+};
+
 struct Eunice : Module {
 	enum ParamId {
 		RATE_PARAM,
@@ -13,6 +30,7 @@ struct Eunice : Module {
 		RATE_CV_ATTEN_PARAM,
 		DIST_CV_ATTEN_PARAM,
 		CORR_CV_ATTEN_PARAM,
+		IN_ATTEN_PARAM,
 		SLEW_RISE_CV_ATTEN_PARAM,
 		SLEW_FALL_CV_ATTEN_PARAM,
 		PARAMS_LEN
@@ -65,7 +83,9 @@ struct Eunice : Module {
 		configParam(DIST_CV_ATTEN_PARAM, -1.f, 1.f, 0.f, "Distribution CV depth", "%", 0.f, 100.f);
 		configParam(CORR_CV_ATTEN_PARAM, -1.f, 1.f, 0.f, "Correlation CV depth", "%", 0.f, 100.f);
 
-		// Row 4: Slew Attenuverters
+		// Row 4: IN Attenuverter & Slew Attenuverters
+		// IN attenuverter: -1.0 to +1.0, default 1.0 (fully CW / 100%)
+		configParam<InAttenParamQuantity>(IN_ATTEN_PARAM, -1.f, 1.f, 1.f, "Signal in level");
 		configParam(SLEW_RISE_CV_ATTEN_PARAM, -1.f, 1.f, 0.f, "Slew rise CV depth", "%", 0.f, 100.f);
 		configParam(SLEW_FALL_CV_ATTEN_PARAM, -1.f, 1.f, 0.f, "Slew fall CV depth", "%", 0.f, 100.f);
 
@@ -154,6 +174,8 @@ struct Eunice : Module {
 		float distKnob = params[DIST_PARAM].getValue();
 		float distAtten = params[DIST_CV_ATTEN_PARAM].getValue();
 
+		float inAtten = params[IN_ATTEN_PARAM].getValue();
+
 		float corrKnob = params[CORR_PARAM].getValue();
 		float corrAtten = params[CORR_CV_ATTEN_PARAM].getValue();
 
@@ -204,7 +226,8 @@ struct Eunice : Module {
 			// 2. Signal evaluation (External or Internal Noise-Triangle)
 			float inSignal = 0.0f;
 			if (inputs[SIGNAL_INPUT].isConnected()) {
-				inSignal = inputs[SIGNAL_INPUT].getPolyVoltage(c);
+				// External signal scaled by IN attenuverter
+				inSignal = inputs[SIGNAL_INPUT].getPolyVoltage(c) * inAtten;
 			} else {
 				// Generate internal noise-jittered ~100Hz triangle
 				float noise = eunice::xorshift32_float(ch.prngState);
@@ -219,10 +242,11 @@ struct Eunice : Module {
 
 				// Clock-tracking lowpass
 				ch.lpfState += lpfAlpha * (rawTri - ch.lpfState);
-				inSignal = ch.lpfState;
+				// Scaled by IN attenuverter
+				inSignal = ch.lpfState * inAtten;
 			}
 
-			// 3. Distribution Tilt Stage
+			// 3. Distribution Tilt Stage (Applies to both internal and external inputs; full pass-through at 50%)
 			float cDistCV = inputs[DIST_CV_INPUT].getPolyVoltage(c);
 			float effectiveDist = clamp(distKnob + distAtten * (cDistCV / 5.0f), 0.0f, 1.0f);
 			float vDist = eunice::Engine::applyDistribution(inSignal, effectiveDist, engine.distMode);
@@ -339,40 +363,42 @@ struct EuniceWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_b, 56.00)), module, Eunice::DIST_CV_ATTEN_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_c, 56.00)), module, Eunice::CORR_CV_ATTEN_PARAM));
 
-		// ---------------- Row 4: Slew Attenuverters (Center Y = 68.00 mm) ----------------
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_a, 68.00)), module, Eunice::SLEW_RISE_CV_ATTEN_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_b, 68.00)), module, Eunice::SLEW_FALL_CV_ATTEN_PARAM));
+		// ---------------- Row 4: IN Attenuverter & Slew Attenuverters (Center Y = 68.00 mm) ----------------
+		// Order: IN, RISE, FALL
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_a, 68.00)), module, Eunice::IN_ATTEN_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_b, 68.00)), module, Eunice::SLEW_RISE_CV_ATTEN_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_c, 68.00)), module, Eunice::SLEW_FALL_CV_ATTEN_PARAM));
 
 		// ---------------- Row 5: Jacks (Center Y = 89.50 mm) ----------------
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_a, 89.50)), module, Eunice::SIGNAL_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_b, 89.50)), module, Eunice::DIST_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_c, 89.50)), module, Eunice::CORR_CV_INPUT));
 
-		// ---------------- Row 6: Jacks (Center Y = 99.00 mm) ----------------
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_a, 99.00)), module, Eunice::RATE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_b, 99.00)), module, Eunice::EXT_CLOCK_INPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_c, 99.00)), module, Eunice::SH_OUTPUT));
+		// ---------------- Row 6: Jacks (Center Y = 103.75 mm) ----------------
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_a, 103.75)), module, Eunice::RATE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_b, 103.75)), module, Eunice::EXT_CLOCK_INPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_c, 103.75)), module, Eunice::SH_OUTPUT));
 
-		// ---------------- Row 7: Jacks (Center Y = 108.50 mm) ----------------
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_a, 108.50)), module, Eunice::SLEW_RISE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_b, 108.50)), module, Eunice::SLEW_FALL_CV_INPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_c, 108.50)), module, Eunice::TH_OUTPUT));
+		// ---------------- Row 7: Jacks (Fixed Bottom Center Y = 118.00 mm) ----------------
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_a, 118.00)), module, Eunice::SLEW_RISE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_b, 118.00)), module, Eunice::SLEW_FALL_CV_INPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_c, 118.00)), module, Eunice::TH_OUTPUT));
 
-		// ---------------- 2mm LEDs ----------------
-		// 1. Clock LED (Red 2mm at x = 8.13, y = 30.50 mm)
-		addChild(createLightCentered<SmallLight<RedLight>>(mm2px(Vec(col_a, 30.50)), module, Eunice::CLOCK_LIGHT));
+		// ---------------- 2mm LEDs (Above and to the right of their knobs / jacks) ----------------
+		// 1. Clock LED (Red 2mm): Above & right of Rate knob (Knob: 8.13, 21.59 -> LED: 13.50, 16.50)
+		addChild(createLightCentered<SmallLight<RedLight>>(mm2px(Vec(col_a + 5.37, 16.50)), module, Eunice::CLOCK_LIGHT));
 
-		// 2. Gate Input LED (Red 2mm at x = 20.32, y = 94.00 mm)
-		addChild(createLightCentered<SmallLight<RedLight>>(mm2px(Vec(col_b, 94.00)), module, Eunice::GATE_LIGHT));
+		// 2. Gate Input LED (Red 2mm): Above & right of Ext Clock jack (Jack: 20.32, 103.75 -> LED: 24.80, 98.75)
+		addChild(createLightCentered<SmallLight<RedLight>>(mm2px(Vec(col_b + 4.50, 98.75)), module, Eunice::GATE_LIGHT));
 
-		// 3. Signal In / Internal Random LED (Bipolar Green/Red 2mm at x = 8.13, y = 84.50 mm)
-		addChild(createLightCentered<SmallLight<GreenRedLight>>(mm2px(Vec(col_a, 84.50)), module, Eunice::SIGNAL_LIGHT_GREEN));
+		// 3. Signal In / Internal Random LED (Bipolar Green/Red 2mm): Above & right of Signal In jack (Jack: 8.13, 89.50 -> LED: 12.60, 84.50)
+		addChild(createLightCentered<SmallLight<GreenRedLight>>(mm2px(Vec(col_a + 4.50, 84.50)), module, Eunice::SIGNAL_LIGHT_GREEN));
 
-		// 4. S&H Out LED (Bipolar Green/Red 2mm at x = 32.51, y = 94.00 mm)
-		addChild(createLightCentered<SmallLight<GreenRedLight>>(mm2px(Vec(col_c, 94.00)), module, Eunice::SH_LIGHT_GREEN));
+		// 4. S&H Out LED (Bipolar Green/Red 2mm): Above & right of S&H Out jack (Jack: 32.51, 103.75 -> LED: 37.00, 98.75)
+		addChild(createLightCentered<SmallLight<GreenRedLight>>(mm2px(Vec(col_c + 4.50, 98.75)), module, Eunice::SH_LIGHT_GREEN));
 
-		// 5. T&H Out LED (Bipolar Green/Red 2mm at x = 32.51, y = 103.50 mm)
-		addChild(createLightCentered<SmallLight<GreenRedLight>>(mm2px(Vec(col_c, 103.50)), module, Eunice::TH_LIGHT_GREEN));
+		// 5. T&H Out LED (Bipolar Green/Red 2mm): Above & right of T&H Out jack (Jack: 32.51, 118.00 -> LED: 37.00, 113.00)
+		addChild(createLightCentered<SmallLight<GreenRedLight>>(mm2px(Vec(col_c + 4.50, 113.00)), module, Eunice::TH_LIGHT_GREEN));
 	}
 
 	void appendContextMenu(Menu* menu) override {

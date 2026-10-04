@@ -107,11 +107,11 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "RISE", col_b, 32.500, 0.002400, "#1c1c1c", "RISE"))
     svg_parts.append(render_qs_text(qs_font, "FALL", col_c, 32.500, 0.002400, "#1c1c1c", "FALL"))
 
-    # Switch position indicators for Slew Dest: SH (top), BOTH (mid), TH (bot)
-    # Switch center is at Y = 40.00. Indicators at -4mm, 0mm, +4mm
-    svg_parts.append(render_qs_text(qs_font, "S&H", col_a - 4.50, 37.50, 0.001600, "#2c2c2c", "S&H POS"))
-    svg_parts.append(render_qs_text(qs_font, "ALL", col_a - 4.50, 41.00, 0.001600, "#2c2c2c", "ALL POS"))
-    svg_parts.append(render_qs_text(qs_font, "T&H", col_a - 4.50, 44.50, 0.001600, "#2c2c2c", "T&H POS"))
+    # Switch position indicators for Slew Dest on RIGHT side: S&H (top), BOTH (mid), T&H (bot)
+    # Switch center is at x = col_a (8.13), Y = 40.00. Indicators at x = 12.80 mm
+    svg_parts.append(render_qs_text(qs_font, "S&H", col_a + 4.70, 37.50, 0.001600, "#2c2c2c", "S&H POS"))
+    svg_parts.append(render_qs_text(qs_font, "BOTH", col_a + 4.70, 41.00, 0.001600, "#2c2c2c", "BOTH POS"))
+    svg_parts.append(render_qs_text(qs_font, "T&H", col_a + 4.70, 44.50, 0.001600, "#2c2c2c", "T&H POS"))
 
     # ---------------- Zone 3: CV Attenuverters ----------------
     # Row 3 Trimpots (Center Y = 56.00, Baseline Y = 51.50)
@@ -119,9 +119,10 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "DIST", col_b, 51.50, 0.002000, "#2c2c2c", "DIST TRIM"))
     svg_parts.append(render_qs_text(qs_font, "CORR", col_c, 51.50, 0.002000, "#2c2c2c", "CORR TRIM"))
 
-    # Row 4 Trimpots (Center Y = 68.00, Baseline Y = 63.50)
-    svg_parts.append(render_qs_text(qs_font, "RISE", col_a, 63.50, 0.002000, "#2c2c2c", "RISE TRIM"))
-    svg_parts.append(render_qs_text(qs_font, "FALL", col_b, 63.50, 0.002000, "#2c2c2c", "FALL TRIM"))
+    # Row 4 Trimpots (Center Y = 68.00, Baseline Y = 63.50): IN, RISE, FALL
+    svg_parts.append(render_qs_text(qs_font, "IN", col_a, 63.50, 0.002000, "#2c2c2c", "IN TRIM"))
+    svg_parts.append(render_qs_text(qs_font, "RISE", col_b, 63.50, 0.002000, "#2c2c2c", "RISE TRIM"))
+    svg_parts.append(render_qs_text(qs_font, "FALL", col_c, 63.50, 0.002000, "#2c2c2c", "FALL TRIM"))
 
     # ---------------- Zone 4: I/O Jacks ----------------
     # Row 5 Jacks (Center Y = 89.50, Baseline Y = 82.50)
@@ -129,15 +130,15 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "DIST", col_b, 82.50, 0.002200, "#1c1c1c", "DIST CV"))
     svg_parts.append(render_qs_text(qs_font, "CORR", col_c, 82.50, 0.002200, "#1c1c1c", "CORR CV"))
 
-    # Row 6 Jacks (Center Y = 99.00, Baseline Y = 94.00)
-    svg_parts.append(render_qs_text(qs_font, "RATE", col_a, 94.00, 0.002200, "#1c1c1c", "RATE CV"))
-    svg_parts.append(render_qs_text(qs_font, "GATE", col_b, 94.00, 0.002200, "#1c1c1c", "GATE JACK"))
-    svg_parts.append(render_qs_text(qs_font, "S&H", col_c, 94.00, 0.002200, "#1c1c1c", "S&H OUT"))
+    # Row 6 Jacks (Center Y = 103.75, Baseline Y = 96.75)
+    svg_parts.append(render_qs_text(qs_font, "RATE", col_a, 96.75, 0.002200, "#1c1c1c", "RATE CV"))
+    svg_parts.append(render_qs_text(qs_font, "GATE", col_b, 96.75, 0.002200, "#1c1c1c", "GATE JACK"))
+    svg_parts.append(render_qs_text(qs_font, "S&H", col_c, 96.75, 0.002200, "#1c1c1c", "S&H OUT"))
 
-    # Row 7 Jacks (Center Y = 108.50, Baseline Y = 103.50)
-    svg_parts.append(render_qs_text(qs_font, "RISE", col_a, 103.50, 0.002200, "#1c1c1c", "RISE CV"))
-    svg_parts.append(render_qs_text(qs_font, "FALL", col_b, 103.50, 0.002200, "#1c1c1c", "FALL CV"))
-    svg_parts.append(render_qs_text(qs_font, "T&H", col_c, 103.50, 0.002200, "#1c1c1c", "T&H OUT"))
+    # Row 7 Jacks (Fixed Bottom Center Y = 118.00, Baseline Y = 111.00)
+    svg_parts.append(render_qs_text(qs_font, "RISE", col_a, 111.00, 0.002200, "#1c1c1c", "RISE CV"))
+    svg_parts.append(render_qs_text(qs_font, "FALL", col_b, 111.00, 0.002200, "#1c1c1c", "FALL CV"))
+    svg_parts.append(render_qs_text(qs_font, "T&H", col_c, 111.00, 0.002200, "#1c1c1c", "T&H OUT"))
 
     svg_parts.append('</svg>\n')
     svg_content = "\n".join(svg_parts)
