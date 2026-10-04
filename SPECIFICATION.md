@@ -1,10 +1,10 @@
 # Stepped Slew: Formal Engineering Specification
 
-**Document Version:** 1.0.0  
+**Document Version:** 1.1.0  
 **Target Release:** Garmire v2.26.0  
 **Slug:** `SteppedSlew`  
-**Panel Title:** `stepped slew` (Font: `res/Node.otf`, lowercase, baseline $Y = 7.620\text{ mm}$, centered $X = 30.480\text{ mm}$)  
-**Format:** 12 HP Eurorack ($60.960\text{ mm}$ width, $128.500\text{ mm}$ height, $114 \times 240\text{ px}$ MetaModule bitmap)  
+**Panel Title:** `stepped slew` (Font: `res/Node.otf`, lowercase, baseline $Y = 7.620\text{ mm}$, centered $X = 25.400\text{ mm}$)  
+**Format:** 10 HP Eurorack ($50.800\text{ mm}$ width, $128.500\text{ mm}$ height, $95 \times 240\text{ px}$ MetaModule bitmap)  
 
 ---
 

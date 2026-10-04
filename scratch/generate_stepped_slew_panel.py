@@ -46,20 +46,20 @@ def main():
     qs_font = TTFont('res/Quicksand-Medium.ttf')
     qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
 
-    # 12 HP Dimensions: 60.96 mm x 128.50 mm
-    panel_w = 60.96
+    # 10 HP Dimensions: 50.80 mm x 128.50 mm
+    panel_w = 50.80
     panel_h = 128.50
 
     # 3 Primary Columns (Knobs, Attenuverters, CV Jacks)
-    col_1 = 11.43
-    col_2 = 30.48
-    col_3 = 49.53
+    col_1 = 9.400
+    col_2 = 25.400
+    col_3 = 41.400
 
     # 4 Port Columns (Jack Rows 3 & 4)
-    p_col_1 = 9.144
-    p_col_2 = 23.368
-    p_col_3 = 37.592
-    p_col_4 = 51.816
+    p_col_1 = 7.900
+    p_col_2 = 19.567
+    p_col_3 = 31.233
+    p_col_4 = 42.900
 
     # Title "stepped slew" in Node.otf (scale 0.0048, baseline 7.620, centered at x = 30.48)
     cmap_node = node_font.getBestCmap()
@@ -91,7 +91,7 @@ def main():
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.2f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.2f}">',
-        '  <!-- Panel Background: 12 HP -->',
+        '  <!-- Panel Background: 10 HP -->',
         f'  <rect width="{panel_w:.2f}" height="{panel_h:.2f}" fill="#6e6e6e"/>',
         '  <!-- Left Edge Color Badge: Default Placeholder #5d5d5d (Centered 88.9mm, Flush X=0) -->',
         '  <g id="palette-badge">',
@@ -99,10 +99,10 @@ def main():
         '  </g>',
         '',
         '  <!-- Delineator Line 1 (Above Attenuverters at Y = 51.50mm) -->',
-        f'  <line x1="3.50" y1="51.50" x2="{panel_w - 3.50:.2f}" y2="51.50" stroke="#999999" stroke-width="0.176"/>',
+        f'  <line x1="3.00" y1="51.50" x2="{panel_w - 3.00:.2f}" y2="51.50" stroke="#999999" stroke-width="0.176"/>',
         '',
         '  <!-- Delineator Line 2 (Above I/O Jacks at Y = 80.50mm) -->',
-        f'  <line x1="3.50" y1="80.50" x2="{panel_w - 3.50:.2f}" y2="80.50" stroke="#999999" stroke-width="0.176"/>',
+        f'  <line x1="3.00" y1="80.50" x2="{panel_w - 3.00:.2f}" y2="80.50" stroke="#999999" stroke-width="0.176"/>',
         ''
     ]
     svg_parts.extend(title_block)

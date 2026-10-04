@@ -234,22 +234,22 @@ struct SteppedSlewWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/SteppedSlew.svg")));
 
-		// 12HP Screws
+		// 10HP Screws
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		// 3 Primary Columns: 11.43 mm, 30.48 mm, 49.53 mm
-		const double col_1 = 11.43;
-		const double col_2 = 30.48;
-		const double col_3 = 49.53;
+		// 3 Primary Columns: 9.40 mm, 25.40 mm, 41.40 mm
+		const double col_1 = 9.400;
+		const double col_2 = 25.400;
+		const double col_3 = 41.400;
 
-		// 4 Port Columns: 9.144 mm, 23.368 mm, 37.592 mm, 51.816 mm
-		const double p_col_1 = 9.144;
-		const double p_col_2 = 23.368;
-		const double p_col_3 = 37.592;
-		const double p_col_4 = 51.816;
+		// 4 Port Columns: 7.900 mm, 19.567 mm, 31.233 mm, 42.900 mm
+		const double p_col_1 = 7.900;
+		const double p_col_2 = 19.567;
+		const double p_col_3 = 31.233;
+		const double p_col_4 = 42.900;
 
 		// ---------------- Row 1: Primary Knobs (UP) (Center Y = 21.59 mm) ----------------
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_1, 21.59)), module, SteppedSlew::TIME_UP_PARAM));
@@ -276,16 +276,16 @@ struct SteppedSlewWidget : ModuleWidget {
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_2, 89.50)), module, SteppedSlew::SHAPE_UP_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_3, 89.50)), module, SteppedSlew::STEPS_UP_CV_INPUT));
 
-		// Up Step LED: Above & to right of Steps Up Jack (col_3 + 4.47 = 54.00, 85.50)
-		addChild(createLightCentered<SmallLight<YellowLight>>(mm2px(Vec(54.00, 85.50)), module, SteppedSlew::STEP_UP_LIGHT));
+		// Up Step LED: Above & to right of Steps Up Jack (col_3 + 4.10 = 45.50, 85.50)
+		addChild(createLightCentered<SmallLight<YellowLight>>(mm2px(Vec(45.50, 85.50)), module, SteppedSlew::STEP_UP_LIGHT));
 
 		// ---------------- Row 6: Jacks (DOWN CV Inputs) (Center Y = 99.00 mm) ----------------
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_1, 99.00)), module, SteppedSlew::TIME_DOWN_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_2, 99.00)), module, SteppedSlew::SHAPE_DOWN_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_3, 99.00)), module, SteppedSlew::STEPS_DOWN_CV_INPUT));
 
-		// Down Step LED: Above & to right of Steps Down Jack (54.00, 95.00)
-		addChild(createLightCentered<SmallLight<YellowLight>>(mm2px(Vec(54.00, 95.00)), module, SteppedSlew::STEP_DOWN_LIGHT));
+		// Down Step LED: Above & to right of Steps Down Jack (45.50, 95.00)
+		addChild(createLightCentered<SmallLight<YellowLight>>(mm2px(Vec(45.50, 95.00)), module, SteppedSlew::STEP_DOWN_LIGHT));
 
 		// ---------------- Row 7: Jacks (Gates / Trigs) (Center Y = 108.50 mm) ----------------
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(p_col_1, 108.50)), module, SteppedSlew::UP_GATE_OUTPUT));
