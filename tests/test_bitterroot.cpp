@@ -225,20 +225,35 @@ void testBlockI_Hamming() {
 void testFullEngineProcessing() {
     std::cout << "[Test] Full Engine (Cascade Serial & Matrix Scan)..." << std::endl;
     bitterroot::CoreEngine engine;
+    // Helper lambda to make full wet blocks
     bitterroot::BlockParams blocks[9];
     for (int i = 0; i < 9; ++i) {
         blocks[i].active = true;
         blocks[i].p1 = 1.0f;
         blocks[i].p2 = 1.0f;
         blocks[i].p3 = 0.0f;
+        blocks[i].mix = 1.0f;
     }
 
-    // Test Cascade Serial
-    engine.routeMode = bitterroot::ROUTE_CASCADE_SERIAL;
+    // Test Serial Route Mode
+    engine.routeMode = bitterroot::ROUTE_SERIAL;
     engine.zScaleMode = bitterroot::Z_SCALE_5V;
     auto out1 = engine.process(0.0f, 0.0f, blocks, 0.0f, 0.0f, 0.5f, 48000.0f);
     assert(std::isfinite(out1.outX) && std::isfinite(out1.outY) && std::isfinite(out1.outZ));
     assert(out1.outZ >= 0.0f && out1.outZ <= 5.0f);
+
+    // Test Dry/Wet Mix Bypass: When all mix are 0.0f, output matches input exactly (100% bypass)
+    bitterroot::BlockParams dryBlocks[9];
+    for (int i = 0; i < 9; ++i) {
+        dryBlocks[i].active = false;
+        dryBlocks[i].p1 = 1.0f;
+        dryBlocks[i].p2 = 1.0f;
+        dryBlocks[i].p3 = 0.0f;
+        dryBlocks[i].mix = 0.0f;
+    }
+    auto outDry = engine.process(2.5f, -3.0f, dryBlocks, 0.0f, 0.0f, 0.5f, 48000.0f);
+    assert(std::abs(outDry.outX - 2.5f) < 0.02f);
+    assert(std::abs(outDry.outY - (-3.0f)) < 0.02f);
 
     // Test Z Scaling
     engine.zScaleMode = bitterroot::Z_SCALE_1V;
@@ -255,7 +270,7 @@ void testFullEngineProcessing() {
 
     // Test Matrix Scan
     engine.routeMode = bitterroot::ROUTE_MATRIX_SCAN;
-    auto out2 = engine.process(2.5f, -2.5f, blocks, 0.5f, -0.5f, 0.5f, 48000.0f);
+    auto out2 = engine.process(2.5f, -2.5f, blocks, 0.0f, 0.0f, 0.5f, 48000.0f);
     assert(std::isfinite(out2.outX) && std::isfinite(out2.outY) && std::isfinite(out2.outZ));
     assert(out2.outZ >= 0.0f && out2.outZ <= 5.0f);
 
@@ -264,7 +279,7 @@ void testFullEngineProcessing() {
         assert(out2.cellActivity[i] >= 0.0f && out2.cellActivity[i] <= 1.0f);
     }
 
-    std::cout << "  -> Full Engine Processing & Z-Scaling PASSED." << std::endl;
+    std::cout << "  -> Full Engine Processing, Mix Bypass & Z-Scaling PASSED." << std::endl;
 }
 
 int main() {

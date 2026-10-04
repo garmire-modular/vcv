@@ -27,7 +27,7 @@ enum ZScaleMode {
 };
 
 enum RouteMode {
-    ROUTE_CASCADE_SERIAL = 0,
+    ROUTE_SERIAL = 0,
     ROUTE_MATRIX_SCAN = 1
 };
 
@@ -129,10 +129,11 @@ struct Point10 {
 
 // Parameter block for single effect
 struct BlockParams {
-    float p1;     // Param 1
-    float p2;     // Param 2
-    float p3;     // Param 3 (Bespoke algorithmic parameter)
-    bool active;  // Active (true) or Bypassed (false)
+    float p1 = 0.0f;     // Param 1
+    float p2 = 0.0f;     // Param 2
+    float p3 = 0.0f;     // Param 3 (Bespoke algorithmic parameter)
+    float mix = 1.0f;    // Dry/Wet Mix: 0.0 (complete bypass) to 1.0 (100% wet, default 1.0 for standalone DSP struct)
+    bool active = true;  // Active (true) or Bypassed (false)
 };
 
 // Engine Process Output
@@ -146,7 +147,7 @@ struct EngineOutput {
 class CoreEngine {
 public:
     VoltageRange voltageRange = RANGE_BIPOLAR_5V;
-    RouteMode routeMode = ROUTE_CASCADE_SERIAL;
+    RouteMode routeMode = ROUTE_SERIAL;
     SlewMode slewMode = SLEW_OFF;
     int decimationRatio = 1;
 
@@ -217,13 +218,26 @@ public:
         return z * getZMaxVoltage();
     }
 
+    // Helper to blend Dry/Wet coordinates
+    inline Point10 applyMix(uint16_t inX, uint16_t inY, Point10 fx, float mix) const {
+        if (mix >= 0.999f) return fx;
+        float blendX = (1.0f - mix) * (float)inX + mix * (float)fx.x;
+        float blendY = (1.0f - mix) * (float)inY + mix * (float)fx.y;
+        float blendZ = (1.0f - mix) * 1.0f + mix * fx.z;
+        return {
+            (uint16_t)clamp((int)std::round(blendX), 0, (int)MASK_10BIT),
+            (uint16_t)clamp((int)std::round(blendY), 0, (int)MASK_10BIT),
+            clamp(blendZ, 0.0f, 1.0f)
+        };
+    }
+
     // -------------------------------------------------------------
     // TRANSFORMATION EFFECT BLOCKS (A through I)
     // -------------------------------------------------------------
 
     // Block A: Morton Order & Space-Filling Curves
     inline Point10 processBlockA(uint16_t inX, uint16_t inY, const BlockParams& p) const {
-        if (!p.active) return {inX, inY, 1.0f};
+        if (!p.active || p.mix <= 0.0001f) return {inX, inY, 1.0f};
 
         int shift = (int)std::floor(p.p1 + 0.5f);
         shift = clamp(shift, 0, 19);
@@ -287,12 +301,13 @@ public:
         float leap = (std::abs((int)outX - (int)inX) + std::abs((int)outY - (int)inY)) / 1024.0f;
         float zInt = clamp(1.0f - leap * 0.85f, 0.1f, 1.0f);
 
-        return { (uint16_t)(outX & MASK_10BIT), (uint16_t)(outY & MASK_10BIT), zInt };
+        Point10 wet = { (uint16_t)(outX & MASK_10BIT), (uint16_t)(outY & MASK_10BIT), zInt };
+        return applyMix(inX, inY, wet, p.mix);
     }
 
     // Block B: Bitwise Reversal (Dyadic Reflection)
     inline Point10 processBlockB(uint16_t inX, uint16_t inY, const BlockParams& p) const {
-        if (!p.active) return {inX, inY, 1.0f};
+        if (!p.active || p.mix <= 0.0001f) return {inX, inY, 1.0f};
 
         int width = (int)std::floor(p.p1 + 0.5f);
         width = clamp(width, 1, 10);
@@ -314,12 +329,13 @@ public:
         float leap = (std::abs((int)outX - (int)inX) + std::abs((int)outY - (int)inY)) / 1024.0f;
         float zInt = clamp(1.0f - leap * 0.9f, 0.05f, 1.0f);
 
-        return { outX, outY, zInt };
+        Point10 wet = { outX, outY, zInt };
+        return applyMix(inX, inY, wet, p.mix);
     }
 
     // Block C: Bit-Plane Transposition
     inline Point10 processBlockC(uint16_t inX, uint16_t inY, const BlockParams& p) const {
-        if (!p.active) return {inX, inY, 1.0f};
+        if (!p.active || p.mix <= 0.0001f) return {inX, inY, 1.0f};
 
         int pa = clamp((int)std::floor(p.p1 + 0.5f), 0, 9);
         int pb = clamp((int)std::floor(p.p2 + 0.5f), 0, 9);
@@ -340,12 +356,13 @@ public:
         // Layered diffraction luminance
         float zInt = 0.5f + 0.25f * bitXa + 0.25f * bitYb;
 
-        return { outX, outY, zInt };
+        Point10 wet = { outX, outY, zInt };
+        return applyMix(inX, inY, wet, p.mix);
     }
 
     // Block D: Carry-Propagated Cross-Modulation (Shear Wrapping)
     inline Point10 processBlockD(uint16_t inX, uint16_t inY, const BlockParams& p) const {
-        if (!p.active) return {inX, inY, 1.0f};
+        if (!p.active || p.mix <= 0.0001f) return {inX, inY, 1.0f};
 
         uint16_t mask = (uint16_t)std::floor(p.p1 + 0.5f) & MASK_10BIT;
         int shift = clamp((int)std::floor(p.p2 + 0.5f), 0, 4);
@@ -367,12 +384,13 @@ public:
         float carryPop = (float)popcount10(carry) / 10.0f;
         float zInt = clamp(0.4f + carryPop * 0.6f, 0.1f, 1.0f);
 
-        return { outX, outY, zInt };
+        Point10 wet = { outX, outY, zInt };
+        return applyMix(inX, inY, wet, p.mix);
     }
 
     // Block E: Circular Permutation Matrix
     inline Point10 processBlockE(uint16_t inX, uint16_t inY, const BlockParams& p) const {
-        if (!p.active) return {inX, inY, 1.0f};
+        if (!p.active || p.mix <= 0.0001f) return {inX, inY, 1.0f};
 
         int mode = clamp((int)std::floor(p.p1 + 0.5f), 0, 3);
         int rot = clamp((int)std::floor(p.p2 + 0.5f), 0, 19);
@@ -413,12 +431,13 @@ public:
         float depth = (float)((shifted >> 5) & 0x3FF) / 1023.0f;
         float zInt = clamp(0.2f + 0.8f * depth, 0.1f, 1.0f);
 
-        return { outX, outY, zInt };
+        Point10 wet = { outX, outY, zInt };
+        return applyMix(inX, inY, wet, p.mix);
     }
 
     // Block F: Gray Code Dyadic Folding
     inline Point10 processBlockF(uint16_t inX, uint16_t inY, const BlockParams& p) const {
-        if (!p.active) return {inX, inY, 1.0f};
+        if (!p.active || p.mix <= 0.0001f) return {inX, inY, 1.0f};
 
         int depth = clamp((int)std::floor(p.p1 + 0.5f), 1, 10);
         int mode = clamp((int)std::floor(p.p2 + 0.5f), 0, 2);
@@ -457,12 +476,13 @@ public:
         // Parity zebra grading
         float zInt = 0.6f + 0.4f * (parity10(outX) ^ parity10(outY));
 
-        return { (uint16_t)(outX & MASK_10BIT), (uint16_t)(outY & MASK_10BIT), zInt };
+        Point10 wet = { (uint16_t)(outX & MASK_10BIT), (uint16_t)(outY & MASK_10BIT), zInt };
+        return applyMix(inX, inY, wet, p.mix);
     }
 
     // Block G: Galois Field GF(2^10) Polynomial Scramble
     inline Point10 processBlockG(uint16_t inX, uint16_t inY, const BlockParams& p) const {
-        if (!p.active) return {inX, inY, 1.0f};
+        if (!p.active || p.mix <= 0.0001f) return {inX, inY, 1.0f};
 
         int polyIdx = clamp((int)std::floor(p.p1 + 0.5f), 0, 7);
         uint16_t poly = GF10_POLYS[polyIdx];
@@ -491,12 +511,13 @@ public:
         float leap = (std::abs((int)outX - (int)inX) + std::abs((int)outY - (int)inY)) / 1024.0f;
         float zInt = clamp(1.0f - leap * 0.95f, 0.05f, 1.0f);
 
-        return { (uint16_t)(outX & MASK_10BIT), (uint16_t)(outY & MASK_10BIT), zInt };
+        Point10 wet = { (uint16_t)(outX & MASK_10BIT), (uint16_t)(outY & MASK_10BIT), zInt };
+        return applyMix(inX, inY, wet, p.mix);
     }
 
     // Block H: 1D Elementary Cellular Automata Mesh
     inline Point10 processBlockH(uint16_t inX, uint16_t inY, const BlockParams& p) const {
-        if (!p.active) return {inX, inY, 1.0f};
+        if (!p.active || p.mix <= 0.0001f) return {inX, inY, 1.0f};
 
         uint8_t rule = (uint8_t)clamp((int)std::floor(p.p1 + 0.5f), 0, 255);
         int steps = clamp((int)std::floor(p.p2 + 0.5f), 1, 4);
@@ -540,12 +561,13 @@ public:
         float aliveFraction = (float)(popcount10(curX) + popcount10(curY)) / 20.0f;
         float zInt = clamp(0.2f + 0.8f * aliveFraction, 0.1f, 1.0f);
 
-        return { curX, curY, zInt };
+        Point10 wet = { curX, curY, zInt };
+        return applyMix(inX, inY, wet, p.mix);
     }
 
     // Block I: Popcount / Hamming Dispersion
     inline Point10 processBlockI(uint16_t inX, uint16_t inY, const BlockParams& p) const {
-        if (!p.active) return {inX, inY, 1.0f};
+        if (!p.active || p.mix <= 0.0001f) return {inX, inY, 1.0f};
 
         int gain = clamp((int)std::floor(p.p1 + 0.5f), 0, 32);
         int mode = clamp((int)std::floor(p.p2 + 0.5f), 0, 2);
@@ -577,7 +599,8 @@ public:
         float energy = (float)(popX + popY + mutPop) / 30.0f;
         float zInt = clamp(0.2f + 0.8f * energy, 0.1f, 1.0f);
 
-        return { outX, outY, zInt };
+        Point10 wet = { outX, outY, zInt };
+        return applyMix(inX, inY, wet, p.mix);
     }
 
     // -------------------------------------------------------------
@@ -604,8 +627,8 @@ public:
         Point10 resPoints[9];
         EngineOutput out;
 
-        if (routeMode == ROUTE_CASCADE_SERIAL) {
-            // Mode 0: Cascaded Serial Pipeline (A -> B -> C -> D -> E -> F -> G -> H -> I)
+        if (routeMode == ROUTE_SERIAL) {
+            // Mode 0: Serial Pipeline (Morton -> Reverse -> Transpose -> ... -> Hamming)
             Point10 cur = {dX, dY, 1.0f};
             float minBlockZ = 1.0f;
             cur = processBlockA(cur.x, cur.y, blocks[0]); resPoints[0] = cur; if (blocks[0].active) minBlockZ = std::min(minBlockZ, cur.z);
