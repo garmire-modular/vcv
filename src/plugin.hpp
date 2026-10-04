@@ -48,3 +48,4 @@ extern Model* modelPolly;
 extern Model* modelCirce;
 extern Model* modelMaude;
 extern Model* modelEunice;
+extern Model* modelSteppedSlew;

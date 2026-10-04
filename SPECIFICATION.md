@@ -1,193 +1,240 @@
-# Technical Specification: Eunice
-**Module Name:** Eunice  
-**Brand / Author:** Garmire  
-**Version:** v2.26.0  
-**Tags:** Sample and hold, Random, Polyphonic, Utility  
-**Physical Form Factor:** Eurorack 3U, 8 HP ($40.64\text{ mm} \times 128.50\text{ mm}$), 3-Column Layout  
-**Target Environments:** VCV Rack v2, 4ms MetaModule Hardware Plugin SDK  
+# Stepped Slew: Formal Engineering Specification
+
+**Document Version:** 1.0.0  
+**Target Release:** Garmire v2.26.0  
+**Slug:** `SteppedSlew`  
+**Panel Title:** `stepped slew` (Font: `res/Node.otf`, lowercase, baseline $Y = 7.620\text{ mm}$, centered $X = 30.480\text{ mm}$)  
+**Format:** 12 HP Eurorack ($60.960\text{ mm}$ width, $128.500\text{ mm}$ height, $114 \times 240\text{ px}$ MetaModule bitmap)  
 
 ---
 
-## 1. Overview & Architectural Philosophy
+## 1. Module Overview & Functional Concept
 
-**Eunice** is an organic, dual-channel Sample & Hold (S&H) and Track & Hold (T&H) voltage processor and complex generative modulation source. It pairs an internal noise-jittered triangle generator with clock-tracking filtering, non-linear voltage distribution shaping (tilt), Buchla 266 / Doepfer A-149-3 inspired correlation feedback, and an assignable asymmetrical slew limiter (independent Rise and Fall).
+**Stepped Slew** is an asymmetric dual-slope slew limiter with parameterized trajectory curvature morphing and discrete quantization stepping. Inspired by the classic discrete portamento feel of vintage synthesizers (e.g. CS-80), it extends the concept into arbitrary microtonal and mathematical step domains.
 
-Eunice is fully polyphonic (up to 16 channels) with independent generative noise seeds across voices, level-gated tracking, edge-triggered sampling, and comprehensive visual monitoring through discrete 2mm LEDs.
+The module processes an incoming continuous or stepped control voltage (or audio signal) and applies independent slew times, curvature responses (logarithmic $\rightarrow$ linear $\rightarrow$ exponential), and step quantizations for rising (`UP`) and falling (`DOWN`) signal transitions.
 
----
-
-## 2. Front Panel Layout & Mechanical Coordinates
-
-### 2.1 Dimensions & Columns
-- **Width:** 8 HP = $40.64\text{ mm}$ ($1.60\text{ in}$) / 160 px (VCV Rack 15px/HP: 120 px; standard 20px/HP: 160 px; standard 4ms MetaModule bitmap width: $76\text{ px}$).
-- **Height:** 3U = $128.50\text{ mm}$ ($5.059\text{ in}$) / $240\text{ px}$ MetaModule bitmap height.
-- **Horizontal Columns:**
-  - **Column 1 (Left / A):** $x = 8.13\text{ mm}$ ($0.320\text{ in}$)
-  - **Column 2 (Center / B):** $x = 20.32\text{ mm}$ ($0.800\text{ in}$)
-  - **Column 3 (Right / C):** $x = 32.51\text{ mm}$ ($1.280\text{ in}$)
-- **Left Color Badge:**
-  - Standard Eurorack unassigned placeholder: $x = 0.00\text{ mm}$, $w = 2.54\text{ mm}$ (0.10 in), $y = 19.80\text{ mm}$ to $108.70\text{ mm}$ ($h = 88.90\text{ mm}$), fill `#5d5d5d`.
-
-### 2.2 Component Positioning & Row Map
-| Row | Y Center (mm) | Type | Col 1 ($x=8.13$) | Col 2 ($x=20.32$) | Col 3 ($x=32.51$) | Notes |
-|:---|:---|:---|:---|:---|:---|:---|
-| **Top** | $7.62$ / $10.41$ | Text | Title `eunice` | Centered at $x=20.32$ | Version tag `v2.26.0` |
-| **Row 1** | $21.59$ | Knob | `Rate` | `Distribution` | `Correlation` | Large Knobs ($10.0\text{ mm}$ dia) |
-| **Row 2** | $40.00$ | Switch/Knob | `Slew Dest` (3-Pos Switch) | `Slew Rise` | `Slew Fall` | Large Knobs / Toggle |
-| **Row 3** | $56.00$ | Trimpot | `Rate CV Atten` | `Dist CV Atten` | `Corr CV Atten` | 6.5mm Trimpots |
-| **Row 4** | $68.00$ | Trimpot | `Rise CV Atten` | `Fall CV Atten` | *(Reserved/Blank)* | 6.5mm Trimpots |
-| **Row 5** | $89.50$ | Jack | `Signal In` | `Distribution CV` | `Correlation CV` | Input Ports (3.5mm PJ301M) |
-| **Row 6** | $99.00$ | Jack | `Rate CV` | `External Gate/Clock` | `S&H Out` | Input & S&H Output |
-| **Row 7** | $108.50$ | Jack | `Slew Rise CV` | `Slew Fall CV` | `T&H Out` | Input & T&H Output |
-
-### 2.3 LED Indicator Positions (2mm)
-1. **Clock LED (Red 2mm):** Located between Row 1 & Row 3 near Rate control ($x = 8.13\text{ mm}$, $y = 31.00\text{ mm}$).
-2. **Gate Input LED (Red 2mm):** Adjacent to External Gate/Clock jack ($x = 20.32\text{ mm}$, $y = 94.00\text{ mm}$).
-3. **Signal LED (Bipolar Green/Red 2mm):** Adjacent to Signal In jack ($x = 8.13\text{ mm}$, $y = 84.50\text{ mm}$).
-4. **S&H Out LED (Bipolar Green/Red 2mm):** Adjacent to S&H Out jack ($x = 32.51\text{ mm}$, $y = 94.00\text{ mm}$).
-5. **T&H Out LED (Bipolar Green/Red 2mm):** Adjacent to T&H Out jack ($x = 32.51\text{ mm}$, $y = 103.50\text{ mm}$).
+Simultaneously, it outputs:
+1. Continuous Slewed signal.
+2. Slewed + Stepped signal (discretized across the trajectory).
+3. Movement comparator gates (active while slewing Up, active while slewing Down).
+4. End-of-Slew trigger pulses (EOU, EOD).
+5. Step-Crossed trigger/gate pulses each time an internal step threshold is traversed.
+6. Visual yellow LED activity indicators flashing at each step crossing.
 
 ---
 
-## 3. Signal Flow & Functional Architecture
+## 2. Front Panel Layout & Mechanical Geometry (12 HP / $60.960\text{ mm}$)
 
-```
-                       [Polyphonic Channel c: 0..N-1]
-                                     │
-      ┌──────────────────────────────┴──────────────────────────────┐
-      │                                                             │
-      ▼ (Unpatched Normalization)                                   │
-[Internal Generator Core]                                           │
-- Base ~100Hz Triangle                                              │
-- Pink/White Noise Jitter                                           │
-- Clock-Tracking Lowpass Filter (fc = 2 * f_clock)                  │
-      │                                                             │
-      ▼                                                             │
-[Signal In Jack (c)] ◄──────────────────────────────────────────────┘
-      │
-      ▼
-[Stage 1: Distribution Tilt Engine]
-  - Parameter: D = clamp(Dist_Knob + Atten * Dist_CV, 0, 1)
-  - Right-Click Modes:
-    1. Power-Law / Gamma Skew (Default)
-    2. Sigmoidal / Tanh DC Bias
-    3. Diode / Half-Wave Saturation Tilt
-      │
-      ▼ V_dist
-[Stage 2: Buchla 266 / Doepfer A-149-3 Correlation Crossfader]
-  - Parameter: C = clamp(Corr_Knob + Atten * Corr_CV, 0, 1)
-  - V_in_eff = (1 - C) * V_dist + C * V_held_S&H[c]
-      │
-      ├───────────────────────────────────────────┐
-      │                                           │
-      ▼                                           ▼
-[Stage 3A: Sample & Hold]                   [Stage 3B: Track & Hold]
-- Edge-triggered on Clock Rising Edge       - Level-gated by Clock HIGH/LOW
-- Updates V_held_S&H[c] = V_in_eff          - If HIGH: tracks V_in_eff
-- Holds constant between triggers           - If LOW: holds frozen level
-      │                                           │
-      ▼ V_raw_SH                                  ▼ V_raw_TH
-      └─────────────────────┬─────────────────────┘
-                            │
-               [Stage 4: Asymmetrical Slew Engine]
-               - Parameters: Rise Time (0.5ms - 10s), Fall Time (0.5ms - 10s)
-               - CV Modulated with Exponential Response
-               - Modes: Linear Ramp (Default) vs Exponential RC (Context Menu)
-               - Destination Switch:
-                 * UP:   S&H slewed, T&H raw
-                 * MID:  Both slewed
-                 * DOWN: T&H slewed, S&H raw
-                            │
-              ┌─────────────┴─────────────┐
-              ▼                           ▼
-        [S&H Out (c)]               [T&H Out (c)]
-        (Bipolar LED)               (Bipolar LED)
-```
+### 2.1. Panel Coordinate System & Margins
+- **Width**: $60.960\text{ mm}$ (12 HP)
+- **Height**: $128.500\text{ mm}$ (3U)
+- **Background Color**: `#6e6e6e`
+- **Left Margin Badge**: $X = [0.000, 2.540]\text{ mm}$, $Y = [19.800, 108.700]\text{ mm}$, placeholder `#5d5d5d`.
 
----
+### 2.2. Horizontal Column Grid
+- **3-Control Columns (Knobs & Trimpots & CV Jacks)**:
+  - Column 1 (`TIME`): $X_1 = 11.430\text{ mm}$
+  - Column 2 (`SHAPE`): $X_2 = 30.480\text{ mm}$ (Center)
+  - Column 3 (`STEPS`): $X_3 = 49.530\text{ mm}$
+  - Horizontal spacing: $\Delta X = 19.050\text{ mm}$ ($0.75\text{ in}$, $> 11.4\text{ mm}$ knob clearance requirement).
+- **4-Port Columns (Jack Rows 3 & 4)**:
+  - Port Column 1: $X_{P1} = 9.144\text{ mm}$
+  - Port Column 2: $X_{P2} = 23.368\text{ mm}$
+  - Port Column 3: $X_{P3} = 37.592\text{ mm}$
+  - Port Column 4: $X_{P4} = 51.816\text{ mm}$
+  - Horizontal spacing: $\Delta X = 14.224\text{ mm}$ ($> 12.0\text{ mm}$ minimum Eurorack jack clearance, connector collars $> 3.0\text{ mm}$).
 
-## 4. Detailed Mathematical & Algorithmic Specifications
+### 2.3. Vertical Stacking Architecture
 
-### 4.1 Internal Clock & External Gate Logic
-- **Rate Range:** $f_{\text{clock}} \in [0.05\text{ Hz}, 2000.0\text{ Hz}]$, mapped exponentially from Rate Knob ($k \in [0, 1]$) and Rate CV ($V_{\text{cv}} \in [-5\text{V}, +5\text{V}]$):
-  $$f_{\text{clock}} = 0.05 \times 2^{k \cdot 15.2877 + V_{\text{cv}} \cdot \text{atten}}$$
-- **Duty Cycle:** Internal clock runs at a fixed $50\%$ duty cycle square wave.
-- **Clock Normalization:** If `External Gate/Clock` input is unpatched, internal clock drives the sampling/tracking engine. If patched, the external signal overrides the clock source.
-- **Detection:**
-  - S&H acquisition triggers when clock state transitions from LOW to HIGH ($V_{\text{clock}} > 1.7\text{V}$ with Schmitt trigger hysteresis: low threshold $0.8\text{V}$, high threshold $2.0\text{V}$).
-  - T&H tracks when $V_{\text{clock}} \ge 1.7\text{V}$ and holds when $V_{\text{clock}} < 0.8\text{V}$.
+#### Zone 1: Title & Version
+- **Title**: `stepped slew`, $Y = 7.620\text{ mm}$, centered at $X = 30.480\text{ mm}$, `Node.otf`, scale $0.0048$, fill `#ffffff`.
+- **Version**: `v2.26.0`, $Y = 10.414\text{ mm}$, centered at $X = 30.480\text{ mm}$, `Quicksand.ttf`, scale $0.0016$, fill `#aaaaaa`.
 
-### 4.2 Internal Generator & Clock-Tracking Lowpass
-- **Base Triangle:** $f_{\text{tri}} = 100.0\text{ Hz}$.
-- **Noise Jitter:** Continuous uniformly distributed pseudo-random noise perturbing phase/frequency per polyphonic channel:
-  $$\phi_{n+1} = \left(\phi_n + \frac{f_{\text{tri}}}{f_s} + \eta_n \cdot 0.02\right) \pmod{1.0}$$
-  where $\eta_n \in [-1.0, 1.0]$ is independent white noise.
-- **Triangle Signal:** $V_{\text{tri}} = 10.0 \cdot (2.0 \cdot |\phi - 0.5| - 0.5) \in [-5\text{V}, +5\text{V}]$.
-- **Clock-Tracking Lowpass Filter:** 1-pole lowpass ($6\text{ dB/oct}$) with cutoff:
-  $$f_c = \text{clamp}(2.0 \cdot f_{\text{clock}}, 5.0\text{ Hz}, 16000.0\text{ Hz})$$
-  $$\alpha = 1.0 - \exp\left(-\frac{2\pi f_c}{f_s}\right)$$
-  $$y_n = y_{n-1} + \alpha (V_{\text{tri}} - y_{n-1})$$
+#### Zone 2: Primary Parameter Knobs
+- **Row 1 Headers**: `TIME`, `SHAPE`, `STEPS` centered over respective columns at $Y = 13.070\text{ mm}$, `Quicksand-Medium.ttf`, scale $0.0024$, fill `#1c1c1c`.
+- **Knob Row 1 (UP)**: Center $Y = 21.590\text{ mm}$
+  - `TIME UP`: $X = 11.430\text{ mm}, Y = 21.590\text{ mm}$
+  - `SHAPE UP`: $X = 30.480\text{ mm}, Y = 21.590\text{ mm}$
+  - `STEPS UP`: $X = 49.530\text{ mm}, Y = 21.590\text{ mm}$
+  - Section sublabel `UP` at $X = 3.5\text{ mm}, Y = 21.590\text{ mm}$.
+- **Knob Row 2 (DOWN)**: Center $Y = 43.000\text{ mm}$ ($\Delta Y = 21.410\text{ mm}$ pitch from Row 1)
+  - `TIME DOWN`: $X = 11.430\text{ mm}, Y = 43.000\text{ mm}$
+  - `SHAPE DOWN`: $X = 30.480\text{ mm}, Y = 43.000\text{ mm}$
+  - `STEPS DOWN`: $X = 49.530\text{ mm}, Y = 43.000\text{ mm}$
+  - Section sublabel `DOWN` at $X = 3.5\text{ mm}, Y = 43.000\text{ mm}$.
 
-### 4.3 Distribution Tilt Modes ($D \in [0, 1]$)
-Let $u = \text{clamp}(V_{\text{in}} / 5.0, -1.0, 1.0)$:
-1. **Mode 0: Power-Law / Gamma Skew (Default):**
-   - Let unipolar $p = 0.5 \cdot (u + 1.0) \in [0, 1]$.
-   - Let $\gamma = 2^{4.0 \cdot (0.5 - D)} \in [0.25, 4.0]$.
-   - $p_{\text{skew}} = p^\gamma$.
-   - $V_{\text{dist}} = 5.0 \cdot (2.0 \cdot p_{\text{skew}} - 1.0)$.
-2. **Mode 1: Sigmoidal / Tanh DC Bias:**
-   - Offset: $\Delta = 3.0 \cdot (2.0 \cdot D - 1.0)$.
-   - $V_{\text{dist}} = 5.0 \cdot \tanh\left(\frac{V_{\text{in}} + \Delta}{5.0}\right) \cdot \frac{1}{\tanh(1.0 + |\Delta|/5.0)}$.
-3. **Mode 2: Diode / Half-Wave Saturation:**
-   - When $D > 0.5$: Asymmetrically compresses negative swings while keeping positive swings open:
-     $$k_{\text{neg}} = 1.0 - 1.8 \cdot (D - 0.5)$$
-     $$V_{\text{dist}} = \begin{cases} V_{\text{in}} & \text{if } V_{\text{in}} \ge 0 \\ V_{\text{in}} \cdot k_{\text{neg}} & \text{if } V_{\text{in}} < 0 \end{cases}$$
-   - When $D < 0.5$: Asymmetrically compresses positive swings while keeping negative swings open.
+#### Delineator Line 1
+- $Y = 51.500\text{ mm}$, stroke `#3a3a3a`, stroke-width $0.4\text{ mm}$, $X \in [3.5, 57.5]\text{ mm}$.
 
-### 4.4 Correlation Feedback Engine ($C \in [0, 1]$)
-$$V_{\text{in\_effective}}[c] = (1.0 - C) \cdot V_{\text{dist}}[c] + C \cdot V_{\text{held\_S\&H}}[c]$$
-- At $C = 0.0$: Independent random / incoming signal steps.
-- At $C = 1.0$: Output freezes on current held voltage ($0\text{V}$ delta).
-- At $0.0 < C < 1.0$: Bounded Brownian drift / random walk.
+#### Zone 3: CV Attenuverters (Trimpots)
+- **Attenuverter Row 1 (UP CV Depths)**: Center $Y = 58.000\text{ mm}$
+  - `TIME UP CV DEPTH`: $X = 11.430\text{ mm}, Y = 58.000\text{ mm}$
+  - `SHAPE UP CV DEPTH`: $X = 30.480\text{ mm}, Y = 58.000\text{ mm}$
+  - `STEPS UP CV DEPTH`: $X = 49.530\text{ mm}, Y = 58.000\text{ mm}$
+  - Row header: `UP CV` at $Y = 53.500\text{ mm}$, scale $0.0020$, fill `#2c2c2c`.
+- **Attenuverter Row 2 (DOWN CV Depths)**: Center $Y = 70.000\text{ mm}$ ($\Delta Y = 12.000\text{ mm}$)
+  - `TIME DOWN CV DEPTH`: $X = 11.430\text{ mm}, Y = 70.000\text{ mm}$
+  - `SHAPE DOWN CV DEPTH`: $X = 30.480\text{ mm}, Y = 70.000\text{ mm}$
+  - `STEPS DOWN CV DEPTH`: $X = 49.530\text{ mm}, Y = 70.000\text{ mm}$
+  - Row header: `DOWN CV` at $Y = 65.500\text{ mm}$, scale $0.0020$, fill `#2c2c2c`.
 
-### 4.5 Asymmetrical Slew Limiter
-- **Time Range:** $T \in [0.0005\text{ s}, 10.0\text{ s}]$, exponential mapping:
-  $$T_{\text{rise}} = 0.0005 \cdot \left(\frac{10.0}{0.0005}\right)^{\text{clamp}(k_{\text{rise}} + \text{atten} \cdot V_{\text{cv\_rise}} / 5.0, 0, 1)}$$
-  $$T_{\text{fall}} = 0.0005 \cdot \left(\frac{10.0}{0.0005}\right)^{\text{clamp}(k_{\text{fall}} + \text{atten} \cdot V_{\text{cv\_fall}} / 5.0, 0, 1)}$$
-- **Linear Slew (Default):**
-  - Maximum delta per sample: $\Delta_{\text{max\_rise}} = \frac{10.0\text{V}}{T_{\text{rise}} \cdot f_s}$, $\Delta_{\text{max\_fall}} = \frac{10.0\text{V}}{T_{\text{fall}} \cdot f_s}$.
-  - Target delta: $\Delta = V_{\text{target}} - V_{\text{current}}$.
-  - If $\Delta > 0$: $V_{\text{current}} += \min(\Delta, \Delta_{\text{max\_rise}})$.
-  - If $\Delta < 0$: $V_{\text{current}} -= \min(-\Delta, \Delta_{\text{max\_fall}})$.
-- **Exponential RC Slew (Context Menu):**
-  - Filter coefficient: $\alpha = 1.0 - \exp\left(-\frac{1.0}{T \cdot f_s}\right)$.
-  - Applied with $\alpha_{\text{rise}}$ when $V_{\text{target}} > V_{\text{current}}$, and $\alpha_{\text{fall}}$ when $V_{\text{target}} < V_{\text{current}}$.
+#### Delineator Line 2
+- $Y = 80.500\text{ mm}$, stroke `#3a3a3a`, stroke-width $0.4\text{ mm}$, $X \in [3.5, 57.5]\text{ mm}$.
+
+#### Zone 4: I/O Jacks (Bottom-Aligned Upward from $Y_{\text{out}} = 118.000\text{ mm}$)
+- **Jack Row 1 (UP CV Inputs)**: Center $Y = 89.500\text{ mm}$ ($Y_{\text{out}} - 3 \times 9.500\text{ mm}$)
+  - `TIME UP CV IN`: $X = 11.430\text{ mm}, Y = 89.500\text{ mm}$
+  - `SHAPE UP CV IN`: $X = 30.480\text{ mm}, Y = 89.500\text{ mm}$
+  - `STEPS UP CV IN`: $X = 49.530\text{ mm}, Y = 89.500\text{ mm}$
+  - **Yellow Step LED (UP)**: Positioned above and right of Steps Up jack: $X = 54.000\text{ mm}, Y = 85.500\text{ mm}$.
+- **Jack Row 2 (DOWN CV Inputs)**: Center $Y = 99.000\text{ mm}$ ($Y_{\text{out}} - 2 \times 9.500\text{ mm}$)
+  - `TIME DOWN CV IN`: $X = 11.430\text{ mm}, Y = 99.000\text{ mm}$ (normaled to Time Up CV)
+  - `SHAPE DOWN CV IN`: $X = 30.480\text{ mm}, Y = 99.000\text{ mm}$ (normaled to Shape Up CV)
+  - `STEPS DOWN CV IN`: $X = 49.530\text{ mm}, Y = 99.000\text{ mm}$ (normaled to Steps Up CV)
+  - **Yellow Step LED (DOWN)**: Positioned above and right of Steps Down jack: $X = 54.000\text{ mm}, Y = 95.000\text{ mm}$.
+- **Jack Row 3 (Direction & End Event Gates)**: Center $Y = 108.500\text{ mm}$ ($Y_{\text{out}} - 1 \times 9.500\text{ mm}$)
+  - Port 1: `UP GATE` ($X = 9.144\text{ mm}, Y = 108.500\text{ mm}$) — High (+10V) while slewing up.
+  - Port 2: `EOU TRIG` ($X = 23.368\text{ mm}, Y = 108.500\text{ mm}$) — 1ms pulse (+10V) on end of up.
+  - Port 3: `DOWN GATE` ($X = 37.592\text{ mm}, Y = 108.500\text{ mm}$) — High (+10V) while slewing down.
+  - Port 4: `EOD TRIG` ($X = 51.816\text{ mm}, Y = 108.500\text{ mm}$) — 1ms pulse (+10V) on end of down.
+  - Row header: `GATES / TRIGS` at $Y = 104.000\text{ mm}$, scale $0.0020$, fill `#2c2c2c`.
+- **Jack Row 4 (Main Signal I/O)**: Fixed Center $Y = 118.000\text{ mm}$
+  - Port 1: `IN` ($X = 9.144\text{ mm}, Y = 118.000\text{ mm}$) — Audio/CV signal input (normaled to 0V).
+  - Port 2: `SLEW` ($X = 23.368\text{ mm}, Y = 118.000\text{ mm}$) — Continuous slewed output.
+  - Port 3: `STEP` ($X = 37.592\text{ mm}, Y = 118.000\text{ mm}$) — Slewed + stepped output.
+  - Port 4: `STEP TRIG` ($X = 51.816\text{ mm}, Y = 118.000\text{ mm}$) — Step-crossed clock/gate output (+10V).
+  - Shared labels: Centered above jacks at $Y = 114.500\text{ mm}$, scale $0.0022$, fill `#1c1c1c`.
 
 ---
 
-## 5. Right-Click Context Menu & JSON Persistence
+## 3. Mathematical Specifications & DSP Algorithms
 
-1. **Distribution Tilt Mode:**
-   - `Power-Law Skew (Default)`
-   - `Sigmoid Bias`
-   - `Diode Saturation`
-2. **Slew Profile:**
-   - `Linear (Default)`
-   - `Exponential RC`
-3. **JSON Keys:**
-   - `"distributionMode"`: `0`, `1`, or `2`
-   - `"slewProfile"`: `0` (Linear) or `1` (Exponential)
+### 3.1. Slew Time Calculation
+- **Knob Value**: $k_{\text{time}} \in [0.0, 1.0]$.
+- **Attenuverter**: $a_{\text{time}} \in [-1.0, 1.0]$.
+- **CV Input**: $V_{\text{cv}} \in [-10.0, +10.0]\text{ V}$.
+- **Modulated Parameter**:
+  $$p = \mathrm{clamp}\left(k_{\text{time}} + a_{\text{time}} \cdot \frac{V_{\text{cv}}}{10.0}, 0.0, 1.0\right)$$
+- **Effective Slew Duration $T$**:
+  $$T = T_{\min} \cdot \left(\frac{T_{\max}}{T_{\min}}\right)^p = 0.0005 \cdot (20000.0)^p \quad [\text{seconds}]$$
+  - Range: $0.5\text{ ms}$ ($500\ \mu\text{s}$) to $10.0\text{ s}$.
+
+### 3.2. Curvature / Shape Response Mathematics
+The Shape knob $k_{\text{shape}} \in [-1.0, +1.0]$ controls trajectory curvature without altering the total slew duration $T$:
+- $k_{\text{shape}} = -1.0$: Highly Logarithmic / Fast-start (steep initial rise, flattening tail).
+- $k_{\text{shape}} = 0.0$: Pure Linear ramp ($dV/dt = \pm \Delta V / T$).
+- $k_{\text{shape}} = +1.0$: Highly Exponential / Slow-start (gentle initial rise, accelerating arrival).
+
+#### Trajectory Function:
+Let normalized progress be $u \in [0.0, 1.0]$ where $u(t) = t / T$.
+Let curvature parameter $\gamma$:
+- If $|k_{\text{shape}}| < 10^{-4}$: Linear, $f(u) = u$.
+- If $k_{\text{shape}} > 0$ (Exponential):
+  $$\alpha = 1.0 + 5.0 \cdot k_{\text{shape}}$$
+  $$f(u) = u^\alpha$$
+- If $k_{\text{shape}} < 0$ (Logarithmic):
+  $$\beta = 1.0 + 5.0 \cdot (-k_{\text{shape}})$$
+  $$f(u) = 1.0 - (1.0 - u)^\beta$$
+
+During real-time processing with continuous input changes, the instantaneous phase $u$ advances at rate:
+$$du/dt = \frac{1}{T}$$
+The continuous output is:
+$$V_{\text{slew}}(t) = V_{\text{start}} + (V_{\text{target}} - V_{\text{start}}) \cdot f(u(t))$$
+
+When $V_{\text{in}}$ changes mid-slew, $V_{\text{start}} \leftarrow V_{\text{slew}}(t)$, $V_{\text{target}} \leftarrow V_{\text{in}}$, and $u \leftarrow 0$.
+
+### 3.3. Quantization and Stepping Engine
+
+The **Steps** parameter $N \in [0, 96]$:
+$$N = \mathrm{round}\left(\mathrm{clamp}\left(k_{\text{steps}} + a_{\text{steps}} \cdot \frac{V_{\text{cv}}}{10.0} \cdot 96.0, 0.0, 96.0\right)\right)$$
+
+#### Mode A: Equal Transition Sub-division (`Equal`, Default)
+- If $N = 0$: Stepping bypassed, $V_{\text{step}} = V_{\text{slew}}$.
+- If $N \ge 1$:
+  - Transition span $\Delta V = V_{\text{target}} - V_{\text{start}}$.
+  - Step size $h = \Delta V / N$.
+  - Current step index $m = \lfloor u \cdot N \rfloor$.
+  - Discretized output:
+    $$V_{\text{step}} = V_{\text{start}} + m \cdot h$$
+  - When $u \ge 1.0$ (arrival): $V_{\text{step}} = V_{\text{target}}$.
+
+#### Mode B: Microtonal & V/Oct-Aware Scales
+Supported Scales (1V/oct standard, 0V = C root):
+1. **Semitone (12-EDO)**: 12 notes/octave ($1/12\text{ V} \approx 83.333\text{ mV}$)
+2. **Quarter-tone (24-EDO)**: 24 notes/octave ($1/24\text{ V} \approx 41.667\text{ mV}$)
+3. **19-EDO (19-TET)**: 19 notes/octave ($1/19\text{ V} \approx 52.632\text{ mV}$)
+4. **22-EDO (22-TET)**: 22 notes/octave ($1/22\text{ V} \approx 45.455\text{ mV}$)
+5. **31-EDO (31-TET)**: 31 notes/octave ($1/31\text{ V} \approx 32.258\text{ mV}$)
+6. **Just Intonation (5-limit)**: C, C#, D, Eb, E, F, F#, G, Ab, A, Bb, B ratios:
+   - $1/1, 16/15, 9/8, 6/5, 5/4, 4/3, 45/32, 3/2, 8/5, 5/3, 9/5, 15/8$
+   - Pitch offsets: $\log_2(\text{ratio})\text{ V}$.
+7. **Quarter-comma Meantone**: 12-pitch unequal historic temperament with pure major thirds ($\approx 386.31\ \text{cents}$) and flat fifths ($5^{1/4} \approx 696.58\ \text{cents}$).
+
+#### Quantization Strategies (Context Menu Toggle):
+1. **Scale Traversal (Cap / Density)**: Traverse chromatic/microtonal scale degrees between $V_{\text{start}}$ and $V_{\text{target}}$, restricted to a maximum of $N$ steps along the path.
+2. **Subdivided & Quantized (Nearest Target Grid)**: Divide trajectory into $N$ equal slices, snapping each slice level to the nearest pitch of the active scale.
 
 ---
 
-## 6. Verification & Test Criteria
+## 4. Gate, Trigger & Indicator State Machines
 
-1. **DSP Unit Tests:**
-   - Real-time safety: zero heap allocation (`malloc`/`new`), zero mutexes, zero file access.
-   - Polyphonic channel count tracking up to 16 voices.
-   - Slew limiting step response validation.
-   - Correlation crossfade linearity & boundary conditions ($C=0, C=1$).
-   - Distribution warping monotonicity and $[-5\text{V}, +5\text{V}]$ range bounding.
-2. **VCV Rack & 4ms MetaModule Compilation:**
-   - Cross-compilation with `arm-none-eabi-gcc` against MetaModule SDK.
-   - Zero `<text>` tags in SVG panel.
+1. **Up Gate**:
+   - $V_{\text{up}} = +10.0\text{ V}$ whenever actively slewing upward ($V_{\text{target}} > V_{\text{slew}} + \epsilon$ and $u < 1.0$), else $0.0\text{ V}$.
+2. **Down Gate**:
+   - $V_{\text{down}} = +10.0\text{ V}$ whenever actively slewing downward ($V_{\text{target}} < V_{\text{slew}} - \epsilon$ and $u < 1.0$), else $0.0\text{ V}$.
+3. **End of Up (EOU) Trig**:
+   - Emits a $1.0\text{ ms}$ pulse ($+10.0\text{ V}$) precisely when $u$ reaches $1.0$ from an upward slew.
+4. **End of Down (EOD) Trig**:
+   - Emits a $1.0\text{ ms}$ pulse ($+10.0\text{ V}$) precisely when $u$ reaches $1.0$ from a downward slew.
+5. **Step-Crossed Output**:
+   - **Trigger Mode (Default)**: Emits a $1.0\text{ ms}$ pulse ($+10.0\text{ V}$) whenever the step index transitions: $m(t) \ne m(t - \Delta t)$.
+   - **Toggle / Flip-Flop Mode (Menu Option)**: Inverts state between $0.0\text{ V}$ and $+10.0\text{ V}$ on every step transition.
+6. **Step LEDs**:
+   - Flash yellow (decay time $\approx 40\text{ ms}$ for high visual visibility) on Up step crossing and Down step crossing respectively.
+
+---
+
+## 5. Tooltip & ParamQuantity Display Formatting
+
+- **Time Knobs**:
+  - Format: `<value> ms` if $T < 1.0\text{ s}$, `<value> s` if $T \ge 1.0\text{ s}$. E.g., `12.5 ms` or `2.45 s`.
+- **Shape Knobs**:
+  - $-1.0 \rightarrow -0.01$: `Logarithmic (%.2f)`
+  - $-0.01 \rightarrow +0.01$: `Linear`
+  - $+0.01 \rightarrow +1.0$: `Exponential (%.2f)`
+- **Steps Knobs**:
+  - $0$: `Bypass (Continuous)`
+  - $1 \dots 96$: `%d steps`
+- **Attenuverters**:
+  - `Up time CV depth`: `%.1f %%`
+  - `Up shape CV depth`: `%.1f %%`
+  - `Up steps CV depth`: `%.1f %%`
+  - `Down time CV depth`: `%.1f %%`
+  - `Down shape CV depth`: `%.1f %%`
+  - `Down steps CV depth`: `%.1f %%`
+
+---
+
+## 6. Context Menu & JSON State Persistence
+
+The module right-click context menu provides:
+1. **Stepping Mode**:
+   - `Equal (Transition Sub-division)` [Default]
+   - `Semitone (12-EDO)`
+   - `Quarter-tone (24-EDO)`
+   - `19-EDO (19-TET)`
+   - `22-EDO (22-TET)`
+   - `31-EDO (31-TET)`
+   - `Just Intonation (5-limit)`
+   - `Quarter-comma Meantone`
+2. **Quantize Strategy**:
+   - `Scale Degree Traversal` [Default]
+   - `Subdivided & Nearest Scale Snap`
+3. **Step Clock Output Behavior**:
+   - `1ms Trigger Pulse` [Default]
+   - `Alternating Toggle (Flip-Flop)`
+4. **Root Key Selection**:
+   - `C`, `C#`, `D`, `D#`, `E`, `F`, `F#`, `G`, `G#`, `A`, `A#`, `B`
+
+All settings serialize cleanly into `dataToJson()` and `dataFromJson()`.

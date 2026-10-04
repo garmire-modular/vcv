@@ -1665,13 +1665,13 @@
       "x": 0,
       "y": 19.8
     },
-    "panelColor": "#6E6E6E",
+    "panelColor": "#7C7C7C",
     "savedAt": "2026-09-28T01:15:54.127Z"
   },
   "Lisa": {
     "module": "Lisa",
     "slug": "Lisa",
-    "hp": 8,
+    "hp": 6,
     "mode": "Generate",
     "anchor": "charcoal",
     "anchorColor": "#1A1A1A",
@@ -1716,5 +1716,250 @@
     },
     "panelColor": "#6E6E6E",
     "savedAt": "2026-09-28T01:20:18.684Z"
+  },
+  "Rose": {
+    "module": "Rose",
+    "slug": "Rose",
+    "hp": 6,
+    "mode": "Generate",
+    "anchor": "charcoal",
+    "anchorColor": "#1A1A1A",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#1A1A1A",
+        "tier": "LOW",
+        "weight": 18,
+        "heightMm": 16.002
+      },
+      {
+        "hex": "#FF8866",
+        "tier": "HIGH",
+        "weight": 50,
+        "heightMm": 44.45
+      },
+      {
+        "hex": "#005566",
+        "tier": "LOW",
+        "weight": 32,
+        "heightMm": 28.448
+      }
+    ],
+    "colors": [
+      "#1A1A1A",
+      "#FF8866",
+      "#005566"
+    ],
+    "weights": [
+      18,
+      50,
+      32
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-28T02:35:59.400Z"
+  },
+  "Daisy": {
+    "module": "Daisy",
+    "slug": "Daisy",
+    "hp": 8,
+    "mode": "Generate",
+    "anchor": "charcoal",
+    "anchorColor": "#1A1A1A",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#1A1A1A",
+        "tier": "LOW",
+        "weight": 20,
+        "heightMm": 17.78
+      },
+      {
+        "hex": "#EBEC72",
+        "tier": "HIGH",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#005566",
+        "tier": "LOW",
+        "weight": 48,
+        "heightMm": 42.672
+      }
+    ],
+    "colors": [
+      "#1A1A1A",
+      "#EBEC72",
+      "#005566"
+    ],
+    "weights": [
+      20,
+      32,
+      48
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-29T02:00:37.005Z"
+  },
+  "Polly": {
+    "module": "Polly",
+    "slug": "Polly",
+    "hp": 14,
+    "mode": "Generate",
+    "anchor": "charcoal",
+    "anchorColor": "#1A1A1A",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#1A1A1A",
+        "tier": "LOW",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#FF8866",
+        "tier": "HIGH",
+        "weight": 22,
+        "heightMm": 19.558
+      },
+      {
+        "hex": "#0072B2",
+        "tier": "LOW",
+        "weight": 46,
+        "heightMm": 40.894
+      }
+    ],
+    "colors": [
+      "#1A1A1A",
+      "#FF8866",
+      "#0072B2"
+    ],
+    "weights": [
+      32,
+      22,
+      46
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-29T02:00:50.026Z"
+  },
+  "Circe": {
+    "module": "Circe",
+    "slug": "Circe",
+    "hp": 8,
+    "mode": "Generate",
+    "anchor": "charcoal",
+    "anchorColor": "#1A1A1A",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#1A1A1A",
+        "tier": "LOW",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#EBEC72",
+        "tier": "HIGH",
+        "weight": 22,
+        "heightMm": 19.558
+      },
+      {
+        "hex": "#882255",
+        "tier": "LOW",
+        "weight": 46,
+        "heightMm": 40.894
+      }
+    ],
+    "colors": [
+      "#1A1A1A",
+      "#EBEC72",
+      "#882255"
+    ],
+    "weights": [
+      32,
+      22,
+      46
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-29T02:00:57.363Z"
+  },
+  "Maude": {
+    "module": "Maude",
+    "slug": "Maude",
+    "hp": 12,
+    "mode": "Generate",
+    "anchor": "charcoal",
+    "anchorColor": "#1A1A1A",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#1A1A1A",
+        "tier": "LOW",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#56B4E9",
+        "tier": "HIGH",
+        "weight": 22,
+        "heightMm": 19.558
+      },
+      {
+        "hex": "#882255",
+        "tier": "LOW",
+        "weight": 46,
+        "heightMm": 40.894
+      }
+    ],
+    "colors": [
+      "#1A1A1A",
+      "#56B4E9",
+      "#882255"
+    ],
+    "weights": [
+      32,
+      22,
+      46
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-29T02:01:07.107Z"
   }
 }

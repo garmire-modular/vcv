@@ -452,6 +452,17 @@
         "Polyphonic",
         "Utility"
       ]
+    },
+    {
+      "slug": "SteppedSlew",
+      "name": "Stepped Slew",
+      "description": "Asymmetric dual-slope slew limiter with variable curvature shaping, microtonal/chromatic quantization stepping, and event gates",
+      "tags": [
+        "Slew limiter",
+        "Quantizer",
+        "Dual",
+        "Utility"
+      ]
     }
   ]
 }
