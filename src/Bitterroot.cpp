@@ -325,6 +325,7 @@ struct Bitterroot : Module {
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "voltageRange", json_integer((int)engine.voltageRange));
+		json_object_set_new(rootJ, "zScaleMode", json_integer((int)engine.zScaleMode));
 		json_object_set_new(rootJ, "slewMode", json_integer((int)engine.slewMode));
 		json_object_set_new(rootJ, "decimationRatio", json_integer(engine.decimationRatio));
 		return rootJ;
@@ -333,6 +334,9 @@ struct Bitterroot : Module {
 	void dataFromJson(json_t* rootJ) override {
 		json_t* vrJ = json_object_get(rootJ, "voltageRange");
 		if (vrJ) engine.voltageRange = (bitterroot::VoltageRange)json_integer_value(vrJ);
+
+		json_t* zsJ = json_object_get(rootJ, "zScaleMode");
+		if (zsJ) engine.zScaleMode = (bitterroot::ZScaleMode)json_integer_value(zsJ);
 
 		json_t* smJ = json_object_get(rootJ, "slewMode");
 		if (smJ) engine.slewMode = (bitterroot::SlewMode)json_integer_value(smJ);
@@ -459,6 +463,23 @@ struct BitterrootWidget : ModuleWidget {
 			menu->addChild(createCheckMenuItem(vrLabels[i], "",
 				[=]() { return module->engine.voltageRange == vr; },
 				[=]() { module->engine.voltageRange = vr; }
+			));
+		}
+
+		menu->addChild(new MenuSeparator());
+		menu->addChild(createMenuLabel("Z Full Intensity Scale"));
+
+		const char* zScaleLabels[] = {
+			"1.0V (Laser Diode / Logic Standard)",
+			"5.0V (Eurorack Nominal Standard)",
+			"10.0V (Full Video Standard)"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			bitterroot::ZScaleMode zs = (bitterroot::ZScaleMode)i;
+			menu->addChild(createCheckMenuItem(zScaleLabels[i], "",
+				[=]() { return module->engine.zScaleMode == zs; },
+				[=]() { module->engine.zScaleMode = zs; }
 			));
 		}
 

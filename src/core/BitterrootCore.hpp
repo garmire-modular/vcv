@@ -20,6 +20,12 @@ enum VoltageRange {
     RANGE_UNIPOLAR_10V = 1
 };
 
+enum ZScaleMode {
+    Z_SCALE_1V = 0,
+    Z_SCALE_5V = 1,
+    Z_SCALE_10V = 2
+};
+
 enum RouteMode {
     ROUTE_CASCADE_SERIAL = 0,
     ROUTE_MATRIX_SCAN = 1
@@ -184,6 +190,17 @@ public:
         return (uint16_t)std::floor(norm * 1023.0f + 0.5f);
     }
 
+    ZScaleMode zScaleMode = Z_SCALE_5V;
+
+    inline float getZMaxVoltage() const {
+        switch (zScaleMode) {
+            case Z_SCALE_1V: return 1.0f;
+            case Z_SCALE_10V: return 10.0f;
+            case Z_SCALE_5V:
+            default: return 5.0f;
+        }
+    }
+
     // Convert 10-bit integer [0, 1023] into analog voltage
     inline float tenBitToVoltage(uint16_t d) const {
         float norm = (float)(d & MASK_10BIT) / 1023.0f;
@@ -194,14 +211,10 @@ public:
         }
     }
 
-    // Convert normalized Z [0.0, 1.0] into analog Z voltage
+    // Convert normalized Z [0.0, 1.0] into analog Z voltage scaled by zScaleMode
     inline float normZToVoltage(float z) const {
         z = clamp(z, 0.0f, 1.0f);
-        if (voltageRange == RANGE_BIPOLAR_5V) {
-            return z * 5.0f; // 0..5V
-        } else {
-            return z * 10.0f; // 0..10V
-        }
+        return z * getZMaxVoltage();
     }
 
     // -------------------------------------------------------------
@@ -594,19 +607,30 @@ public:
         if (routeMode == ROUTE_CASCADE_SERIAL) {
             // Mode 0: Cascaded Serial Pipeline (A -> B -> C -> D -> E -> F -> G -> H -> I)
             Point10 cur = {dX, dY, 1.0f};
-            cur = processBlockA(cur.x, cur.y, blocks[0]); resPoints[0] = cur;
-            cur = processBlockB(cur.x, cur.y, blocks[1]); resPoints[1] = cur;
-            cur = processBlockC(cur.x, cur.y, blocks[2]); resPoints[2] = cur;
-            cur = processBlockD(cur.x, cur.y, blocks[3]); resPoints[3] = cur;
-            cur = processBlockE(cur.x, cur.y, blocks[4]); resPoints[4] = cur;
-            cur = processBlockF(cur.x, cur.y, blocks[5]); resPoints[5] = cur;
-            cur = processBlockG(cur.x, cur.y, blocks[6]); resPoints[6] = cur;
-            cur = processBlockH(cur.x, cur.y, blocks[7]); resPoints[7] = cur;
-            cur = processBlockI(cur.x, cur.y, blocks[8]); resPoints[8] = cur;
+            float minBlockZ = 1.0f;
+            cur = processBlockA(cur.x, cur.y, blocks[0]); resPoints[0] = cur; if (blocks[0].active) minBlockZ = std::min(minBlockZ, cur.z);
+            cur = processBlockB(cur.x, cur.y, blocks[1]); resPoints[1] = cur; if (blocks[1].active) minBlockZ = std::min(minBlockZ, cur.z);
+            cur = processBlockC(cur.x, cur.y, blocks[2]); resPoints[2] = cur; if (blocks[2].active) minBlockZ = std::min(minBlockZ, cur.z);
+            cur = processBlockD(cur.x, cur.y, blocks[3]); resPoints[3] = cur; if (blocks[3].active) minBlockZ = std::min(minBlockZ, cur.z);
+            cur = processBlockE(cur.x, cur.y, blocks[4]); resPoints[4] = cur; if (blocks[4].active) minBlockZ = std::min(minBlockZ, cur.z);
+            cur = processBlockF(cur.x, cur.y, blocks[5]); resPoints[5] = cur; if (blocks[5].active) minBlockZ = std::min(minBlockZ, cur.z);
+            cur = processBlockG(cur.x, cur.y, blocks[6]); resPoints[6] = cur; if (blocks[6].active) minBlockZ = std::min(minBlockZ, cur.z);
+            cur = processBlockH(cur.x, cur.y, blocks[7]); resPoints[7] = cur; if (blocks[7].active) minBlockZ = std::min(minBlockZ, cur.z);
+            cur = processBlockI(cur.x, cur.y, blocks[8]); resPoints[8] = cur; if (blocks[8].active) minBlockZ = std::min(minBlockZ, cur.z);
 
             float targetX_V = tenBitToVoltage(cur.x);
             float targetY_V = tenBitToVoltage(cur.y);
-            float targetZ_V = normZToVoltage(cur.z * zBlankThreshold * 2.0f);
+
+            // True Jump-Blanking: calculate normalized Euclidean hop distance across 10-bit frame
+            float hopDx = (float)cur.x - (float)prevX;
+            float hopDy = (float)cur.y - (float)prevY;
+            float hopDistNorm = std::sqrt(hopDx * hopDx + hopDy * hopDy) / 1023.0f;
+
+            // Retrace Blanking: sensitive to zBlankThreshold
+            // At threshold 0.0: no blanking on hops; at 1.0: aggressive blanking on any hop
+            float hopBlank = clamp(1.0f - (hopDistNorm * zBlankThreshold * 4.0f), 0.0f, 1.0f);
+            float blockBlank = clamp(1.0f - ((1.0f - minBlockZ) * zBlankThreshold), 0.0f, 1.0f);
+            float targetZ_V = normZToVoltage(hopBlank * blockBlank);
 
             // Activity LED tracking
             for (int i = 0; i < 9; ++i) {
@@ -617,6 +641,9 @@ public:
             out.outX = currentOutX;
             out.outY = currentOutY;
             out.outZ = currentOutZ;
+
+            prevX = cur.x;
+            prevY = cur.y;
 
         } else {
             // Mode 1: 2D Matrix Crossfade Scanner
@@ -662,16 +689,25 @@ public:
 
             float targetX_V = tenBitToVoltage(finalX);
             float targetY_V = tenBitToVoltage(finalY);
-            float targetZ_V = normZToVoltage(sumZ * zBlankThreshold * 2.0f);
+
+            // True Jump-Blanking on synthesized output coordinates
+            float hopDx = (float)finalX - (float)prevX;
+            float hopDy = (float)finalY - (float)prevY;
+            float hopDistNorm = std::sqrt(hopDx * hopDx + hopDy * hopDy) / 1023.0f;
+
+            float hopBlank = clamp(1.0f - (hopDistNorm * zBlankThreshold * 4.0f), 0.0f, 1.0f);
+            float blockBlank = clamp(1.0f - ((1.0f - sumZ) * zBlankThreshold), 0.0f, 1.0f);
+            float targetZ_V = normZToVoltage(hopBlank * blockBlank);
 
             applySlew(targetX_V, targetY_V, targetZ_V, sampleRate);
             out.outX = currentOutX;
             out.outY = currentOutY;
             out.outZ = currentOutZ;
+
+            prevX = finalX;
+            prevY = finalY;
         }
 
-        prevX = dX;
-        prevY = dY;
         lastOutput = out;
         return out;
     }

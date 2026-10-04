@@ -235,9 +235,23 @@ void testFullEngineProcessing() {
 
     // Test Cascade Serial
     engine.routeMode = bitterroot::ROUTE_CASCADE_SERIAL;
+    engine.zScaleMode = bitterroot::Z_SCALE_5V;
     auto out1 = engine.process(0.0f, 0.0f, blocks, 0.0f, 0.0f, 0.5f, 48000.0f);
     assert(std::isfinite(out1.outX) && std::isfinite(out1.outY) && std::isfinite(out1.outZ));
     assert(out1.outZ >= 0.0f && out1.outZ <= 5.0f);
+
+    // Test Z Scaling
+    engine.zScaleMode = bitterroot::Z_SCALE_1V;
+    assert(engine.getZMaxVoltage() == 1.0f);
+    auto outZ1 = engine.process(0.0f, 0.0f, blocks, 0.0f, 0.0f, 0.0f, 48000.0f);
+    assert(outZ1.outZ <= 1.0001f);
+
+    engine.zScaleMode = bitterroot::Z_SCALE_10V;
+    assert(engine.getZMaxVoltage() == 10.0f);
+    auto outZ10 = engine.process(0.0f, 0.0f, blocks, 0.0f, 0.0f, 0.0f, 48000.0f);
+    assert(outZ10.outZ <= 10.0001f);
+
+    engine.zScaleMode = bitterroot::Z_SCALE_5V;
 
     // Test Matrix Scan
     engine.routeMode = bitterroot::ROUTE_MATRIX_SCAN;
@@ -250,7 +264,7 @@ void testFullEngineProcessing() {
         assert(out2.cellActivity[i] >= 0.0f && out2.cellActivity[i] <= 1.0f);
     }
 
-    std::cout << "  -> Full Engine Processing PASSED." << std::endl;
+    std::cout << "  -> Full Engine Processing & Z-Scaling PASSED." << std::endl;
 }
 
 int main() {
