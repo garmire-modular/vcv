@@ -2,6 +2,46 @@
 #include "core/EuniceEngine.hpp"
 #include <cmath>
 
+struct RateParamQuantity : ParamQuantity {
+	std::string getDisplayValueString() override {
+		float val = getValue(); // 0.0 to 1.0
+		float exponent = val * 15.2877f;
+		float freq = 0.05f * std::pow(2.f, exponent);
+		char buf[32];
+		if (freq < 1.0f) {
+			snprintf(buf, sizeof(buf), "%.3f", freq);
+		} else if (freq < 10.0f) {
+			snprintf(buf, sizeof(buf), "%.2f", freq);
+		} else if (freq < 100.0f) {
+			snprintf(buf, sizeof(buf), "%.1f", freq);
+		} else {
+			snprintf(buf, sizeof(buf), "%.0f", freq);
+		}
+		return std::string(buf);
+	}
+	std::string getUnit() override { return " Hz"; }
+};
+
+struct SlewTimeParamQuantity : ParamQuantity {
+	std::string getDisplayValueString() override {
+		float val = getValue(); // 0.0 to 1.0
+		float timeSec = 0.0005f * std::pow(10.0f / 0.0005f, val);
+		char buf[32];
+		if (timeSec < 0.01f) {
+			// e.g. 0.5 ms to 10 ms
+			snprintf(buf, sizeof(buf), "%.2f ms", timeSec * 1000.f);
+		} else if (timeSec < 1.0f) {
+			// e.g. 10 ms to 999 ms
+			snprintf(buf, sizeof(buf), "%.1f ms", timeSec * 1000.f);
+		} else {
+			// 1.00 s to 10.00 s
+			snprintf(buf, sizeof(buf), "%.2f s", timeSec);
+		}
+		return std::string(buf);
+	}
+	std::string getUnit() override { return ""; }
+};
+
 struct InAttenParamQuantity : ParamQuantity {
 	std::string getDisplayValueString() override {
 		float v = getValue();
@@ -68,15 +108,15 @@ struct Eunice : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		// Row 1: Primary Knobs
-		configParam(RATE_PARAM, 0.f, 1.f, 0.5f, "Rate", " Hz", 2.f, 0.05f * std::pow(2.f, 15.2877f));
+		configParam<RateParamQuantity>(RATE_PARAM, 0.f, 1.f, 0.5f, "Rate");
 		configParam(DIST_PARAM, 0.f, 1.f, 0.5f, "Distribution tilt", "%", 0.f, 100.f);
 		configParam(CORR_PARAM, 0.f, 1.f, 0.0f, "Correlation crossfade", "%", 0.f, 100.f);
 
 		// Row 2: Slew Destination Switch & Knobs
 		// 0 = S&H only (Top), 1 = Both (Mid), 2 = T&H only (Bot)
 		configSwitch(SLEW_DEST_PARAM, 0.f, 2.f, 1.f, "Slew destination", {"S&H only", "Both (S&H + T&H)", "T&H only"});
-		configParam(SLEW_RISE_PARAM, 0.f, 1.f, 0.0f, "Slew rise time", " s");
-		configParam(SLEW_FALL_PARAM, 0.f, 1.f, 0.0f, "Slew fall time", " s");
+		configParam<SlewTimeParamQuantity>(SLEW_RISE_PARAM, 0.f, 1.f, 0.0f, "Slew rise time");
+		configParam<SlewTimeParamQuantity>(SLEW_FALL_PARAM, 0.f, 1.f, 0.0f, "Slew fall time");
 
 		// Row 3: Attenuverters
 		configParam(RATE_CV_ATTEN_PARAM, -1.f, 1.f, 0.f, "Rate CV depth", "%", 0.f, 100.f);
