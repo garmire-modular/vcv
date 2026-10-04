@@ -59,6 +59,14 @@ To prevent race conditions, file locks on `plugin.dll` or `build/` objects, and 
 
 ---
 
+## 4. Mandatory Plugin Directory Deployment (`make install`)
+
+Whenever compiling or verifying changes to the VCV Rack plugin:
+- The system MUST ALWAYS copy the compiled Rack files to the active user plugin directories so the user can immediately test them in VCV Rack.
+- Run `make install` (or deploy `plugin.dll`, `plugin.json`, `res/`, and `dist/*.vcvplugin` to `C:/Users/Pat/AppData/Local/Rack2/plugins-win-x64/Garmire` and `C:/Users/Pat/AppData/Local/Rack2/plugins-win-x64`).
+
+---
+
 ## 6. Panel Layout & UI Design System
 
 This section defines the mandatory, unified panel grid, spatial architecture, component clearance tolerances, and typography hierarchy for all **Garmire** hardware-compatible modules.
