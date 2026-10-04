@@ -50,10 +50,15 @@ def main():
     panel_w = 142.24
     panel_h = 128.50
 
-    # 3 Block Columns
-    col_1 = 24.500
+    # 3 Block Column Centers
+    col_1 = 26.000
     col_2 = 71.120
-    col_3 = 117.740
+    col_3 = 116.240
+
+    # Knobs within columns (pitch 13.0 mm)
+    c1_k = [13.000, 26.000, 39.000]
+    c2_k = [58.120, 71.120, 84.120]
+    c3_k = [103.240, 116.240, 129.240]
 
     # Title "bitterroot" in Node.otf (scale 0.0048, baseline 7.620, centered at x = 71.12)
     cmap_node = node_font.getBestCmap()
@@ -92,44 +97,120 @@ def main():
         '    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>',
         '  </g>',
         '',
-        '  <!-- Delineator Line 1 (Between Zone 2 Effects & Zone 3 Master at Y = 74.00mm) -->',
-        f'  <line x1="3.00" y1="74.00" x2="{panel_w - 3.00:.2f}" y2="74.00" stroke="#999999" stroke-width="0.176"/>',
+        '  <!-- Delineator Line 1 (Between Zone 2 Effects & Zone 3 Master at Y = 69.50mm) -->',
+        f'  <line x1="3.00" y1="69.50" x2="{panel_w - 3.00:.2f}" y2="69.50" stroke="#999999" stroke-width="0.176"/>',
         '',
-        '  <!-- Delineator Line 2 (Above I/O Jacks at Y = 85.00mm) -->',
-        f'  <line x1="3.00" y1="85.00" x2="{panel_w - 3.00:.2f}" y2="85.00" stroke="#999999" stroke-width="0.176"/>',
+        '  <!-- Delineator Line 2 (Above I/O Jacks at Y = 83.50mm) -->',
+        f'  <line x1="3.00" y1="83.50" x2="{panel_w - 3.00:.2f}" y2="83.50" stroke="#999999" stroke-width="0.176"/>',
         ''
     ]
     svg_parts.extend(title_block)
     svg_parts.extend(version_block)
 
     # ---------------- Zone 2: Transformation Blocks (Rows 1, 2, 3) ----------------
-    # Row 1 Block Titles (Baseline Y = 13.50, scale 0.0022)
-    svg_parts.append(render_qs_text(qs_font, "MORTON", col_1, 13.500, 0.002200, "#1c1c1c", "MORTON"))
-    svg_parts.append(render_qs_text(qs_font, "REVERSE", col_2, 13.500, 0.002200, "#1c1c1c", "REVERSE"))
-    svg_parts.append(render_qs_text(qs_font, "TRANSPOSE", col_3, 13.500, 0.002200, "#1c1c1c", "TRANSPOSE"))
+    # Row 1 Block Titles & Knobs (Knobs Center Y = 23.50, Header Y = 13.80, Subheader Y = 16.50)
+    svg_parts.append(render_qs_text(qs_font, "MORTON", col_1, 13.800, 0.002400, "#1c1c1c", "MORTON"))
+    svg_parts.append(render_qs_text(qs_font, "REVERSE", col_2, 13.800, 0.002400, "#1c1c1c", "REVERSE"))
+    svg_parts.append(render_qs_text(qs_font, "TRANSPOSE", col_3, 13.800, 0.002400, "#1c1c1c", "TRANSPOSE"))
 
-    # Row 2 Block Titles (Baseline Y = 34.50, scale 0.0022)
-    svg_parts.append(render_qs_text(qs_font, "AVALANCHE", col_1, 34.500, 0.002200, "#1c1c1c", "AVALANCHE"))
-    svg_parts.append(render_qs_text(qs_font, "PERMUTE", col_2, 34.500, 0.002200, "#1c1c1c", "PERMUTE"))
-    svg_parts.append(render_qs_text(qs_font, "GRAY", col_3, 34.500, 0.002200, "#1c1c1c", "GRAY"))
+    # Row 1 Knob Labels
+    svg_parts.append(render_qs_text(qs_font, "SHIFT", c1_k[0], 16.500, 0.001600, "#2c2c2c", "SHIFT"))
+    svg_parts.append(render_qs_text(qs_font, "STRIDE", c1_k[1], 16.500, 0.001600, "#2c2c2c", "STRIDE"))
+    svg_parts.append(render_qs_text(qs_font, "HILBERT", c1_k[2], 16.500, 0.001600, "#2c2c2c", "HILBERT"))
 
-    # Row 3 Block Titles (Baseline Y = 55.50, scale 0.0022)
-    svg_parts.append(render_qs_text(qs_font, "GALOIS", col_1, 55.500, 0.002200, "#1c1c1c", "GALOIS"))
-    svg_parts.append(render_qs_text(qs_font, "AUTOMATA", col_2, 55.500, 0.002200, "#1c1c1c", "AUTOMATA"))
-    svg_parts.append(render_qs_text(qs_font, "HAMMING", col_3, 55.500, 0.002200, "#1c1c1c", "HAMMING"))
+    svg_parts.append(render_qs_text(qs_font, "WIDTH", c2_k[0], 16.500, 0.001600, "#2c2c2c", "WIDTH"))
+    svg_parts.append(render_qs_text(qs_font, "OFFSET", c2_k[1], 16.500, 0.001600, "#2c2c2c", "OFFSET"))
+    svg_parts.append(render_qs_text(qs_font, "SKEW", c2_k[2], 16.500, 0.001600, "#2c2c2c", "SKEW"))
+
+    svg_parts.append(render_qs_text(qs_font, "PLANE A", c3_k[0], 16.500, 0.001600, "#2c2c2c", "PLANE A"))
+    svg_parts.append(render_qs_text(qs_font, "PLANE B", c3_k[1], 16.500, 0.001600, "#2c2c2c", "PLANE B"))
+    svg_parts.append(render_qs_text(qs_font, "CYCLE C", c3_k[2], 16.500, 0.001600, "#2c2c2c", "CYCLE C"))
+
+    # Row 2 Block Titles & Knobs (Knobs Center Y = 42.50, Header Y = 32.80, Subheader Y = 35.50)
+    svg_parts.append(render_qs_text(qs_font, "AVALANCHE", col_1, 32.800, 0.002400, "#1c1c1c", "AVALANCHE"))
+    svg_parts.append(render_qs_text(qs_font, "PERMUTE", col_2, 32.800, 0.002400, "#1c1c1c", "PERMUTE"))
+    svg_parts.append(render_qs_text(qs_font, "GRAY", col_3, 32.800, 0.002400, "#1c1c1c", "GRAY"))
+
+    # Row 2 Knob Labels
+    svg_parts.append(render_qs_text(qs_font, "MASK", c1_k[0], 35.500, 0.001600, "#2c2c2c", "MASK"))
+    svg_parts.append(render_qs_text(qs_font, "SHIFT", c1_k[1], 35.500, 0.001600, "#2c2c2c", "SHIFT"))
+    svg_parts.append(render_qs_text(qs_font, "BORROW", c1_k[2], 35.500, 0.001600, "#2c2c2c", "BORROW"))
+
+    svg_parts.append(render_qs_text(qs_font, "MODE", c2_k[0], 35.500, 0.001600, "#2c2c2c", "MODE"))
+    svg_parts.append(render_qs_text(qs_font, "ROTATE", c2_k[1], 35.500, 0.001600, "#2c2c2c", "ROTATE"))
+    svg_parts.append(render_qs_text(qs_font, "STRIDE", c2_k[2], 35.500, 0.001600, "#2c2c2c", "STRIDE"))
+
+    svg_parts.append(render_qs_text(qs_font, "DEPTH", c3_k[0], 35.500, 0.001600, "#2c2c2c", "DEPTH"))
+    svg_parts.append(render_qs_text(qs_font, "MODE", c3_k[1], 35.500, 0.001600, "#2c2c2c", "MODE"))
+    svg_parts.append(render_qs_text(qs_font, "TAP", c3_k[2], 35.500, 0.001600, "#2c2c2c", "TAP"))
+
+    # Row 3 Block Titles & Knobs (Knobs Center Y = 61.50, Header Y = 51.80, Subheader Y = 54.50)
+    svg_parts.append(render_qs_text(qs_font, "GALOIS", col_1, 51.800, 0.002400, "#1c1c1c", "GALOIS"))
+    svg_parts.append(render_qs_text(qs_font, "AUTOMATA", col_2, 51.800, 0.002400, "#1c1c1c", "AUTOMATA"))
+    svg_parts.append(render_qs_text(qs_font, "HAMMING", col_3, 51.800, 0.002400, "#1c1c1c", "HAMMING"))
+
+    # Row 3 Knob Labels
+    svg_parts.append(render_qs_text(qs_font, "POLY", c1_k[0], 54.500, 0.001600, "#2c2c2c", "POLY"))
+    svg_parts.append(render_qs_text(qs_font, "ALPHA", c1_k[1], 54.500, 0.001600, "#2c2c2c", "ALPHA"))
+    svg_parts.append(render_qs_text(qs_font, "POWER", c1_k[2], 54.500, 0.001600, "#2c2c2c", "POWER"))
+
+    svg_parts.append(render_qs_text(qs_font, "RULE", c2_k[0], 54.500, 0.001600, "#2c2c2c", "RULE"))
+    svg_parts.append(render_qs_text(qs_font, "STEPS", c2_k[1], 54.500, 0.001600, "#2c2c2c", "STEPS"))
+    svg_parts.append(render_qs_text(qs_font, "INJECT", c2_k[2], 54.500, 0.001600, "#2c2c2c", "INJECT"))
+
+    svg_parts.append(render_qs_text(qs_font, "GAIN", c3_k[0], 54.500, 0.001600, "#2c2c2c", "GAIN"))
+    svg_parts.append(render_qs_text(qs_font, "MODE", c3_k[1], 54.500, 0.001600, "#2c2c2c", "MODE"))
+    svg_parts.append(render_qs_text(qs_font, "MUTUAL", c3_k[2], 54.500, 0.001600, "#2c2c2c", "MUTUAL"))
 
     # ---------------- Zone 3: Master Controls & Vector Activity Display ----------------
-    svg_parts.append(render_qs_text(qs_font, "SCAN X", 18.000, 76.500, 0.001900, "#1c1c1c", "SCAN X"))
-    svg_parts.append(render_qs_text(qs_font, "SCAN Y", 34.000, 76.500, 0.001900, "#1c1c1c", "SCAN Y"))
-    svg_parts.append(render_qs_text(qs_font, "ROUTE", 50.000, 76.500, 0.001900, "#1c1c1c", "ROUTE"))
-    svg_parts.append(render_qs_text(qs_font, "GRID", 71.120, 74.800, 0.001800, "#2c2c2c", "GRID DISPLAY"))
-    svg_parts.append(render_qs_text(qs_font, "Z BLANK", 124.000, 76.500, 0.001900, "#1c1c1c", "Z BLANK"))
+    svg_parts.append(render_qs_text(qs_font, "SCAN X", 20.000, 72.000, 0.002000, "#1c1c1c", "SCAN X"))
+    svg_parts.append(render_qs_text(qs_font, "SCAN Y", 36.000, 72.000, 0.002000, "#1c1c1c", "SCAN Y"))
+    svg_parts.append(render_qs_text(qs_font, "ROUTE", 52.000, 72.000, 0.002000, "#1c1c1c", "ROUTE"))
+    svg_parts.append(render_qs_text(qs_font, "GRID", 71.120, 72.000, 0.001800, "#2c2c2c", "GRID DISPLAY"))
+    svg_parts.append(render_qs_text(qs_font, "Z BLANK", 122.240, 72.000, 0.002000, "#1c1c1c", "Z BLANK"))
 
     # ---------------- Zone 4: I/O Patch Bay ----------------
-    # Section Header for Row 1 CVs (Center Y = 89.50, Baseline Y = 86.80)
-    svg_parts.append(render_qs_text(qs_font, "ROW 1 CV", col_1, 87.000, 0.001800, "#2c2c2c", "ROW 1 CV"))
-    svg_parts.append(render_qs_text(qs_font, "ROW 2 CV", col_1, 96.500, 0.001800, "#2c2c2c", "ROW 2 CV"))
-    svg_parts.append(render_qs_text(qs_font, "ROW 3 CV", col_1, 106.000, 0.001800, "#2c2c2c", "ROW 3 CV"))
+    # Row 1 CV Inputs (Center Y = 89.50, Label Y = 85.30)
+    # Block A
+    svg_parts.append(render_qs_text(qs_font, "SHFT", c1_k[0], 85.300, 0.001700, "#2c2c2c", "A SHIFT CV"))
+    svg_parts.append(render_qs_text(qs_font, "STRD", c1_k[1], 85.300, 0.001700, "#2c2c2c", "A STRIDE CV"))
+    svg_parts.append(render_qs_text(qs_font, "HLBT", c1_k[2], 85.300, 0.001700, "#2c2c2c", "A HILBERT CV"))
+    # Block B
+    svg_parts.append(render_qs_text(qs_font, "WDTH", c2_k[0], 85.300, 0.001700, "#2c2c2c", "B WIDTH CV"))
+    svg_parts.append(render_qs_text(qs_font, "OFST", c2_k[1], 85.300, 0.001700, "#2c2c2c", "B OFFSET CV"))
+    svg_parts.append(render_qs_text(qs_font, "SKEW", c2_k[2], 85.300, 0.001700, "#2c2c2c", "B SKEW CV"))
+    # Block C
+    svg_parts.append(render_qs_text(qs_font, "PL A", c3_k[0], 85.300, 0.001700, "#2c2c2c", "C PLANE A CV"))
+    svg_parts.append(render_qs_text(qs_font, "PL B", c3_k[1], 85.300, 0.001700, "#2c2c2c", "C PLANE B CV"))
+    svg_parts.append(render_qs_text(qs_font, "CYCL", c3_k[2], 85.300, 0.001700, "#2c2c2c", "C CYCLE CV"))
+
+    # Row 2 CV Inputs (Center Y = 99.00, Label Y = 94.80)
+    # Block D
+    svg_parts.append(render_qs_text(qs_font, "MASK", c1_k[0], 94.800, 0.001700, "#2c2c2c", "D MASK CV"))
+    svg_parts.append(render_qs_text(qs_font, "SHFT", c1_k[1], 94.800, 0.001700, "#2c2c2c", "D SHIFT CV"))
+    svg_parts.append(render_qs_text(qs_font, "BORW", c1_k[2], 94.800, 0.001700, "#2c2c2c", "D BORROW CV"))
+    # Block E
+    svg_parts.append(render_qs_text(qs_font, "MODE", c2_k[0], 94.800, 0.001700, "#2c2c2c", "E MODE CV"))
+    svg_parts.append(render_qs_text(qs_font, "ROT", c2_k[1], 94.800, 0.001700, "#2c2c2c", "E ROTATE CV"))
+    svg_parts.append(render_qs_text(qs_font, "STRD", c2_k[2], 94.800, 0.001700, "#2c2c2c", "E STRIDE CV"))
+    # Block F
+    svg_parts.append(render_qs_text(qs_font, "DPTH", c3_k[0], 94.800, 0.001700, "#2c2c2c", "F DEPTH CV"))
+    svg_parts.append(render_qs_text(qs_font, "MODE", c3_k[1], 94.800, 0.001700, "#2c2c2c", "F MODE CV"))
+    svg_parts.append(render_qs_text(qs_font, "TAP", c3_k[2], 94.800, 0.001700, "#2c2c2c", "F TAP CV"))
+
+    # Row 3 CV Inputs (Center Y = 108.50, Label Y = 104.30)
+    # Block G
+    svg_parts.append(render_qs_text(qs_font, "POLY", c1_k[0], 104.300, 0.001700, "#2c2c2c", "G POLY CV"))
+    svg_parts.append(render_qs_text(qs_font, "ALPH", c1_k[1], 104.300, 0.001700, "#2c2c2c", "G ALPHA CV"))
+    svg_parts.append(render_qs_text(qs_font, "POWR", c1_k[2], 104.300, 0.001700, "#2c2c2c", "G POWER CV"))
+    # Block H
+    svg_parts.append(render_qs_text(qs_font, "RULE", c2_k[0], 104.300, 0.001700, "#2c2c2c", "H RULE CV"))
+    svg_parts.append(render_qs_text(qs_font, "STEP", c2_k[1], 104.300, 0.001700, "#2c2c2c", "H STEP CV"))
+    svg_parts.append(render_qs_text(qs_font, "INJ", c2_k[2], 104.300, 0.001700, "#2c2c2c", "H INJECT CV"))
+    # Block I
+    svg_parts.append(render_qs_text(qs_font, "GAIN", c3_k[0], 104.300, 0.001700, "#2c2c2c", "I GAIN CV"))
+    svg_parts.append(render_qs_text(qs_font, "MODE", c3_k[1], 104.300, 0.001700, "#2c2c2c", "I MODE CV"))
+    svg_parts.append(render_qs_text(qs_font, "MUTL", c3_k[2], 104.300, 0.001700, "#2c2c2c", "I MUTUAL CV"))
 
     # Bottom Master Jacks (Fixed Y = 118.00, Baseline Y = 113.80)
     # IN X (13.0), IN Y (27.5), SCAN X (47.0), SCAN Y (63.0), ROUTE (79.0), OUT X (99.0), OUT Y (114.5), OUT Z (130.0)
@@ -165,4 +246,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

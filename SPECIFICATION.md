@@ -1,6 +1,6 @@
 # Bitterroot: Formal Engineering Specification
 
-**Document Version:** 1.2.0  
+**Document Version:** 1.3.0  
 **Module Version:** 1.0.0  
 **Slug:** `Bitterroot`  
 **Panel Title:** `bitterroot` (Font: `res/Node.otf`, lowercase, baseline $Y = 7.620\text{ mm}$, centered $X = 71.120\text{ mm}$)  
@@ -18,19 +18,19 @@ Crucially, Bitterroot includes a dedicated **$Z$-Axis Beam Intensity & Topologic
 
 The module features a **$3 \times 3$ grid of nine simultaneous topological transformation blocks**:
 - **Row 1:**
-  - **Block A (Morton):** Z-Order Space-Filling Curves & Hilbert Fractal Morph
-  - **Block B (Reverse):** Bitwise Dyadic Reflection & Asymmetric Axis Skew
-  - **Block C (Transpose):** Bit-Plane Transposition & 3-Way Bit Permutation Cycle
+  - **Block A (Morton):** Z-Order Space-Filling Curves & Hilbert Fractal Morph (`SHIFT`, `STRIDE`, `HILBERT`)
+  - **Block B (Reverse):** Bitwise Dyadic Reflection & Asymmetric Axis Skew (`WIDTH`, `OFFSET`, `SKEW`)
+  - **Block C (Transpose):** Bit-Plane Transposition & 3-Way Bit Permutation Cycle (`PLANE A`, `PLANE B`, `CYCLE C`)
 - **Row 2:**
-  - **Block D (Avalanche):** Carry-Propagated Cross-Modulation & Dual-Direction Borrow/Carry
-  - **Block E (Permute):** 20-bit Circular Permutation Matrix & Coprime Stride Hopping
-  - **Block F (Gray):** Reflected Binary Gray Code Dyadic Folding & Multi-Order Tap Distance
+  - **Block D (Avalanche):** Carry-Propagated Cross-Modulation & Dual-Direction Borrow/Carry (`MASK`, `SHIFT`, `BORROW`)
+  - **Block E (Permute):** 20-bit Circular Permutation Matrix & Coprime Stride Hopping (`MODE`, `ROTATE`, `STRIDE`)
+  - **Block F (Gray):** Reflected Binary Gray Code Dyadic Folding & Multi-Order Tap Distance (`DEPTH`, `MODE`, `TAP`)
 - **Row 3:**
-  - **Block G (Galois):** Galois Field $\text{GF}(2^{10})$ Polynomial Scramble & Non-Linear Inversion
-  - **Block H (Automata):** 1D Elementary Cellular Automata Mesh & Cross-Axis Seed Injection
-  - **Block I (Hamming):** Popcount & Mutual Hamming Distance Cross-Coupling
+  - **Block G (Galois):** Galois Field $\text{GF}(2^{10})$ Polynomial Scramble & Non-Linear Inversion (`POLY`, `ALPHA`, `POWER`)
+  - **Block H (Automata):** 1D Elementary Cellular Automata Mesh & Cross-Axis Seed Injection (`RULE`, `STEPS`, `INJECT`)
+  - **Block I (Hamming):** Popcount & Mutual Hamming Distance Cross-Coupling (`GAIN`, `MODE`, `MUTUAL`)
 
-Each block contains 3 dedicated full-range algorithmic parameter knobs and an Active/Bypass toggle switch. The bottom patch bay accommodates **35 jacks**: 27 per-block CV inputs (3 per block: Param 1 CV, Param 2 CV, Param 3 CV) and 8 master I/O jacks (`IN X`, `IN Y`, `SCAN X CV`, `SCAN Y CV`, `ROUTE CV`, `OUT X`, `OUT Y`, `OUT Z`).
+All 27 effect controls use **full-sized knobs (`RoundBlackKnob`)** organized into three distinct, cleanly separated columns with dedicated parameter headers and subheaders. The patch bay accommodates **35 jacks**: 27 per-block CV inputs (each with explicit parameter tooltips and faceplate engraving) and 8 master I/O jacks (`IN X`, `IN Y`, `SCAN X CV`, `SCAN Y CV`, `ROUTE CV`, `OUT X`, `OUT Y`, `OUT Z`).
 
 The transformation blocks can be processed as an end-to-end **Cascaded Serial Pipeline** ($A \to B \to \dots \to I$) or modulated via a **2D Matrix Crossfade Scanner** (where master Scan X and Scan Y coordinates focus and interpolate the beam across the $3 \times 3$ cell plane).
 
@@ -166,12 +166,6 @@ All operations receive integer coordinates $(X, Y) \in [0, 1023]^2$, compute tra
                                +-----------------------------------+
 ```
 
-### 4.1. Master Controls in Zone 3
-- `SCAN X`: Master horizontal grid focus knob ($-1.0 \dots +1.0$)
-- `SCAN Y`: Master vertical grid focus knob ($-1.0 \dots +1.0$)
-- `ROUTE`: Toggle switch (Cascade Serial vs Matrix Scan)
-- `Z BLANK`: Master blanking threshold and intensity scaling knob ($0.0 \dots 1.0$)
-
 ---
 
 ## 5. Front Panel Mechanical Layout & Coordinates (28 HP / $142.240\text{ mm}$)
@@ -183,127 +177,109 @@ All operations receive integer coordinates $(X, Y) \in [0, 1023]^2$, compute tra
 - **Palette Badge:** $X = [0.000, 2.540]\text{ mm}$, $Y = [19.800, 108.700]\text{ mm}$, fill `#5d5d5d`.
 
 ### 5.2. Horizontal Column Grid
-- **Block Columns (Center of Each 3-Knob Cell):**
-  - Column 1 (Blocks A, D, G): $X_{\text{col1}} = 24.500\text{ mm}$
-    - Knobs: $X_{\text{P1}} = 12.500\text{ mm}$, $X_{\text{P2}} = 24.500\text{ mm}$, $X_{\text{P3}} = 36.500\text{ mm}$
-  - Column 2 (Blocks B, E, H): $X_{\text{col2}} = 71.120\text{ mm}$
-    - Knobs: $X_{\text{P1}} = 59.120\text{ mm}$, $X_{\text{P2}} = 71.120\text{ mm}$, $X_{\text{P3}} = 83.120\text{ mm}$
-  - Column 3 (Blocks C, F, I): $X_{\text{col3}} = 117.740\text{ mm}$
-    - Knobs: $X_{\text{P1}} = 105.740\text{ mm}$, $X_{\text{P2}} = 117.740\text{ mm}$, $X_{\text{P3}} = 129.740\text{ mm}$
+- **Block Columns (Center of Each 3-Knob Cell, Full-Size Knobs):**
+  - Column 1 (Blocks A, D, G): Center $X = 26.000\text{ mm}$
+    - Knobs: $X_{\text{P1}} = 13.000\text{ mm}$, $X_{\text{P2}} = 26.000\text{ mm}$, $X_{\text{P3}} = 39.000\text{ mm}$ (pitch $13.0\text{ mm}$)
+  - Column 2 (Blocks B, E, H): Center $X = 71.120\text{ mm}$
+    - Knobs: $X_{\text{P1}} = 58.120\text{ mm}$, $X_{\text{P2}} = 71.120\text{ mm}$, $X_{\text{P3}} = 84.120\text{ mm}$ (pitch $13.0\text{ mm}$)
+  - Column 3 (Blocks C, F, I): Center $X = 116.240\text{ mm}$
+    - Knobs: $X_{\text{P1}} = 103.240\text{ mm}$, $X_{\text{P2}} = 116.240\text{ mm}$, $X_{\text{P3}} = 129.240\text{ mm}$ (pitch $13.0\text{ mm}$)
+  - Inter-Block Column Clearance Gap: $19.120\text{ mm}$ (clean separation between blocks).
 
 ### 5.3. Vertical Stacking Architecture
 - **Zone 1: Title & Version**
   - Title `bitterroot`: Baseline $Y = 7.620\text{ mm}$, centered $X = 71.120\text{ mm}$, `Node.otf`, scale $0.0048$, fill `#ffffff`.
   - Version `v1.0.0`: Baseline $Y = 10.414\text{ mm}$, centered $X = 71.120\text{ mm}$, `Quicksand.ttf`, scale $0.0016$, fill `#aaaaaa`.
-- **Zone 2: Transformation Blocks (Rows 1, 2, 3)**
+- **Zone 2: Transformation Blocks (Rows 1, 2, 3 - Full Size Knobs)**
   - **Row 1 (Blocks A, B, C):**
-    - Block Title Baseline: $Y = 13.500\text{ mm}$ (`MORTON`, `REVERSE`, `TRANSPOSE`)
-    - Knob Center: $Y = 22.000\text{ mm}$
-    - Bypass Switch: $Y = 29.500\text{ mm}$
+    - Block Title Baseline: $Y = 13.800\text{ mm}$ (`MORTON`, `REVERSE`, `TRANSPOSE`)
+    - Knob Labels Baseline: $Y = 16.500\text{ mm}$
+    - Knob Center: $Y = 23.500\text{ mm}$
   - **Row 2 (Blocks D, E, F):**
-    - Block Title Baseline: $Y = 34.500\text{ mm}$ (`AVALANCHE`, `PERMUTE`, `GRAY`)
-    - Knob Center: $Y = 43.000\text{ mm}$
-    - Bypass Switch: $Y = 50.500\text{ mm}$
+    - Block Title Baseline: $Y = 32.800\text{ mm}$ (`AVALANCHE`, `PERMUTE`, `GRAY`)
+    - Knob Labels Baseline: $Y = 35.500\text{ mm}$
+    - Knob Center: $Y = 42.500\text{ mm}$
   - **Row 3 (Blocks G, H, I):**
-    - Block Title Baseline: $Y = 55.500\text{ mm}$ (`GALOIS`, `AUTOMATA`, `HAMMING`)
-    - Knob Center: $Y = 64.000\text{ mm}$
-    - Bypass Switch: $Y = 71.500\text{ mm}$
+    - Block Title Baseline: $Y = 51.800\text{ mm}$ (`GALOIS`, `AUTOMATA`, `HAMMING`)
+    - Knob Labels Baseline: $Y = 54.500\text{ mm}$
+    - Knob Center: $Y = 61.500\text{ mm}$
 - **Zone 3: Central Master Section & 3x3 Miniature Vector LED Matrix**
-  - Center $Y = 79.500\text{ mm}$
-  - Master Knobs: `SCAN X` ($X = 18.000\text{ mm}$), `SCAN Y` ($X = 34.000\text{ mm}$), `Z BLANK` ($X = 124.000\text{ mm}$)
-  - `ROUTE` Mode Switch: $X = 50.000\text{ mm}$
+  - Delineator Line 1: $Y = 69.500\text{ mm}$
+  - Master Labels: Baseline $Y = 72.000\text{ mm}$ (`SCAN X`, `SCAN Y`, `ROUTE`, `GRID`, `Z BLANK`)
+  - Master Knobs Center: $Y = 77.500\text{ mm}$ (`SCAN X`: $20.0\text{ mm}$, `SCAN Y`: $36.0\text{ mm}$, `ROUTE`: $52.0\text{ mm}$, `Z BLANK`: $122.24\text{ mm}$)
   - **Central 3x3 Miniature Vector Activity LED Matrix:**
-    - Centered at $X = 71.120\text{ mm}, Y = 79.500\text{ mm}$
-    - $3 \times 3$ grid of dual green/amber LEDs ($3\text{ mm}$ spacing) displaying beam trajectory density and cell excitation.
+    - Centered at $X = 71.120\text{ mm}, Y = 77.500\text{ mm}$
+    - Pitch $3.5\text{ mm}$ ($X \in \{67.62, 71.12, 74.62\}$, $Y \in \{74.5, 77.5, 80.5\}$).
 - **Zone 4: Bottom I/O Patch Bay (35 Jacks, Bottom-Aligned Upward)**
-  - Delineator Line 2: $Y = 84.500\text{ mm}$
-  - **Jack Row 1 ($Y = 89.500\text{ mm}$):** 9 Jacks (Row 1 Block CVs: 3 per block, aligned beneath each block column)
-    - Block A ($X = 12.5, 24.5, 36.5\text{ mm}$): `P1 CV`, `P2 CV`, `P3 CV`
-    - Block B ($X = 59.1, 71.1, 83.1\text{ mm}$): `P1 CV`, `P2 CV`, `P3 CV`
-    - Block C ($X = 105.7, 117.7, 129.7\text{ mm}$): `P1 CV`, `P2 CV`, `P3 CV`
-  - **Jack Row 2 ($Y = 99.000\text{ mm}$):** 9 Jacks (Row 2 Block CVs: 3 per block, aligned beneath each block column)
-    - Block D ($X = 12.5, 24.5, 36.5\text{ mm}$): `P1 CV`, `P2 CV`, `P3 CV`
-    - Block E ($X = 59.1, 71.1, 83.1\text{ mm}$): `P1 CV`, `P2 CV`, `P3 CV`
-    - Block F ($X = 105.7, 117.7, 129.7\text{ mm}$): `P1 CV`, `P2 CV`, `P3 CV`
-  - **Jack Row 3 ($Y = 108.500\text{ mm}$):** 9 Jacks (Row 3 Block CVs: 3 per block, aligned beneath each block column)
-    - Block G ($X = 12.5, 24.5, 36.5\text{ mm}$): `P1 CV`, `P2 CV`, `P3 CV`
-    - Block H ($X = 59.1, 71.1, 83.1\text{ mm}$): `P1 CV`, `P2 CV`, `P3 CV`
-    - Block I ($X = 105.7, 117.7, 129.7\text{ mm}$): `P1 CV`, `P2 CV`, `P3 CV`
-  - **Jack Row 4 ($Y = 118.000\text{ mm}$, Fixed Invariant):** 8 Master I/O & CV Jacks
+  - Delineator Line 2: $Y = 83.500\text{ mm}$
+  - **Jack Row 1 ($Y = 89.500\text{ mm}$):** 9 Jacks (Row 1 CVs, Labels at $Y = 85.30\text{ mm}$)
+    - Block A ($X = 13.0, 26.0, 39.0\text{ mm}$): `SHFT`, `STRD`, `HLBT`
+    - Block B ($X = 58.12, 71.12, 84.12\text{ mm}$): `WDTH`, `OFST`, `SKEW`
+    - Block C ($X = 103.24, 116.24, 129.24\text{ mm}$): `PL A`, `PL B`, `CYCL`
+  - **Jack Row 2 ($Y = 99.000\text{ mm}$):** 9 Jacks (Row 2 CVs, Labels at $Y = 94.80\text{ mm}$)
+    - Block D ($X = 13.0, 26.0, 39.0\text{ mm}$): `MASK`, `SHFT`, `BORW`
+    - Block E ($X = 58.12, 71.12, 84.12\text{ mm}$): `MODE`, `ROT`, `STRD`
+    - Block F ($X = 103.24, 116.24, 129.24\text{ mm}$): `DPTH`, `MODE`, `TAP`
+  - **Jack Row 3 ($Y = 108.500\text{ mm}$):** 9 Jacks (Row 3 CVs, Labels at $Y = 104.30\text{ mm}$)
+    - Block G ($X = 13.0, 26.0, 39.0\text{ mm}$): `POLY`, `ALPH`, `POWR`
+    - Block H ($X = 58.12, 71.12, 84.12\text{ mm}$): `RULE`, `STEP`, `INJ`
+    - Block I ($X = 103.24, 116.24, 129.24\text{ mm}$): `GAIN`, `MODE`, `MUTL`
+  - **Jack Row 4 ($Y = 118.000\text{ mm}$, Fixed Invariant):** 8 Master Jacks (Labels at $Y = 113.80\text{ mm}$)
     - `IN X` ($X = 13.000\text{ mm}$), `IN Y` ($X = 27.500\text{ mm}$)
     - `SCAN X CV` ($X = 47.000\text{ mm}$), `SCAN Y CV` ($X = 63.000\text{ mm}$), `ROUTE CV` ($X = 79.000\text{ mm}$)
     - `OUT X` ($X = 99.000\text{ mm}$), `OUT Y` ($X = 114.500\text{ mm}$), `OUT Z` ($X = 130.000\text{ mm}$)
 
 ---
 
-## 6. Complete Parameter Tooltip & Formatting Specifications
+## 6. Complete Parameter & Port Tooltip Specifications
 
-All parameters use custom `rack::ParamQuantity` subclasses delivering precise engineering units, raw bitwise expressions, and binary/hex string representations.
+All parameter controls and CV inputs deliver custom tooltip descriptions in VCV Rack.
 
-| Parameter ID | Control Name | Physical Label | Range | Default | Unit / Tooltip Format |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `PARAM_A_P1` | Block A Param 1 | `SHIFT` | $0 \dots 19$ | 0 | `Shift %d bits` |
-| `PARAM_A_P2` | Block A Param 2 | `STRIDE` | $0 \dots 2$ | 0 | Mode: `Standard`, `Inverted`, `Block-2` |
-| `PARAM_A_P3` | Block A Param 3 | `HILBERT` | $0.0 \dots 1.0$ | 0.0 | `Hilbert Morph: %.1f%%` |
-| `PARAM_A_BYPASS` | Block A Bypass | `ON/OFF` | $0 \dots 1$ | 0 | `Active` / `Bypassed` |
-| `PARAM_B_P1` | Block B Param 1 | `WIDTH` | $1 \dots 10$ | 10 | `Reverse %d bits` |
-| `PARAM_B_P2` | Block B Param 2 | `OFFSET` | $0 \dots 1023$ | 0 | `Mask: 0x%03X (%d)` |
-| `PARAM_B_P3` | Block B Param 3 | `SKEW` | $-5 \dots +5$ | 0 | `Axis Skew: %+d bits` |
-| `PARAM_B_BYPASS` | Block B Bypass | `ON/OFF` | $0 \dots 1$ | 0 | `Active` / `Bypassed` |
-| `PARAM_C_P1` | Block C Param 1 | `PLANE A` | $0 \dots 9$ | 7 | `Swap Bit %d` |
-| `PARAM_C_P2` | Block C Param 2 | `PLANE B` | $0 \dots 9$ | 3 | `Swap Bit %d` |
-| `PARAM_C_P3` | Block C Param 3 | `CYCLE C` | $0 \dots 9$ | 5 | `Cycle Bit %d` |
-| `PARAM_C_BYPASS` | Block C Bypass | `ON/OFF` | $0 \dots 1$ | 0 | `Active` / `Bypassed` |
-| `PARAM_D_P1` | Block D Param 1 | `MASK` | $0 \dots 1023$ | 511 | `Carry Mask: 0x%03X` |
-| `PARAM_D_P2` | Block D Param 2 | `SHIFT` | $0 \dots 4$ | 1 | `Cascade Shift %d` |
-| `PARAM_D_P3` | Block D Param 3 | `BORROW` | $0.0 \dots 1.0$ | 0.0 | `Carry/Borrow: %.1f%%` |
-| `PARAM_D_BYPASS` | Block D Bypass | `ON/OFF` | $0 \dots 1$ | 0 | `Active` / `Bypassed` |
-| `PARAM_E_P1` | Block E Param 1 | `MODE` | $0 \dots 3$ | 0 | `Odd/Even`, `Shuffle`, `InvShuffle`, `Quadrant` |
-| `PARAM_E_P2` | Block E Param 2 | `ROTATE` | $0 \dots 19$ | 0 | `Rotate %d steps` |
-| `PARAM_E_P3` | Block E Param 3 | `STRIDE` | $0 \dots 5$ | 0 | `Stride: %d` (1, 3, 5, 7, 9, 11) |
-| `PARAM_E_BYPASS` | Block E Bypass | `ON/OFF` | $0 \dots 1$ | 0 | `Active` / `Bypassed` |
-| `PARAM_F_P1` | Block F Param 1 | `DEPTH` | $1 \dots 10$ | 10 | `Gray Depth %d bits` |
-| `PARAM_F_P2` | Block F Param 2 | `MODE` | $0 \dots 2$ | 0 | `Binary to Gray`, `Gray to Binary`, `Dual Reflected` |
-| `PARAM_F_P3` | Block F Param 3 | `TAP` | $1 \dots 9$ | 1 | `XOR Tap Dist %d` |
-| `PARAM_F_BYPASS` | Block F Bypass | `ON/OFF` | $0 \dots 1$ | 0 | `Active` / `Bypassed` |
-| `PARAM_G_P1` | Block G Param 1 | `POLY` | $0 \dots 7$ | 0 | `Poly 0x%03X` (Irreducible Table) |
-| `PARAM_G_P2` | Block G Param 2 | `ALPHA` | $1 \dots 1023$ | 3 | `Alpha: 0x%03X (%d)` |
-| `PARAM_G_P3` | Block G Param 3 | `POWER` | $0 \dots 3$ | 0 | `Linear`, `Inversion`, `Cube`, `S-Box Quintic` |
-| `PARAM_G_BYPASS` | Block G Bypass | `ON/OFF` | $0 \dots 1$ | 0 | `Active` / `Bypassed` |
-| `PARAM_H_P1` | Block H Param 1 | `RULE` | $0 \dots 255$ | 90 | `Rule %d (0x%02X)` |
-| `PARAM_H_P2` | Block H Param 2 | `STEPS` | $1 \dots 4$ | 1 | `%d CA Steps` |
-| `PARAM_H_P3` | Block H Param 3 | `INJECT` | $0 \dots 2$ | 0 | `Edge Seed`, `Center Seed`, `Full XOR` |
-| `PARAM_H_BYPASS` | Block H Bypass | `ON/OFF` | $0 \dots 1$ | 0 | `Active` / `Bypassed` |
-| `PARAM_I_P1` | Block I Param 1 | `GAIN` | $0 \dots 32$ | 8 | `Weight Gain: %d` |
-| `PARAM_I_P2` | Block I Param 2 | `MODE` | $0 \dots 2$ | 0 | `Sign Flip`, `Shear`, `Jump` |
-| `PARAM_I_P3` | Block I Param 3 | `MUTUAL` | $0.0 \dots 1.0$ | 0.0 | `Mutual Dist: %.1f%%` |
-| `PARAM_I_BYPASS` | Block I Bypass | `ON/OFF` | $0 \dots 1$ | 0 | `Active` / `Bypassed` |
-| `PARAM_SCAN_X` | Master Scan X | `SCAN X` | $-1.0 \dots +1.0$ | 0.0 | `X: %+.2f` |
-| `PARAM_SCAN_Y` | Master Scan Y | `SCAN Y` | $-1.0 \dots +1.0$ | 0.0 | `Y: %+.2f` |
-| `PARAM_ROUTE` | Routing Mode | `ROUTE` | $0 \dots 1$ | 0 | `Cascade Serial` / `Matrix Scan` |
-| `PARAM_Z_BLANK` | Master Z Blank | `Z BLANK` | $0.0 \dots 1.0$ | 0.5 | `Blanking: %.1f%%` |
+### 6.1. Parameter Knobs
+| Parameter ID | Physical Label | Range | Default | Unit / Tooltip Format |
+| :--- | :--- | :--- | :--- | :--- |
+| `BLOCK_A_P1` | `SHIFT` | $0 \dots 19$ | 0 | `Shift %d bits` |
+| `BLOCK_A_P2` | `STRIDE` | $0 \dots 2$ | 0 | `Standard`, `Inverted`, `2-Bit Block` |
+| `BLOCK_A_P3` | `HILBERT` | $0.0 \dots 1.0$ | 0.0 | `Hilbert Morph: %.1f%%` |
+| `BLOCK_B_P1` | `WIDTH` | $1 \dots 10$ | 10 | `Reverse %d bits` |
+| `BLOCK_B_P2` | `OFFSET` | $0 \dots 1023$ | 0 | `Mask: 0x%03X (%d)` |
+| `BLOCK_B_P3` | `SKEW` | $-5 \dots +5$ | 0 | `Axis Skew: %+d bits` |
+| `BLOCK_C_P1` | `PLANE A` | $0 \dots 9$ | 7 | `Swap Bit %d` |
+| `BLOCK_C_P2` | `PLANE B` | $0 \dots 9$ | 3 | `Swap Bit %d` |
+| `BLOCK_C_P3` | `CYCLE C` | $0 \dots 9$ | 5 | `Cycle Bit %d` |
+| `BLOCK_D_P1` | `MASK` | $0 \dots 1023$ | 511 | `Carry Mask: 0x%03X` |
+| `BLOCK_D_P2` | `SHIFT` | $0 \dots 4$ | 1 | `Cascade Shift %d` |
+| `BLOCK_D_P3` | `BORROW` | $0.0 \dots 1.0$ | 0.0 | `Carry/Borrow: %.1f%%` |
+| `BLOCK_E_P1` | `MODE` | $0 \dots 3$ | 0 | `Odd/Even`, `Shuffle`, `Inversion`, `Quadrant` |
+| `BLOCK_E_P2` | `ROTATE` | $0 \dots 19$ | 0 | `Rotate %d steps` |
+| `BLOCK_E_P3` | `STRIDE` | $0 \dots 5$ | 0 | `Stride: %d` (1, 3, 5, 7, 9, 11) |
+| `BLOCK_F_P1` | `DEPTH` | $1 \dots 10$ | 10 | `Gray Depth %d bits` |
+| `BLOCK_F_P2` | `MODE` | $0 \dots 2$ | 0 | `Binary to Gray`, `Gray to Binary`, `Dual Reflected` |
+| `BLOCK_F_P3` | `TAP` | $1 \dots 9$ | 1 | `XOR Tap Dist %d` |
+| `BLOCK_G_P1` | `POLY` | $0 \dots 7$ | 0 | `Poly 0x%03X` (Irreducible Table) |
+| `BLOCK_G_P2` | `ALPHA` | $1 \dots 1023$ | 3 | `Alpha: 0x%03X (%d)` |
+| `BLOCK_G_P3` | `POWER` | $0 \dots 3$ | 0 | `Linear`, `Inversion`, `Cube`, `S-Box Quintic` |
+| `BLOCK_H_P1` | `RULE` | $0 \dots 255$ | 90 | `Rule %d (0x%02X)` |
+| `BLOCK_H_P2` | `STEPS` | $1 \dots 4$ | 1 | `%d CA Steps` |
+| `BLOCK_H_P3` | `INJECT` | $0 \dots 2$ | 0 | `Edge Seed`, `Center Seed`, `Full XOR` |
+| `BLOCK_I_P1` | `GAIN` | $0 \dots 32$ | 8 | `Weight Gain: %d` |
+| `BLOCK_I_P2` | `MODE` | $0 \dots 2$ | 0 | `Sign Flip`, `Shear`, `Jump` |
+| `BLOCK_I_P3` | `MUTUAL` | $0.0 \dots 1.0$ | 0.0 | `Mutual Dist: %.1f%%` |
+| `SCAN_X_PARAM` | `SCAN X` | $-1.0 \dots +1.0$ | 0.0 | `X: %+.2f` |
+| `SCAN_Y_PARAM` | `SCAN Y` | $-1.0 \dots +1.0$ | 0.0 | `Y: %+.2f` |
+| `ROUTE_PARAM` | `ROUTE` | $0 \dots 1$ | 0 | `Cascade Serial` / `Matrix Scan` |
+| `Z_BLANK_PARAM` | `Z BLANK` | $0.0 \dots 1.0$ | 0.5 | `Blanking: %.1f%%` |
 
----
-
-## 7. Context Menu Configurations & Persistence
-
-The right-click context menu provides advanced hardware-level settings saved directly to VCV Rack `.vcv` and `.vcvm` patch JSON:
-
-1. **Voltage Range Standard:**
-   - `Bipolar ±5.0V` (Default)
-   - `Unipolar 0–10.0V`
-2. **Sample Rate Decimation:**
-   - `Full Engine Rate` (Default)
-   - `48.0 kHz`, `24.0 kHz`, `12.0 kHz`, `6.0 kHz`, `3.0 kHz`, `1.0 kHz`
-3. **Galvo-Safe Slew Limiter:**
-   - `Off (Raw DAC Steps)` (Default)
-   - `Subtle 1-Pole (Corner Preserving)`
-   - `Medium Galvo Protection`
-   - `Heavy Slew (Acoustic Audio Smoothing)`
-
----
-
-## 8. Real-Time Safety & DSP Invariants
-- **Real-Time Safety:** All internal tables, bitwise permutation masks, irreducible Galois polynomials, and CA lookup caches are pre-computed static constants (`constexpr` / static inline).
-- **Zero Allocations:** No `malloc`, `free`, `new`, `delete`, `std::vector`, `std::string`, mutexes, or file operations in the audio thread `process()`.
-- **Constant Time:** All 9 bitwise transformations operate in deterministic $O(1)$ constant execution time per sample, guaranteeing glitch-free polyphonic or high-sample-rate operation up to $192\text{ kHz}$.
+### 6.2. CV Inputs
+- `BLOCK_A_P1_CV` .. `BLOCK_A_P3_CV`: `"Block A (Morton) Shift CV"`, `"Stride CV"`, `"Hilbert Morph CV"`
+- `BLOCK_B_P1_CV` .. `BLOCK_B_P3_CV`: `"Block B (Reverse) Width CV"`, `"Offset Mask CV"`, `"Skew CV"`
+- `BLOCK_C_P1_CV` .. `BLOCK_C_P3_CV`: `"Block C (Transpose) Plane A CV"`, `"Plane B CV"`, `"Cycle C CV"`
+- `BLOCK_D_P1_CV` .. `BLOCK_D_P3_CV`: `"Block D (Avalanche) Carry Mask CV"`, `"Shift CV"`, `"Borrow CV"`
+- `BLOCK_E_P1_CV` .. `BLOCK_E_P3_CV`: `"Block E (Permute) Mode CV"`, `"Rotate CV"`, `"Stride CV"`
+- `BLOCK_F_P1_CV` .. `BLOCK_F_P3_CV`: `"Block F (Gray) Depth CV"`, `"Mode CV"`, `"Tap Distance CV"`
+- `BLOCK_G_P1_CV` .. `BLOCK_G_P3_CV`: `"Block G (Galois) Poly CV"`, `"Alpha CV"`, `"Power Mode CV"`
+- `BLOCK_H_P1_CV` .. `BLOCK_H_P3_CV`: `"Block H (Automata) Rule CV"`, `"Steps CV"`, `"Injection CV"`
+- `BLOCK_I_P1_CV` .. `BLOCK_I_P3_CV`: `"Block I (Hamming) Gain CV"`, `"Mode CV"`, `"Mutual Dist CV"`
+- `SCAN_X_CV_INPUT`: `"Scan X Coordinate CV"`
+- `SCAN_Y_CV_INPUT`: `"Scan Y Coordinate CV"`
+- `ROUTE_CV_INPUT`: `"Route Mode CV"`

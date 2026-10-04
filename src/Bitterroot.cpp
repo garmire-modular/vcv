@@ -11,7 +11,8 @@
 struct IntDisplayParamQuantity : ParamQuantity {
 	std::string prefix;
 	std::string suffix;
-	IntDisplayParamQuantity(const std::string& p = "", const std::string& s = "")
+	IntDisplayParamQuantity() = default;
+	IntDisplayParamQuantity(const std::string& p, const std::string& s = "")
 		: prefix(p), suffix(s) {}
 	std::string getDisplayValueString() override {
 		int v = static_cast<int>(std::round(getValue()));
@@ -22,6 +23,7 @@ struct IntDisplayParamQuantity : ParamQuantity {
 };
 
 struct HexMaskParamQuantity : ParamQuantity {
+	HexMaskParamQuantity() = default;
 	std::string getDisplayValueString() override {
 		int v = static_cast<int>(std::round(getValue())) & 0x03FF;
 		char buf[32];
@@ -32,7 +34,8 @@ struct HexMaskParamQuantity : ParamQuantity {
 
 struct PercentParamQuantity : ParamQuantity {
 	std::string prefix;
-	PercentParamQuantity(const std::string& p = "") : prefix(p) {}
+	PercentParamQuantity() = default;
+	PercentParamQuantity(const std::string& p) : prefix(p) {}
 	std::string getDisplayValueString() override {
 		float v = getValue() * 100.0f;
 		char buf[32];
@@ -43,7 +46,8 @@ struct PercentParamQuantity : ParamQuantity {
 
 struct SignedIntParamQuantity : ParamQuantity {
 	std::string prefix;
-	SignedIntParamQuantity(const std::string& p = "") : prefix(p) {}
+	SignedIntParamQuantity() = default;
+	SignedIntParamQuantity(const std::string& p) : prefix(p) {}
 	std::string getDisplayValueString() override {
 		int v = static_cast<int>(std::round(getValue()));
 		char buf[32];
@@ -72,19 +76,19 @@ struct ListParamQuantity : ParamQuantity {
 struct Bitterroot : Module {
 	enum ParamId {
 		// Row 1: Blocks A, B, C
-		BLOCK_A_P1, BLOCK_A_P2, BLOCK_A_P3, BLOCK_A_ACTIVE,
-		BLOCK_B_P1, BLOCK_B_P2, BLOCK_B_P3, BLOCK_B_ACTIVE,
-		BLOCK_C_P1, BLOCK_C_P2, BLOCK_C_P3, BLOCK_C_ACTIVE,
+		BLOCK_A_P1, BLOCK_A_P2, BLOCK_A_P3,
+		BLOCK_B_P1, BLOCK_B_P2, BLOCK_B_P3,
+		BLOCK_C_P1, BLOCK_C_P2, BLOCK_C_P3,
 
 		// Row 2: Blocks D, E, F
-		BLOCK_D_P1, BLOCK_D_P2, BLOCK_D_P3, BLOCK_D_ACTIVE,
-		BLOCK_E_P1, BLOCK_E_P2, BLOCK_E_P3, BLOCK_E_ACTIVE,
-		BLOCK_F_P1, BLOCK_F_P2, BLOCK_F_P3, BLOCK_F_ACTIVE,
+		BLOCK_D_P1, BLOCK_D_P2, BLOCK_D_P3,
+		BLOCK_E_P1, BLOCK_E_P2, BLOCK_E_P3,
+		BLOCK_F_P1, BLOCK_F_P2, BLOCK_F_P3,
 
 		// Row 3: Blocks G, H, I
-		BLOCK_G_P1, BLOCK_G_P2, BLOCK_G_P3, BLOCK_G_ACTIVE,
-		BLOCK_H_P1, BLOCK_H_P2, BLOCK_H_P3, BLOCK_H_ACTIVE,
-		BLOCK_I_P1, BLOCK_I_P2, BLOCK_I_P3, BLOCK_I_ACTIVE,
+		BLOCK_G_P1, BLOCK_G_P2, BLOCK_G_P3,
+		BLOCK_H_P1, BLOCK_H_P2, BLOCK_H_P3,
+		BLOCK_I_P1, BLOCK_I_P2, BLOCK_I_P3,
 
 		// Master Section
 		SCAN_X_PARAM,
@@ -130,11 +134,6 @@ struct Bitterroot : Module {
 	};
 
 	enum LightId {
-		// 9 Per-block status lights
-		BLOCK_A_LIGHT, BLOCK_B_LIGHT, BLOCK_C_LIGHT,
-		BLOCK_D_LIGHT, BLOCK_E_LIGHT, BLOCK_F_LIGHT,
-		BLOCK_G_LIGHT, BLOCK_H_LIGHT, BLOCK_I_LIGHT,
-
 		// Route mode light
 		ROUTE_LIGHT,
 
@@ -155,33 +154,27 @@ struct Bitterroot : Module {
 		configParam<IntDisplayParamQuantity>(BLOCK_A_P1, 0.f, 19.f, 0.f, "Morton Bit Rotation", " bits");
 		configParam<ListParamQuantity>(BLOCK_A_P2, 0.f, 2.f, 0.f, "Morton Interleave Mode", "", 0.f, 1.f, 0.f)->labels = {"Standard", "Inverted", "2-Bit Block"};
 		configParam<PercentParamQuantity>(BLOCK_A_P3, 0.f, 1.f, 0.f, "Hilbert Morph");
-		configSwitch(BLOCK_A_ACTIVE, 0.f, 1.f, 1.f, "Morton Active", {"Bypassed", "Active"});
 
 		configParam<IntDisplayParamQuantity>(BLOCK_B_P1, 1.f, 10.f, 10.f, "Reversal Width", " bits");
 		configParam<HexMaskParamQuantity>(BLOCK_B_P2, 0.f, 1023.f, 0.f, "Dyadic Phase Mask");
 		configParam<SignedIntParamQuantity>(BLOCK_B_P3, -5.f, 5.f, 0.f, "Axis Skew", " bits");
-		configSwitch(BLOCK_B_ACTIVE, 0.f, 1.f, 1.f, "Reverse Active", {"Bypassed", "Active"});
 
 		configParam<IntDisplayParamQuantity>(BLOCK_C_P1, 0.f, 9.f, 7.f, "Swap Plane A", " bit");
 		configParam<IntDisplayParamQuantity>(BLOCK_C_P2, 0.f, 9.f, 3.f, "Swap Plane B", " bit");
 		configParam<IntDisplayParamQuantity>(BLOCK_C_P3, 0.f, 9.f, 5.f, "Cycle Plane C", " bit");
-		configSwitch(BLOCK_C_ACTIVE, 0.f, 1.f, 1.f, "Transpose Active", {"Bypassed", "Active"});
 
 		// Configure Row 2: Blocks D, E, F
 		configParam<HexMaskParamQuantity>(BLOCK_D_P1, 0.f, 1023.f, 511.f, "Carry Mask");
 		configParam<IntDisplayParamQuantity>(BLOCK_D_P2, 0.f, 4.f, 1.f, "Cascade Shift", " bits");
 		configParam<PercentParamQuantity>(BLOCK_D_P3, 0.f, 1.f, 0.f, "Borrow Polarity");
-		configSwitch(BLOCK_D_ACTIVE, 0.f, 1.f, 1.f, "Avalanche Active", {"Bypassed", "Active"});
 
 		configParam<ListParamQuantity>(BLOCK_E_P1, 0.f, 3.f, 0.f, "Permutation Mode", "", 0.f, 1.f, 0.f)->labels = {"Odd/Even", "Shuffle", "Inversion", "Quadrant"};
 		configParam<IntDisplayParamQuantity>(BLOCK_E_P2, 0.f, 19.f, 0.f, "Register Rotation", " steps");
 		configParam<ListParamQuantity>(BLOCK_E_P3, 0.f, 5.f, 0.f, "Stride Step", "", 0.f, 1.f, 0.f)->labels = {"1", "3", "5", "7", "9", "11"};
-		configSwitch(BLOCK_E_ACTIVE, 0.f, 1.f, 1.f, "Permute Active", {"Bypassed", "Active"});
 
 		configParam<IntDisplayParamQuantity>(BLOCK_F_P1, 1.f, 10.f, 10.f, "Gray Bit Depth", " bits");
 		configParam<ListParamQuantity>(BLOCK_F_P2, 0.f, 2.f, 0.f, "Gray Code Mode", "", 0.f, 1.f, 0.f)->labels = {"Binary to Gray", "Gray to Binary", "Dual Reflected"};
 		configParam<IntDisplayParamQuantity>(BLOCK_F_P3, 1.f, 9.f, 1.f, "XOR Tap Distance", " bits");
-		configSwitch(BLOCK_F_ACTIVE, 0.f, 1.f, 1.f, "Gray Active", {"Bypassed", "Active"});
 
 		// Configure Row 3: Blocks G, H, I
 		configParam<ListParamQuantity>(BLOCK_G_P1, 0.f, 7.f, 0.f, "Irreducible Poly", "", 0.f, 1.f, 0.f)->labels = {
@@ -189,17 +182,14 @@ struct Bitterroot : Module {
 		};
 		configParam<HexMaskParamQuantity>(BLOCK_G_P2, 1.f, 1023.f, 3.f, "Galois Multiplier Alpha");
 		configParam<ListParamQuantity>(BLOCK_G_P3, 0.f, 3.f, 0.f, "Galois Power Mode", "", 0.f, 1.f, 0.f)->labels = {"Linear", "Inversion", "Cube", "S-Box Quintic"};
-		configSwitch(BLOCK_G_ACTIVE, 0.f, 1.f, 1.f, "Galois Active", {"Bypassed", "Active"});
 
 		configParam<IntDisplayParamQuantity>(BLOCK_H_P1, 0.f, 255.f, 90.f, "Wolfram Rule");
 		configParam<IntDisplayParamQuantity>(BLOCK_H_P2, 1.f, 4.f, 1.f, "CA Steps", " steps");
 		configParam<ListParamQuantity>(BLOCK_H_P3, 0.f, 2.f, 0.f, "Seed Coupling", "", 0.f, 1.f, 0.f)->labels = {"Edge", "Center", "Full XOR"};
-		configSwitch(BLOCK_H_ACTIVE, 0.f, 1.f, 1.f, "Automata Active", {"Bypassed", "Active"});
 
 		configParam<IntDisplayParamQuantity>(BLOCK_I_P1, 0.f, 32.f, 8.f, "Hamming Weight Gain");
 		configParam<ListParamQuantity>(BLOCK_I_P2, 0.f, 2.f, 0.f, "Parity Mode", "", 0.f, 1.f, 0.f)->labels = {"Sign Flip", "Shear", "Jump"};
 		configParam<PercentParamQuantity>(BLOCK_I_P3, 0.f, 1.f, 0.f, "Mutual Coupling");
-		configSwitch(BLOCK_I_ACTIVE, 0.f, 1.f, 1.f, "Hamming Active", {"Bypassed", "Active"});
 
 		// Master Section
 		configParam(SCAN_X_PARAM, -1.f, 1.f, 0.f, "Scan X Focus");
@@ -207,17 +197,50 @@ struct Bitterroot : Module {
 		configSwitch(ROUTE_PARAM, 0.f, 1.f, 0.f, "Route Mode", {"Cascade Serial", "Matrix Scan"});
 		configParam<PercentParamQuantity>(Z_BLANK_PARAM, 0.f, 1.f, 0.5f, "Z Blanking Threshold");
 
-		// Inputs
-		configInput(IN_X_INPUT, "X Coordinate");
-		configInput(IN_Y_INPUT, "Y Coordinate");
-		configInput(SCAN_X_CV_INPUT, "Scan X CV");
-		configInput(SCAN_Y_CV_INPUT, "Scan Y CV");
+		// Row 1 CV Inputs
+		configInput(BLOCK_A_P1_CV, "Block A (Morton) Shift CV");
+		configInput(BLOCK_A_P2_CV, "Block A (Morton) Stride CV");
+		configInput(BLOCK_A_P3_CV, "Block A (Morton) Hilbert Morph CV");
+		configInput(BLOCK_B_P1_CV, "Block B (Reverse) Width CV");
+		configInput(BLOCK_B_P2_CV, "Block B (Reverse) Offset Mask CV");
+		configInput(BLOCK_B_P3_CV, "Block B (Reverse) Skew CV");
+		configInput(BLOCK_C_P1_CV, "Block C (Transpose) Plane A CV");
+		configInput(BLOCK_C_P2_CV, "Block C (Transpose) Plane B CV");
+		configInput(BLOCK_C_P3_CV, "Block C (Transpose) Cycle C CV");
+
+		// Row 2 CV Inputs
+		configInput(BLOCK_D_P1_CV, "Block D (Avalanche) Carry Mask CV");
+		configInput(BLOCK_D_P2_CV, "Block D (Avalanche) Shift CV");
+		configInput(BLOCK_D_P3_CV, "Block D (Avalanche) Borrow CV");
+		configInput(BLOCK_E_P1_CV, "Block E (Permute) Mode CV");
+		configInput(BLOCK_E_P2_CV, "Block E (Permute) Rotate CV");
+		configInput(BLOCK_E_P3_CV, "Block E (Permute) Stride CV");
+		configInput(BLOCK_F_P1_CV, "Block F (Gray) Depth CV");
+		configInput(BLOCK_F_P2_CV, "Block F (Gray) Mode CV");
+		configInput(BLOCK_F_P3_CV, "Block F (Gray) Tap Distance CV");
+
+		// Row 3 CV Inputs
+		configInput(BLOCK_G_P1_CV, "Block G (Galois) Poly CV");
+		configInput(BLOCK_G_P2_CV, "Block G (Galois) Alpha CV");
+		configInput(BLOCK_G_P3_CV, "Block G (Galois) Power Mode CV");
+		configInput(BLOCK_H_P1_CV, "Block H (Automata) Rule CV");
+		configInput(BLOCK_H_P2_CV, "Block H (Automata) Steps CV");
+		configInput(BLOCK_H_P3_CV, "Block H (Automata) Injection CV");
+		configInput(BLOCK_I_P1_CV, "Block I (Hamming) Gain CV");
+		configInput(BLOCK_I_P2_CV, "Block I (Hamming) Mode CV");
+		configInput(BLOCK_I_P3_CV, "Block I (Hamming) Mutual Dist CV");
+
+		// Master Inputs
+		configInput(IN_X_INPUT, "X Coordinate Input");
+		configInput(IN_Y_INPUT, "Y Coordinate Input");
+		configInput(SCAN_X_CV_INPUT, "Scan X Coordinate CV");
+		configInput(SCAN_Y_CV_INPUT, "Scan Y Coordinate CV");
 		configInput(ROUTE_CV_INPUT, "Route Mode CV");
 
-		// Outputs
-		configOutput(OUT_X_OUTPUT, "X Coordinate");
-		configOutput(OUT_Y_OUTPUT, "Y Coordinate");
-		configOutput(OUT_Z_OUTPUT, "Z Intensity / Blanking");
+		// Master Outputs
+		configOutput(OUT_X_OUTPUT, "X Coordinate Output");
+		configOutput(OUT_Y_OUTPUT, "Y Coordinate Output");
+		configOutput(OUT_Z_OUTPUT, "Z Intensity / Blanking Output");
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -249,8 +272,8 @@ struct Bitterroot : Module {
 		// Populate 9 block parameter sets with CV modulation
 		bitterroot::BlockParams bp[9];
 
-		auto readBlock = [&](int blockIdx, int p1Id, int p2Id, int p3Id, int actId,
-		                     int cv1Id, int cv2Id, int cv3Id, int lightId,
+		auto readBlock = [&](int blockIdx, int p1Id, int p2Id, int p3Id,
+		                     int cv1Id, int cv2Id, int cv3Id,
 		                     float p1Min, float p1Max, float p2Min, float p2Max, float p3Min, float p3Max) {
 			float p1 = params[p1Id].getValue();
 			if (inputs[cv1Id].isConnected()) p1 += inputs[cv1Id].getVoltage() * 0.2f * (p1Max - p1Min);
@@ -264,30 +287,26 @@ struct Bitterroot : Module {
 			if (inputs[cv3Id].isConnected()) p3 += inputs[cv3Id].getVoltage() * 0.2f * (p3Max - p3Min);
 			p3 = rack::math::clamp(p3, p3Min, p3Max);
 
-			bool act = params[actId].getValue() > 0.5f;
-
 			bp[blockIdx].p1 = p1;
 			bp[blockIdx].p2 = p2;
 			bp[blockIdx].p3 = p3;
-			bp[blockIdx].active = act;
-
-			lights[lightId].setBrightness(act ? 1.0f : 0.0f);
+			bp[blockIdx].active = true; // All blocks active in pipeline
 		};
 
 		// Row 1
-		readBlock(0, BLOCK_A_P1, BLOCK_A_P2, BLOCK_A_P3, BLOCK_A_ACTIVE, BLOCK_A_P1_CV, BLOCK_A_P2_CV, BLOCK_A_P3_CV, BLOCK_A_LIGHT, 0.f, 19.f, 0.f, 2.f, 0.f, 1.f);
-		readBlock(1, BLOCK_B_P1, BLOCK_B_P2, BLOCK_B_P3, BLOCK_B_ACTIVE, BLOCK_B_P1_CV, BLOCK_B_P2_CV, BLOCK_B_P3_CV, BLOCK_B_LIGHT, 1.f, 10.f, 0.f, 1023.f, -5.f, 5.f);
-		readBlock(2, BLOCK_C_P1, BLOCK_C_P2, BLOCK_C_P3, BLOCK_C_ACTIVE, BLOCK_C_P1_CV, BLOCK_C_P2_CV, BLOCK_C_P3_CV, BLOCK_C_LIGHT, 0.f, 9.f, 0.f, 9.f, 0.f, 9.f);
+		readBlock(0, BLOCK_A_P1, BLOCK_A_P2, BLOCK_A_P3, BLOCK_A_P1_CV, BLOCK_A_P2_CV, BLOCK_A_P3_CV, 0.f, 19.f, 0.f, 2.f, 0.f, 1.f);
+		readBlock(1, BLOCK_B_P1, BLOCK_B_P2, BLOCK_B_P3, BLOCK_B_P1_CV, BLOCK_B_P2_CV, BLOCK_B_P3_CV, 1.f, 10.f, 0.f, 1023.f, -5.f, 5.f);
+		readBlock(2, BLOCK_C_P1, BLOCK_C_P2, BLOCK_C_P3, BLOCK_C_P1_CV, BLOCK_C_P2_CV, BLOCK_C_P3_CV, 0.f, 9.f, 0.f, 9.f, 0.f, 9.f);
 
 		// Row 2
-		readBlock(3, BLOCK_D_P1, BLOCK_D_P2, BLOCK_D_P3, BLOCK_D_ACTIVE, BLOCK_D_P1_CV, BLOCK_D_P2_CV, BLOCK_D_P3_CV, BLOCK_D_LIGHT, 0.f, 1023.f, 0.f, 4.f, 0.f, 1.f);
-		readBlock(4, BLOCK_E_P1, BLOCK_E_P2, BLOCK_E_P3, BLOCK_E_ACTIVE, BLOCK_E_P1_CV, BLOCK_E_P2_CV, BLOCK_E_P3_CV, BLOCK_E_LIGHT, 0.f, 3.f, 0.f, 19.f, 0.f, 5.f);
-		readBlock(5, BLOCK_F_P1, BLOCK_F_P2, BLOCK_F_P3, BLOCK_F_ACTIVE, BLOCK_F_P1_CV, BLOCK_F_P2_CV, BLOCK_F_P3_CV, BLOCK_F_LIGHT, 1.f, 10.f, 0.f, 2.f, 1.f, 9.f);
+		readBlock(3, BLOCK_D_P1, BLOCK_D_P2, BLOCK_D_P3, BLOCK_D_P1_CV, BLOCK_D_P2_CV, BLOCK_D_P3_CV, 0.f, 1023.f, 0.f, 4.f, 0.f, 1.f);
+		readBlock(4, BLOCK_E_P1, BLOCK_E_P2, BLOCK_E_P3, BLOCK_E_P1_CV, BLOCK_E_P2_CV, BLOCK_E_P3_CV, 0.f, 3.f, 0.f, 19.f, 0.f, 5.f);
+		readBlock(5, BLOCK_F_P1, BLOCK_F_P2, BLOCK_F_P3, BLOCK_F_P1_CV, BLOCK_F_P2_CV, BLOCK_F_P3_CV, 1.f, 10.f, 0.f, 2.f, 1.f, 9.f);
 
 		// Row 3
-		readBlock(6, BLOCK_G_P1, BLOCK_G_P2, BLOCK_G_P3, BLOCK_G_ACTIVE, BLOCK_G_P1_CV, BLOCK_G_P2_CV, BLOCK_G_P3_CV, BLOCK_G_LIGHT, 0.f, 7.f, 1.f, 1023.f, 0.f, 3.f);
-		readBlock(7, BLOCK_H_P1, BLOCK_H_P2, BLOCK_H_P3, BLOCK_H_ACTIVE, BLOCK_H_P1_CV, BLOCK_H_P2_CV, BLOCK_H_P3_CV, BLOCK_H_LIGHT, 0.f, 255.f, 1.f, 4.f, 0.f, 2.f);
-		readBlock(8, BLOCK_I_P1, BLOCK_I_P2, BLOCK_I_P3, BLOCK_I_ACTIVE, BLOCK_I_P1_CV, BLOCK_I_P2_CV, BLOCK_I_P3_CV, BLOCK_I_LIGHT, 0.f, 32.f, 0.f, 2.f, 0.f, 1.f);
+		readBlock(6, BLOCK_G_P1, BLOCK_G_P2, BLOCK_G_P3, BLOCK_G_P1_CV, BLOCK_G_P2_CV, BLOCK_G_P3_CV, 0.f, 7.f, 1.f, 1023.f, 0.f, 3.f);
+		readBlock(7, BLOCK_H_P1, BLOCK_H_P2, BLOCK_H_P3, BLOCK_H_P1_CV, BLOCK_H_P2_CV, BLOCK_H_P3_CV, 0.f, 255.f, 1.f, 4.f, 0.f, 2.f);
+		readBlock(8, BLOCK_I_P1, BLOCK_I_P2, BLOCK_I_P3, BLOCK_I_P1_CV, BLOCK_I_P2_CV, BLOCK_I_P3_CV, 0.f, 32.f, 0.f, 2.f, 0.f, 1.f);
 
 		// Process DSP core
 		auto out = engine.process(inX_V, inY_V, bp, scanX, scanY, zBlank, args.sampleRate);
@@ -338,19 +357,15 @@ struct BitterrootWidget : ModuleWidget {
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		// Columns (Center of each 3-knob block)
-		// Col 1: 24.50 mm (12.50, 24.50, 36.50)
-		// Col 2: 71.12 mm (59.12, 71.12, 83.12)
-		// Col 3: 117.74 mm (105.74, 117.74, 129.74)
+		// Columns of Knobs (pitch 13.0 mm within block)
 		float colX[3][3] = {
-			{12.50f, 24.50f, 36.50f},
-			{59.12f, 71.12f, 83.12f},
-			{105.74f, 117.74f, 129.74f}
+			{13.00f, 26.00f, 39.00f},
+			{58.12f, 71.12f, 84.12f},
+			{103.24f, 116.24f, 129.24f}
 		};
 
-		// ---------------- Zone 2: Rows 1, 2, 3 Blocks ----------------
-		float rowY[3] = {22.00f, 43.00f, 64.00f};
-		float switchY[3] = {29.50f, 50.50f, 71.50f};
+		// ---------------- Zone 2: Rows 1, 2, 3 Blocks (Full Size Knobs) ----------------
+		float rowY[3] = {23.50f, 42.50f, 61.50f};
 
 		int pIds[9][3] = {
 			{Bitterroot::BLOCK_A_P1, Bitterroot::BLOCK_A_P2, Bitterroot::BLOCK_A_P3},
@@ -364,42 +379,25 @@ struct BitterrootWidget : ModuleWidget {
 			{Bitterroot::BLOCK_I_P1, Bitterroot::BLOCK_I_P2, Bitterroot::BLOCK_I_P3}
 		};
 
-		int actIds[9] = {
-			Bitterroot::BLOCK_A_ACTIVE, Bitterroot::BLOCK_B_ACTIVE, Bitterroot::BLOCK_C_ACTIVE,
-			Bitterroot::BLOCK_D_ACTIVE, Bitterroot::BLOCK_E_ACTIVE, Bitterroot::BLOCK_F_ACTIVE,
-			Bitterroot::BLOCK_G_ACTIVE, Bitterroot::BLOCK_H_ACTIVE, Bitterroot::BLOCK_I_ACTIVE
-		};
-
-		int lightIds[9] = {
-			Bitterroot::BLOCK_A_LIGHT, Bitterroot::BLOCK_B_LIGHT, Bitterroot::BLOCK_C_LIGHT,
-			Bitterroot::BLOCK_D_LIGHT, Bitterroot::BLOCK_E_LIGHT, Bitterroot::BLOCK_F_LIGHT,
-			Bitterroot::BLOCK_G_LIGHT, Bitterroot::BLOCK_H_LIGHT, Bitterroot::BLOCK_I_LIGHT
-		};
-
 		for (int r = 0; r < 3; ++r) {
 			for (int c = 0; c < 3; ++c) {
 				int b = r * 3 + c;
-				// 3 Knobs
-				addParam(createParamCentered<Trimpot>(mm2px(Vec(colX[c][0], rowY[r])), module, pIds[b][0]));
-				addParam(createParamCentered<Trimpot>(mm2px(Vec(colX[c][1], rowY[r])), module, pIds[b][1]));
-				addParam(createParamCentered<Trimpot>(mm2px(Vec(colX[c][2], rowY[r])), module, pIds[b][2]));
-
-				// Bypass Switch & LED (LED to the right of the switch)
-				float switchCenter = colX[c][1];
-				addParam(createParamCentered<CKSS>(mm2px(Vec(switchCenter - 3.0f, switchY[r])), module, actIds[b]));
-				addChild(createLightCentered<SmallSimpleLight<GreenLight>>(mm2px(Vec(switchCenter + 5.0f, switchY[r])), module, lightIds[b]));
+				// Full Size RoundBlackKnob for all parameters!
+				addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(colX[c][0], rowY[r])), module, pIds[b][0]));
+				addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(colX[c][1], rowY[r])), module, pIds[b][1]));
+				addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(colX[c][2], rowY[r])), module, pIds[b][2]));
 			}
 		}
 
 		// ---------------- Zone 3: Master Controls & 3x3 LED Matrix ----------------
-		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(18.00f, 79.50f)), module, Bitterroot::SCAN_X_PARAM));
-		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(34.00f, 79.50f)), module, Bitterroot::SCAN_Y_PARAM));
-		addParam(createParamCentered<CKSS>(mm2px(Vec(50.00f, 79.50f)), module, Bitterroot::ROUTE_PARAM));
-		addChild(createLightCentered<SmallSimpleLight<GreenLight>>(mm2px(Vec(55.50f, 79.50f)), module, Bitterroot::ROUTE_LIGHT));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(20.00f, 77.50f)), module, Bitterroot::SCAN_X_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(36.00f, 77.50f)), module, Bitterroot::SCAN_Y_PARAM));
+		addParam(createParamCentered<CKSS>(mm2px(Vec(52.00f, 77.50f)), module, Bitterroot::ROUTE_PARAM));
+		addChild(createLightCentered<SmallSimpleLight<GreenLight>>(mm2px(Vec(56.50f, 77.50f)), module, Bitterroot::ROUTE_LIGHT));
 
-		// 3x3 Central Vector Activity Matrix (Centered at 71.12 mm, 79.50 mm)
+		// 3x3 Central Vector Activity Matrix (Centered at 71.12 mm, 77.50 mm)
 		float ledGridX[3] = {67.62f, 71.12f, 74.62f};
-		float ledGridY[3] = {76.00f, 79.50f, 83.00f};
+		float ledGridY[3] = {74.50f, 77.50f, 80.50f};
 		for (int r = 0; r < 3; ++r) {
 			for (int c = 0; c < 3; ++c) {
 				int idx = r * 3 + c;
@@ -407,10 +405,10 @@ struct BitterrootWidget : ModuleWidget {
 			}
 		}
 
-		addParam(createParamCentered<RoundSmallBlackKnob>(mm2px(Vec(124.00f, 79.50f)), module, Bitterroot::Z_BLANK_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(122.24f, 77.50f)), module, Bitterroot::Z_BLANK_PARAM));
 
 		// ---------------- Zone 4: Patch Bay ----------------
-		// Jack Rows 1, 2, 3 (9 CVs each)
+		// Jack Rows 1, 2, 3 (9 CVs each, aligned directly under knob columns)
 		int cvIds[9][3] = {
 			{Bitterroot::BLOCK_A_P1_CV, Bitterroot::BLOCK_A_P2_CV, Bitterroot::BLOCK_A_P3_CV},
 			{Bitterroot::BLOCK_B_P1_CV, Bitterroot::BLOCK_B_P2_CV, Bitterroot::BLOCK_B_P3_CV},
