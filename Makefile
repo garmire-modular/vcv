@@ -45,6 +45,7 @@ SOURCES += src/Circe.cpp
 SOURCES += src/Maude.cpp
 SOURCES += src/Eunice.cpp
 SOURCES += src/SteppedSlew.cpp
+SOURCES += src/Bitterroot.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res

@@ -48,4 +48,6 @@ void init(Plugin* p) {
 	p->addModel(modelMaude);
 	p->addModel(modelEunice);
 	p->addModel(modelSteppedSlew);
+	p->addModel(modelBitterroot);
 }
+

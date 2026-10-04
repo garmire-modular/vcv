@@ -463,6 +463,18 @@
         "Dual",
         "Utility"
       ]
+    },
+    {
+      "slug": "Bitterroot",
+      "name": "Bitterroot",
+      "description": "28 HP 9-block 10-bit vector transformation workstation with cascaded serial and 2D matrix scanning engines, and volumetric Z-axis beam intensity and blanking",
+      "tags": [
+        "Visual",
+        "Waveshaper",
+        "Digital",
+        "Dual",
+        "Utility"
+      ]
     }
   ]
 }
