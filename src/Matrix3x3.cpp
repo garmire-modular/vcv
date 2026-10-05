@@ -13,7 +13,7 @@ struct MatrixPercentParamQuantity : ParamQuantity {
 	MatrixPercentParamQuantity() = default;
 	MatrixPercentParamQuantity(const std::string& p) : prefix(p) {}
 	std::string getDisplayValueString() override {
-		float v = getValue() * 100.0f;
+		float v = getValue();
 		char buf[32];
 		snprintf(buf, sizeof(buf), "%s%.1f%%", prefix.c_str(), v);
 		return std::string(buf);
@@ -90,15 +90,15 @@ struct Matrix3x3 : Module {
 	Matrix3x3() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-		// Row 1 Knobs
-		configParam<MatrixPercentParamQuantity>(SCAN_X_PARAM, 0.f, 1.f, 0.5f, "Scan X focus");
-		configParam<MatrixPercentParamQuantity>(SCAN_Y_PARAM, 0.f, 1.f, 0.5f, "Scan Y focus");
-		configParam<MatrixPercentParamQuantity>(BLEED_PARAM, 0.f, 1.f, 0.0f, "Bleed dispersion");
+		// Row 1 Knobs: scaled 0% to 100% directly for natural text entry and tooltip
+		configParam(SCAN_X_PARAM, 0.f, 100.f, 50.f, "Scan X", "%");
+		configParam(SCAN_Y_PARAM, 0.f, 100.f, 50.f, "Scan Y", "%");
+		configParam(BLEED_PARAM, 0.f, 100.f, 0.f, "Bleed / crosstalk", "%");
 
-		// Row 3 CV Inputs (Standard format: "<Parameter> CV depth")
-		configInput(SCAN_X_CV_INPUT, "Scan X CV depth");
-		configInput(SCAN_Y_CV_INPUT, "Scan Y CV depth");
-		configInput(BLEED_CV_INPUT, "Bleed CV depth");
+		// Row 3 CV Inputs
+		configInput(SCAN_X_CV_INPUT, "Scan X CV input");
+		configInput(SCAN_Y_CV_INPUT, "Scan Y CV input");
+		configInput(BLEED_CV_INPUT, "Bleed CV input");
 
 		// Lower 3x3 Attenuverters (Cells 1 to 9)
 		const char* const cellNames[9] = {
@@ -110,7 +110,7 @@ struct Matrix3x3 : Module {
 		for (int i = 0; i < 9; ++i) {
 			char attLabel[32];
 			snprintf(attLabel, sizeof(attLabel), "%s level", cellNames[i]);
-			configParam<MatrixPercentParamQuantity>(ATTEN_1_PARAM + i, 0.f, 1.f, 1.0f, attLabel);
+			configParam(ATTEN_1_PARAM + i, 0.f, 100.f, 100.f, attLabel, "%");
 
 			char outLabel[32];
 			snprintf(outLabel, sizeof(outLabel), "%s voltage output", cellNames[i]);
@@ -119,29 +119,30 @@ struct Matrix3x3 : Module {
 	}
 
 	void process(const ProcessArgs& args) override {
-		// Scan coordinates: param is 0% to 100% (50% = center 0.0)
-		float scanX_norm = (params[SCAN_X_PARAM].getValue() - 0.5f) * 2.0f;
+		// Scan coordinates: param is 0% to 100% -> normalized [0.0, 1.0]
+		float scanX_norm = params[SCAN_X_PARAM].getValue() * 0.01f;
 		if (inputs[SCAN_X_CV_INPUT].isConnected()) {
-			scanX_norm += inputs[SCAN_X_CV_INPUT].getVoltage() * 0.1f; // 10V = 1.0 full scan sweep
+			// +/-5V provides full +/-50% sweep
+			scanX_norm += inputs[SCAN_X_CV_INPUT].getVoltage() * 0.1f;
 		}
-		scanX_norm = rack::math::clamp(scanX_norm, -1.0f, 1.0f);
+		scanX_norm = rack::math::clamp(scanX_norm, 0.0f, 1.0f);
 
-		float scanY_norm = (params[SCAN_Y_PARAM].getValue() - 0.5f) * 2.0f;
+		float scanY_norm = params[SCAN_Y_PARAM].getValue() * 0.01f;
 		if (inputs[SCAN_Y_CV_INPUT].isConnected()) {
 			scanY_norm += inputs[SCAN_Y_CV_INPUT].getVoltage() * 0.1f;
 		}
-		scanY_norm = rack::math::clamp(scanY_norm, -1.0f, 1.0f);
+		scanY_norm = rack::math::clamp(scanY_norm, 0.0f, 1.0f);
 
-		float bleed = params[BLEED_PARAM].getValue();
+		float bleed = params[BLEED_PARAM].getValue() * 0.01f;
 		if (inputs[BLEED_CV_INPUT].isConnected()) {
 			bleed += inputs[BLEED_CV_INPUT].getVoltage() * 0.1f;
 		}
 		bleed = rack::math::clamp(bleed, 0.0f, 1.0f);
 
-		// Read attenuverters
+		// Read attenuverters [0.0, 1.0]
 		float atts[9];
 		for (int i = 0; i < 9; ++i) {
-			atts[i] = params[ATTEN_1_PARAM + i].getValue();
+			atts[i] = params[ATTEN_1_PARAM + i].getValue() * 0.01f;
 		}
 
 		// Process engine
@@ -212,10 +213,10 @@ struct Matrix3x3Widget : ModuleWidget {
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colX[1], cvY)), module, Matrix3x3::SCAN_Y_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colX[2], cvY)), module, Matrix3x3::BLEED_CV_INPUT));
 
-		// Lower Section: Left Attenuverters & Right Outputs (Y = 81.00, 98.00, 115.00 mm)
+		// Lower Section: Left Attenuverters & Right Outputs (Y = 84.00, 97.50, 111.00 mm)
 		float trimX[3] = {9.50f, 18.50f, 27.50f};
 		float outX[3] = {37.50f, 46.50f, 55.50f};
-		float cellY[3] = {81.00f, 98.00f, 115.00f};
+		float cellY[3] = {84.00f, 97.50f, 111.00f};
 
 		for (int r = 0; r < 3; ++r) {
 			for (int c = 0; c < 3; ++c) {

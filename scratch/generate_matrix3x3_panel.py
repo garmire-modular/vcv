@@ -109,7 +109,6 @@ def main():
 
     # ---------------- Zone 2: Upper Section ----------------
     # 3 Horizontal Columns across 12 HP (60.96 mm):
-    # col_1 = 12.00 mm, col_2 = 30.48 mm, col_3 = 48.96 mm
     col_x = [12.00, 30.48, 48.96]
 
     # Row 1: Three Knobs (Scan X, Scan Y, Bleed) at Center Y = 21.00 mm
@@ -119,9 +118,9 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "BLEED", col_x[2], knob_y - 8.20, 0.002200, "#1c1c1c", "BLEED KNOB"))
 
     # Row 2: Square Shaped Matrix with 5mm LEDs (Center Y = 42.00 mm)
-    # Square bezel: 28 mm x 28 mm centered at (30.48, 42.00) -> X: [16.48, 44.48], Y: [28.00, 56.00]
+    # Square bezel: 28 mm x 28 mm centered at (30.48, 42.00)
     # 3x3 LED centers: X = [22.48, 30.48, 38.48] (pitch 8.0 mm), Y = [34.00, 42.00, 50.00] (pitch 8.0 mm)
-    # 5mm LEDs (r = 2.5 mm -> aperture r = 2.65 mm)
+    # 5mm LEDs (aperture r = 2.65 mm)
     led_x = [22.48, 30.48, 38.48]
     led_y = [34.00, 42.00, 50.00]
     bezel_size = 28.00
@@ -134,7 +133,7 @@ def main():
         for x in led_x:
             svg_parts.append(f'  <circle cx="{x:.3f}" cy="{y:.3f}" r="2.650" fill="#151515" stroke="#333333" stroke-width="0.250"/>')
 
-    # Row 3: Three CV Depth Input Jacks at Center Y = 63.50 mm
+    # Row 3: Three CV Input Jacks at Center Y = 63.50 mm
     cv_y = 63.50
     svg_parts.append(render_qs_text(qs_font, "X CV", col_x[0], cv_y - 6.00, 0.001900, "#2c2c2c", "X CV"))
     svg_parts.append(render_qs_text(qs_font, "Y CV", col_x[1], cv_y - 6.00, 0.001900, "#2c2c2c", "Y CV"))
@@ -146,14 +145,15 @@ def main():
     # Width = 60.96 mm.
     # Attenuverter center X: [9.50, 18.50, 27.50] -> Center = 18.50 mm
     # Output jack center X: [37.50, 46.50, 55.50] -> Center = 46.50 mm
-    # Rows 4-6 Center Y: [81.00, 98.00, 115.00] -> Pitch 17.0 mm
+    # Reduced vertical pitch: 13.5 mm (Center Y: [84.00, 97.50, 111.00])
+    # This leaves 8.5 mm above Row 1 jacks for labels and generous clearance throughout.
     trim_x = [9.50, 18.50, 27.50]
     out_x = [37.50, 46.50, 55.50]
-    cell_y = [81.00, 98.00, 115.00]
+    cell_y = [84.00, 97.50, 111.00]
 
     # Section Headers
-    svg_parts.append(render_qs_text(qs_font, "ATTENUATE", 18.50, 74.50, 0.002000, "#1c1c1c", "ATTENUATE HEADER"))
-    svg_parts.append(render_qs_text(qs_font, "OUT", 46.50, 74.50, 0.002000, "#1c1c1c", "OUTPUT HEADER"))
+    svg_parts.append(render_qs_text(qs_font, "ATTENUATE", 18.50, 75.50, 0.002000, "#1c1c1c", "ATTENUATE HEADER"))
+    svg_parts.append(render_qs_text(qs_font, "OUT", 46.50, 75.50, 0.002000, "#1c1c1c", "OUTPUT HEADER"))
 
     cell_names = [
         ["1", "2", "3"],
@@ -165,8 +165,8 @@ def main():
         for c in range(3):
             # Trim label above trimpot (-5.5 mm)
             svg_parts.append(render_qs_text(qs_font, cell_names[r][c], trim_x[c], cell_y[r] - 5.50, 0.001600, "#2c2c2c", f"TRIM {cell_names[r][c]}"))
-            # Output label above jack (-6.0 mm)
-            svg_parts.append(render_qs_text(qs_font, cell_names[r][c], out_x[c], cell_y[r] - 6.00, 0.001800, "#1c1c1c", f"OUT {cell_names[r][c]}"))
+            # Output label above jack (-5.8 mm)
+            svg_parts.append(render_qs_text(qs_font, cell_names[r][c], out_x[c], cell_y[r] - 5.80, 0.001800, "#1c1c1c", f"OUT {cell_names[r][c]}"))
 
     svg_parts.append('</svg>\n')
     svg_content = "\n".join(svg_parts)
