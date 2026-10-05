@@ -4,6 +4,10 @@
 #include <cstdint>
 #include <algorithm>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 namespace matrix3x3 {
 
 template <typename T>
@@ -37,15 +41,22 @@ public:
 
     EngineOutput process(float scanX, float scanY, float bleed, const float attenuverters[9]) const {
         // Grid cell centers: 3x3 plane in [-1.0, 1.0]^2
+        // Pitch = 0.75: dx between adjacent cells is 0.75
         static constexpr float cell_x[9] = {-0.75f, 0.00f, 0.75f, -0.75f, 0.00f, 0.75f, -0.75f, 0.00f, 0.75f};
         static constexpr float cell_y[9] = { 0.75f, 0.75f, 0.75f,  0.00f, 0.00f, 0.00f, -0.75f,-0.75f,-0.75f};
 
         // scanX, scanY are in [-1.0, 1.0]
         // bleed is [0.0, 1.0]: controls gaussian variance (spread / diffusion)
-        // at bleed = 0.0: sharp focus (sigma ~ 0.35)
-        // at bleed = 1.0: wide dispersion across grid (sigma ~ 1.20)
-        float sigma = 0.35f + bleed * 0.85f;
+        // At bleed = 0.0: sharp focus, radius strictly truncated at cell boundary (no crosstalk to adjacent cells)
+        // As bleed increases: smoothly widens dispersion across the matrix
+        bleed = clamp(bleed, 0.0f, 1.0f);
+        float sigma = 0.18f + bleed * 0.90f;
         float sigma2 = 2.0f * sigma * sigma;
+
+        // Cutoff radius: at bleed = 0.0, cutoff = 0.50 (less than 0.75 distance to adjacent cells)
+        // At bleed = 1.0, cutoff = 3.0 (encompasses entire matrix)
+        float rCutoff = 0.50f + bleed * 2.50f;
+        float rCutoff2 = rCutoff * rCutoff;
 
         float maxV = getMaxVoltage();
         EngineOutput out;
@@ -54,7 +65,15 @@ public:
             float dx = scanX - cell_x[i];
             float dy = scanY - cell_y[i];
             float dist2 = dx * dx + dy * dy;
-            float w = std::exp(-dist2 / sigma2);
+
+            float w = 0.0f;
+            if (dist2 < rCutoff2) {
+                float rawW = std::exp(-dist2 / sigma2);
+                // Smooth Hann window taper to exactly 0 at rCutoff
+                float r = std::sqrt(dist2);
+                float taper = 0.5f * (1.0f + std::cos((float)M_PI * (r / rCutoff)));
+                w = rawW * taper;
+            }
             w = clamp(w, 0.0f, 1.0f);
 
             out.cellWeights[i] = w;

@@ -27,12 +27,12 @@ struct MatrixPercentParamQuantity : ParamQuantity {
 
 struct Matrix3x3 : Module {
 	enum ParamId {
-		// Upper Section: Scanning & Dispersion Controls
+		// Row 1: Scanning & Dispersion Controls
 		SCAN_X_PARAM,
 		SCAN_Y_PARAM,
 		BLEED_PARAM,
 
-		// Lower Section: 3x3 Attenuverters (Cells 1 to 9)
+		// Rows 4-6: 3x3 Attenuverters (Cells 1 to 9)
 		ATTEN_1_PARAM,
 		ATTEN_2_PARAM,
 		ATTEN_3_PARAM,
@@ -47,7 +47,7 @@ struct Matrix3x3 : Module {
 	};
 
 	enum InputId {
-		// Upper Section: CV Inputs
+		// Row 3: CV Inputs
 		SCAN_X_CV_INPUT,
 		SCAN_Y_CV_INPUT,
 		BLEED_CV_INPUT,
@@ -56,7 +56,7 @@ struct Matrix3x3 : Module {
 	};
 
 	enum OutputId {
-		// Lower Section: 3x3 Outputs (Cells 1 to 9)
+		// Rows 4-6: 3x3 Outputs (Cells 1 to 9)
 		OUT_1_OUTPUT,
 		OUT_2_OUTPUT,
 		OUT_3_OUTPUT,
@@ -71,7 +71,7 @@ struct Matrix3x3 : Module {
 	};
 
 	enum LightId {
-		// 3x3 Activity LED Matrix (Cells 1 to 9)
+		// Row 2: 3x3 Activity LED Matrix (Cells 1 to 9)
 		GRID_LED_1,
 		GRID_LED_2,
 		GRID_LED_3,
@@ -90,12 +90,12 @@ struct Matrix3x3 : Module {
 	Matrix3x3() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-		// Upper Knobs
+		// Row 1 Knobs
 		configParam<MatrixPercentParamQuantity>(SCAN_X_PARAM, 0.f, 1.f, 0.5f, "Scan X focus");
 		configParam<MatrixPercentParamQuantity>(SCAN_Y_PARAM, 0.f, 1.f, 0.5f, "Scan Y focus");
-		configParam<MatrixPercentParamQuantity>(BLEED_PARAM, 0.f, 1.f, 0.2f, "Bleed dispersion");
+		configParam<MatrixPercentParamQuantity>(BLEED_PARAM, 0.f, 1.f, 0.0f, "Bleed dispersion");
 
-		// Upper CV Inputs (Standard format: "<Parameter> CV depth")
+		// Row 3 CV Inputs (Standard format: "<Parameter> CV depth")
 		configInput(SCAN_X_CV_INPUT, "Scan X CV depth");
 		configInput(SCAN_Y_CV_INPUT, "Scan Y CV depth");
 		configInput(BLEED_CV_INPUT, "Bleed CV depth");
@@ -186,33 +186,36 @@ struct Matrix3x3Widget : ModuleWidget {
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		// Upper Section: Left Knobs & Right CV Jacks (Y = 22.00, 36.50, 51.00 mm)
-		float colKnobs = 11.50f;
-		float colCv = 49.46f;
-		float rowY[3] = {22.00f, 36.50f, 51.00f};
+		// Upper Section Columns (col 1 = 12.00 mm, col 2 = 30.48 mm, col 3 = 48.96 mm)
+		float colX[3] = {12.00f, 30.48f, 48.96f};
 
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(colKnobs, rowY[0])), module, Matrix3x3::SCAN_X_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(colKnobs, rowY[1])), module, Matrix3x3::SCAN_Y_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(colKnobs, rowY[2])), module, Matrix3x3::BLEED_PARAM));
+		// Row 1: Three Knobs (Center Y = 21.00 mm)
+		float knobY = 21.00f;
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(colX[0], knobY)), module, Matrix3x3::SCAN_X_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(colX[1], knobY)), module, Matrix3x3::SCAN_Y_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(colX[2], knobY)), module, Matrix3x3::BLEED_PARAM));
 
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colCv, rowY[0])), module, Matrix3x3::SCAN_X_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colCv, rowY[1])), module, Matrix3x3::SCAN_Y_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colCv, rowY[2])), module, Matrix3x3::BLEED_CV_INPUT));
-
-		// Center 3x3 LED Matrix (X = 21.98, 30.48, 38.98 mm; Y = 22.00, 36.50, 51.00 mm)
-		float ledX[3] = {21.98f, 30.48f, 38.98f};
-		float ledY[3] = {22.00f, 36.50f, 51.00f};
+		// Row 2: Square Shaped Matrix with 5mm LEDs (Center Y = 42.00 mm)
+		// 3x3 LED centers: X = [22.48, 30.48, 38.48], Y = [34.00, 42.00, 50.00]
+		float ledX[3] = {22.48f, 30.48f, 38.48f};
+		float ledY[3] = {34.00f, 42.00f, 50.00f};
 		for (int r = 0; r < 3; ++r) {
 			for (int c = 0; c < 3; ++c) {
 				int idx = r * 3 + c;
-				addChild(createLightCentered<SmallSimpleLight<GreenLight>>(mm2px(Vec(ledX[c], ledY[r])), module, Matrix3x3::GRID_LED_1 + idx));
+				addChild(createLightCentered<LargeSimpleLight<GreenLight>>(mm2px(Vec(ledX[c], ledY[r])), module, Matrix3x3::GRID_LED_1 + idx));
 			}
 		}
 
-		// Lower Section: Left Attenuverters & Right Outputs (Y = 76.00, 95.00, 114.00 mm)
+		// Row 3: Three CV Depth Input Jacks (Center Y = 63.50 mm)
+		float cvY = 63.50f;
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colX[0], cvY)), module, Matrix3x3::SCAN_X_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colX[1], cvY)), module, Matrix3x3::SCAN_Y_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colX[2], cvY)), module, Matrix3x3::BLEED_CV_INPUT));
+
+		// Lower Section: Left Attenuverters & Right Outputs (Y = 81.00, 98.00, 115.00 mm)
 		float trimX[3] = {9.50f, 18.50f, 27.50f};
 		float outX[3] = {37.50f, 46.50f, 55.50f};
-		float cellY[3] = {76.00f, 95.00f, 114.00f};
+		float cellY[3] = {81.00f, 98.00f, 115.00f};
 
 		for (int r = 0; r < 3; ++r) {
 			for (int c = 0; c < 3; ++c) {
@@ -231,9 +234,9 @@ struct Matrix3x3Widget : ModuleWidget {
 		menu->addChild(createMenuLabel("Output Voltage Range"));
 
 		const char* rangeLabels[] = {
-			"0–1.0V (Laser Diode / Logic Standard)",
-			"0–5.0V (Eurorack Nominal Standard)",
-			"0–10.0V (Full Video / VCA Standard)"
+			"0-1V",
+			"0-5V",
+			"0-10V"
 		};
 
 		for (int i = 0; i < 3; ++i) {

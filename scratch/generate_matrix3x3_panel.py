@@ -15,6 +15,7 @@ if os.path.exists(msys_bin):
 from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
 import pathops
+import resvg_py
 
 def get_simplified_glyph_path(font, char):
     cmap = font.getBestCmap()
@@ -62,7 +63,7 @@ def main():
     panel_h = 128.50
     center_x = panel_w / 2.0  # 30.48 mm
 
-    # Title "matrix 3x3" in Node.otf (scale 0.0048, baseline 7.620, centered at panel_w / 2)
+    # Title "matrix 3x3" in Node.otf (scale 0.0044, baseline 7.620)
     cmap_node = node_font.getBestCmap()
     hmtx = node_font['hmtx']
     scale_title = 0.0044
@@ -99,67 +100,61 @@ def main():
         '    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>',
         '  </g>',
         '',
-        '  <!-- Delineator Line (Between Scanner Controls and 3x3 Arrays at Y = 62.00mm) -->',
-        f'  <line x1="3.00" y1="62.00" x2="{panel_w - 3.00:.2f}" y2="62.00" stroke="#999999" stroke-width="0.176"/>',
+        '  <!-- Delineator Line (Between Scanner Controls and 3x3 Arrays at Y = 71.00mm) -->',
+        f'  <line x1="3.00" y1="71.00" x2="{panel_w - 3.00:.2f}" y2="71.00" stroke="#999999" stroke-width="0.176"/>',
         ''
     ]
     svg_parts.extend(title_block)
     svg_parts.extend(version_block)
 
-    # ---------------- Zone 2: Rows 1-3 Upper Scanner Section ----------------
-    # Left column (Knobs): X = 11.50 mm
-    # Center column (LED Matrix): X = 30.48 mm
-    # Right column (CV Jacks): X = 49.46 mm
-    col_knobs = 11.50
-    col_cv = 49.46
-    row_y = [22.00, 36.50, 51.00]
+    # ---------------- Zone 2: Upper Section ----------------
+    # 3 Horizontal Columns across 12 HP (60.96 mm):
+    # col_1 = 12.00 mm, col_2 = 30.48 mm, col_3 = 48.96 mm
+    col_x = [12.00, 30.48, 48.96]
 
-    # Knob Labels (Above knobs at -8.50mm from center)
-    svg_parts.append(render_qs_text(qs_font, "SCAN X", col_knobs, 13.50, 0.002200, "#1c1c1c", "SCAN X KNOB"))
-    svg_parts.append(render_qs_text(qs_font, "SCAN Y", col_knobs, 28.00, 0.002200, "#1c1c1c", "SCAN Y KNOB"))
-    svg_parts.append(render_qs_text(qs_font, "BLEED", col_knobs, 42.50, 0.002200, "#1c1c1c", "BLEED KNOB"))
+    # Row 1: Three Knobs (Scan X, Scan Y, Bleed) at Center Y = 21.00 mm
+    knob_y = 21.00
+    svg_parts.append(render_qs_text(qs_font, "SCAN X", col_x[0], knob_y - 8.20, 0.002200, "#1c1c1c", "SCAN X KNOB"))
+    svg_parts.append(render_qs_text(qs_font, "SCAN Y", col_x[1], knob_y - 8.20, 0.002200, "#1c1c1c", "SCAN Y KNOB"))
+    svg_parts.append(render_qs_text(qs_font, "BLEED", col_x[2], knob_y - 8.20, 0.002200, "#1c1c1c", "BLEED KNOB"))
 
-    # CV Jack Labels (Above CV jacks at -6.00mm from center)
-    svg_parts.append(render_qs_text(qs_font, "CV", col_cv, 15.00, 0.002000, "#2c2c2c", "SCAN X CV"))
-    svg_parts.append(render_qs_text(qs_font, "CV", col_cv, 29.50, 0.002000, "#2c2c2c", "SCAN Y CV"))
-    svg_parts.append(render_qs_text(qs_font, "CV", col_cv, 44.00, 0.002000, "#2c2c2c", "BLEED CV"))
+    # Row 2: Square Shaped Matrix with 5mm LEDs (Center Y = 42.00 mm)
+    # Square bezel: 28 mm x 28 mm centered at (30.48, 42.00) -> X: [16.48, 44.48], Y: [28.00, 56.00]
+    # 3x3 LED centers: X = [22.48, 30.48, 38.48] (pitch 8.0 mm), Y = [34.00, 42.00, 50.00] (pitch 8.0 mm)
+    # 5mm LEDs (r = 2.5 mm -> aperture r = 2.65 mm)
+    led_x = [22.48, 30.48, 38.48]
+    led_y = [34.00, 42.00, 50.00]
+    bezel_size = 28.00
+    bezel_x = center_x - bezel_size / 2.0
+    bezel_y = 42.00 - bezel_size / 2.0
 
-    # Middle LED Matrix Bezel & Apertures spanning Rows 1-3
-    # 3x3 LED matrix grid centered at X = 30.48 mm, Y = 36.50 mm
-    # Matrix coordinates: grid_dx = [-8.50, 0.00, +8.50], grid_dy = [-14.50, 0.00, +14.50]
-    # Corresponding to Y = 22.00, 36.50, 51.00 mm
-    led_x = [21.98, 30.48, 38.98]
-    led_y = [22.00, 36.50, 51.00]
-
-    # Bezel: width 24 mm, height 38 mm centered at (30.48, 36.50)
-    bezel_x = 30.48 - 12.00
-    bezel_y = 36.50 - 19.00
-    svg_parts.append('  <!-- Center LED Matrix Display Bezel & Apertures -->')
-    svg_parts.append(f'  <rect x="{bezel_x:.3f}" y="{bezel_y:.3f}" width="24.000" height="38.000" rx="3.000" fill="#222222" stroke="#444444" stroke-width="0.300"/>')
+    svg_parts.append('  <!-- Square 3x3 LED Matrix Bezel & 5mm Apertures -->')
+    svg_parts.append(f'  <rect x="{bezel_x:.3f}" y="{bezel_y:.3f}" width="{bezel_size:.3f}" height="{bezel_size:.3f}" rx="2.500" fill="#222222" stroke="#444444" stroke-width="0.300"/>')
     for y in led_y:
         for x in led_x:
-            svg_parts.append(f'  <circle cx="{x:.3f}" cy="{y:.3f}" r="1.800" fill="#151515" stroke="#333333" stroke-width="0.250"/>')
+            svg_parts.append(f'  <circle cx="{x:.3f}" cy="{y:.3f}" r="2.650" fill="#151515" stroke="#333333" stroke-width="0.250"/>')
 
-    # Grid Header label above bezel (Y = 14.00)
-    svg_parts.append(render_qs_text(qs_font, "GRID", center_x, 14.50, 0.002200, "#2c2c2c", "GRID HEADER"))
+    # Row 3: Three CV Depth Input Jacks at Center Y = 63.50 mm
+    cv_y = 63.50
+    svg_parts.append(render_qs_text(qs_font, "X CV", col_x[0], cv_y - 6.00, 0.001900, "#2c2c2c", "X CV"))
+    svg_parts.append(render_qs_text(qs_font, "Y CV", col_x[1], cv_y - 6.00, 0.001900, "#2c2c2c", "Y CV"))
+    svg_parts.append(render_qs_text(qs_font, "BLEED CV", col_x[2], cv_y - 6.00, 0.001900, "#2c2c2c", "BLEED CV"))
 
     # ---------------- Zone 3 & 4: Rows 4-6 Lower Section (Attenuverters & Outputs) ----------------
     # Left: 3x3 Attenuverters
     # Right: 3x3 Output Jacks
     # Width = 60.96 mm.
-    # Attenuverter center X: [9.50, 18.50, 27.50] -> Span 18.0 mm, center = 18.50 mm
-    # Output jack center X: [37.50, 46.50, 55.50] -> Span 18.0 mm, center = 46.50 mm
-    # Rows 4-6 Center Y: [76.00, 95.00, 114.00] -> Pitch 19.0 mm
+    # Attenuverter center X: [9.50, 18.50, 27.50] -> Center = 18.50 mm
+    # Output jack center X: [37.50, 46.50, 55.50] -> Center = 46.50 mm
+    # Rows 4-6 Center Y: [81.00, 98.00, 115.00] -> Pitch 17.0 mm
     trim_x = [9.50, 18.50, 27.50]
     out_x = [37.50, 46.50, 55.50]
-    cell_y = [76.00, 95.00, 114.00]
+    cell_y = [81.00, 98.00, 115.00]
 
     # Section Headers
-    svg_parts.append(render_qs_text(qs_font, "ATTENUATE", 18.50, 65.50, 0.002200, "#1c1c1c", "ATTENUATE HEADER"))
-    svg_parts.append(render_qs_text(qs_font, "OUT", 46.50, 65.50, 0.002200, "#1c1c1c", "OUTPUT HEADER"))
+    svg_parts.append(render_qs_text(qs_font, "ATTENUATE", 18.50, 74.50, 0.002000, "#1c1c1c", "ATTENUATE HEADER"))
+    svg_parts.append(render_qs_text(qs_font, "OUT", 46.50, 74.50, 0.002000, "#1c1c1c", "OUTPUT HEADER"))
 
-    # Cell coordinates / labels: Row 1 (1 2 3), Row 2 (4 5 6), Row 3 (7 8 9)
-    # Output labels centered above jacks
     cell_names = [
         ["1", "2", "3"],
         ["4", "5", "6"],
@@ -167,7 +162,6 @@ def main():
     ]
 
     for r in range(3):
-        # Attenuverter row label
         for c in range(3):
             # Trim label above trimpot (-5.5 mm)
             svg_parts.append(render_qs_text(qs_font, cell_names[r][c], trim_x[c], cell_y[r] - 5.50, 0.001600, "#2c2c2c", f"TRIM {cell_names[r][c]}"))
@@ -184,7 +178,6 @@ def main():
 
     # Render MetaModule PNG (12 HP = 114 x 240 px)
     try:
-        import resvg_py
         png_path = 'metamodule/assets/Matrix3x3.png'
         svg_mod = re.sub(r'width="[0-9.]+mm"', 'width="114"', svg_content)
         svg_mod = re.sub(r'height="[0-9.]+mm"', 'height="240"', svg_mod)
