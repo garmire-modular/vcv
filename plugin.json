@@ -486,6 +486,17 @@
         "VCA",
         "Polyphonic"
       ]
+    },
+    {
+      "slug": "Matrix3x3",
+      "name": "Matrix 3x3",
+      "description": "12 HP 2D spatial crossfade scanner and voltage distributor with 3x3 LED matrix display, bleed dispersion, and per-cell attenuverters",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Attenuator"
+      ]
     }
   ]
 }

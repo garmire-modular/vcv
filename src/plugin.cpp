@@ -50,5 +50,6 @@ void init(Plugin* p) {
 	p->addModel(modelSteppedSlew);
 	p->addModel(modelBitterroot);
 	p->addModel(modelRgbIVca);
+	p->addModel(modelMatrix3x3);
 }
 

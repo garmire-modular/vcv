@@ -47,6 +47,7 @@ SOURCES += src/Eunice.cpp
 SOURCES += src/SteppedSlew.cpp
 SOURCES += src/Bitterroot.cpp
 SOURCES += src/RgbIVca.cpp
+SOURCES += src/Matrix3x3.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res
