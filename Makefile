@@ -45,7 +45,7 @@ SOURCES += src/Circe.cpp
 SOURCES += src/Maude.cpp
 SOURCES += src/Eunice.cpp
 SOURCES += src/SteppedSlew.cpp
-SOURCES += src/Bitterroot.cpp
+SOURCES += src/BitModules.cpp
 SOURCES += src/RgbIVca.cpp
 SOURCES += src/Matrix3x3.cpp
 

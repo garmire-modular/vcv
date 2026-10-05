@@ -465,9 +465,105 @@
       ]
     },
     {
-      "slug": "Bitterroot",
-      "name": "Bitterroot",
-      "description": "28 HP 9-block 10-bit vector transformation workstation with cascaded serial and 2D matrix scanning engines, and volumetric Z-axis beam intensity and blanking",
+      "slug": "BitMorton",
+      "name": "Bit Morton",
+      "description": "6 HP 10-bit Morton space-filling Z-order trajectory interleaver and Hilbert quadrant folding",
+      "tags": [
+        "Visual",
+        "Waveshaper",
+        "Digital",
+        "Dual",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "BitReverse",
+      "name": "Bit Reverse",
+      "description": "6 HP 10-bit bitwise reversal and dyadic coordinate reflection with skew warping",
+      "tags": [
+        "Visual",
+        "Waveshaper",
+        "Digital",
+        "Dual",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "BitTranspose",
+      "name": "Bit Transpose",
+      "description": "6 HP 10-bit bit-plane transposition and 3-way permutation cyclic routing",
+      "tags": [
+        "Visual",
+        "Waveshaper",
+        "Digital",
+        "Dual",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "BitValanche",
+      "name": "Bit Valanche",
+      "description": "6 HP 10-bit carry-propagated avalanche cross-modulation and ripple-borrow shearing",
+      "tags": [
+        "Visual",
+        "Waveshaper",
+        "Digital",
+        "Dual",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "BitPermute",
+      "name": "Bit Permute",
+      "description": "6 HP 20-bit circular permutation matrix with odd/even split, perfect shuffle, and stride cycles",
+      "tags": [
+        "Visual",
+        "Waveshaper",
+        "Digital",
+        "Dual",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "BitGrayBin",
+      "name": "Bit Graybin",
+      "description": "6 HP 10-bit binary-to-Gray and Gray-to-binary reflected code dyadic folder",
+      "tags": [
+        "Visual",
+        "Waveshaper",
+        "Digital",
+        "Dual",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "BitGalois",
+      "name": "Bit Galois",
+      "description": "6 HP GF(2^10) Galois field irreducible polynomial scrambler, inverter, and cryptographic S-box",
+      "tags": [
+        "Visual",
+        "Waveshaper",
+        "Digital",
+        "Dual",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "Bitomata",
+      "name": "Bitomata",
+      "description": "6 HP 1D elementary cellular automata mesh with cross-axis seeding and iterative evolution",
+      "tags": [
+        "Visual",
+        "Waveshaper",
+        "Digital",
+        "Dual",
+        "Utility"
+      ]
+    },
+    {
+      "slug": "BitHamming",
+      "name": "Bit Hamming",
+      "description": "6 HP 10-bit popcount and Hamming distance metric cross-axis vector disperser",
       "tags": [
         "Visual",
         "Waveshaper",

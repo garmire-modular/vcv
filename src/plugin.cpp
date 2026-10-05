@@ -48,8 +48,16 @@ void init(Plugin* p) {
 	p->addModel(modelMaude);
 	p->addModel(modelEunice);
 	p->addModel(modelSteppedSlew);
-	p->addModel(modelBitterroot);
 	p->addModel(modelRgbIVca);
 	p->addModel(modelMatrix3x3);
+	p->addModel(modelBitMorton);
+	p->addModel(modelBitReverse);
+	p->addModel(modelBitTranspose);
+	p->addModel(modelBitValanche);
+	p->addModel(modelBitPermute);
+	p->addModel(modelBitGrayBin);
+	p->addModel(modelBitGalois);
+	p->addModel(modelBitomata);
+	p->addModel(modelBitHamming);
 }
 
