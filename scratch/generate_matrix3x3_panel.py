@@ -90,6 +90,7 @@ def main():
     # Version tag "v2.26.0" in Quicksand-Regular (scale 0.001600, baseline 10.414)
     version_block = [render_qs_text(qs_reg_font, "v2.26.0", center_x, 10.414, 0.001600, "#aaaaaa", "v2.26.0")]
 
+    # Delineator line between scanner controls and 3x3 arrays: Y = 78.00 mm
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.2f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.2f}">',
@@ -100,8 +101,8 @@ def main():
         '    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>',
         '  </g>',
         '',
-        '  <!-- Delineator Line (Between Scanner Controls and 3x3 Arrays at Y = 71.00mm) -->',
-        f'  <line x1="3.00" y1="71.00" x2="{panel_w - 3.00:.2f}" y2="71.00" stroke="#999999" stroke-width="0.176"/>',
+        '  <!-- Delineator Line (Between Scanner Controls and 3x3 Arrays at Y = 78.00mm) -->',
+        f'  <line x1="3.00" y1="78.00" x2="{panel_w - 3.00:.2f}" y2="78.00" stroke="#999999" stroke-width="0.176"/>',
         ''
     ]
     svg_parts.extend(title_block)
@@ -111,21 +112,21 @@ def main():
     # 3 Horizontal Columns across 12 HP (60.96 mm):
     col_x = [12.00, 30.48, 48.96]
 
-    # Row 1: Three Knobs (Scan X, Scan Y, Bleed) at Center Y = 21.00 mm
+    # Row 1: Three Knobs (Scan X, Scan Y, Bleed) at Center Y = 21.00 mm (Fixed anchor)
     knob_y = 21.00
     svg_parts.append(render_qs_text(qs_font, "SCAN X", col_x[0], knob_y - 8.20, 0.002200, "#1c1c1c", "SCAN X KNOB"))
     svg_parts.append(render_qs_text(qs_font, "SCAN Y", col_x[1], knob_y - 8.20, 0.002200, "#1c1c1c", "SCAN Y KNOB"))
     svg_parts.append(render_qs_text(qs_font, "BLEED", col_x[2], knob_y - 8.20, 0.002200, "#1c1c1c", "BLEED KNOB"))
 
-    # Row 2: Square Shaped Matrix with 5mm LEDs (Center Y = 42.00 mm)
-    # Square bezel: 28 mm x 28 mm centered at (30.48, 42.00)
-    # 3x3 LED centers: X = [22.48, 30.48, 38.48] (pitch 8.0 mm), Y = [34.00, 42.00, 50.00] (pitch 8.0 mm)
+    # Row 2: Square Shaped Matrix with 5mm LEDs (Center Y = 45.50 mm)
+    # Square bezel: 28 mm x 28 mm centered at (30.48, 45.50) -> Y: [31.50, 59.50]
+    # 3x3 LED centers: X = [22.48, 30.48, 38.48] (pitch 8.0 mm), Y = [37.50, 45.50, 53.50] (pitch 8.0 mm)
     # 5mm LEDs (aperture r = 2.65 mm)
     led_x = [22.48, 30.48, 38.48]
-    led_y = [34.00, 42.00, 50.00]
+    led_y = [37.50, 45.50, 53.50]
     bezel_size = 28.00
     bezel_x = center_x - bezel_size / 2.0
-    bezel_y = 42.00 - bezel_size / 2.0
+    bezel_y = 45.50 - bezel_size / 2.0
 
     svg_parts.append('  <!-- Square 3x3 LED Matrix Bezel & 5mm Apertures -->')
     svg_parts.append(f'  <rect x="{bezel_x:.3f}" y="{bezel_y:.3f}" width="{bezel_size:.3f}" height="{bezel_size:.3f}" rx="2.500" fill="#222222" stroke="#444444" stroke-width="0.300"/>')
@@ -133,27 +134,25 @@ def main():
         for x in led_x:
             svg_parts.append(f'  <circle cx="{x:.3f}" cy="{y:.3f}" r="2.650" fill="#151515" stroke="#333333" stroke-width="0.250"/>')
 
-    # Row 3: Three CV Input Jacks at Center Y = 63.50 mm
-    cv_y = 63.50
+    # Row 3: Three CV Input Jacks at Center Y = 70.00 mm
+    cv_y = 70.00
     svg_parts.append(render_qs_text(qs_font, "X CV", col_x[0], cv_y - 6.00, 0.001900, "#2c2c2c", "X CV"))
     svg_parts.append(render_qs_text(qs_font, "Y CV", col_x[1], cv_y - 6.00, 0.001900, "#2c2c2c", "Y CV"))
     svg_parts.append(render_qs_text(qs_font, "BLEED CV", col_x[2], cv_y - 6.00, 0.001900, "#2c2c2c", "BLEED CV"))
 
     # ---------------- Zone 3 & 4: Rows 4-6 Lower Section (Attenuverters & Outputs) ----------------
-    # Left: 3x3 Attenuverters
-    # Right: 3x3 Output Jacks
-    # Width = 60.96 mm.
-    # Attenuverter center X: [9.50, 18.50, 27.50] -> Center = 18.50 mm
-    # Output jack center X: [37.50, 46.50, 55.50] -> Center = 46.50 mm
-    # Reduced vertical pitch: 13.5 mm (Center Y: [84.00, 97.50, 111.00])
-    # This leaves 8.5 mm above Row 1 jacks for labels and generous clearance throughout.
+    # Anchored from fixed bottom output jack row at Y = 118.00 mm!
+    # Pitch between rows: ΔY = 13.5 mm:
+    # Row 6 (Bottom): Y = 118.00 mm (Standard Garmire bottom anchor)
+    # Row 5 (Middle): Y = 104.50 mm
+    # Row 4 (Top):    Y = 91.00 mm
     trim_x = [9.50, 18.50, 27.50]
     out_x = [37.50, 46.50, 55.50]
-    cell_y = [84.00, 97.50, 111.00]
+    cell_y = [91.00, 104.50, 118.00]
 
-    # Section Headers
-    svg_parts.append(render_qs_text(qs_font, "ATTENUATE", 18.50, 75.50, 0.002000, "#1c1c1c", "ATTENUATE HEADER"))
-    svg_parts.append(render_qs_text(qs_font, "OUT", 46.50, 75.50, 0.002000, "#1c1c1c", "OUTPUT HEADER"))
+    # Section Headers (Y = 82.50 mm)
+    svg_parts.append(render_qs_text(qs_font, "ATTENUATE", 18.50, 82.50, 0.002000, "#1c1c1c", "ATTENUATE HEADER"))
+    svg_parts.append(render_qs_text(qs_font, "OUT", 46.50, 82.50, 0.002000, "#1c1c1c", "OUTPUT HEADER"))
 
     cell_names = [
         ["1", "2", "3"],

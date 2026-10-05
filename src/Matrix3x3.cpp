@@ -196,10 +196,10 @@ struct Matrix3x3Widget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(colX[1], knobY)), module, Matrix3x3::SCAN_Y_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(colX[2], knobY)), module, Matrix3x3::BLEED_PARAM));
 
-		// Row 2: Square Shaped Matrix with 5mm LEDs (Center Y = 42.00 mm)
-		// 3x3 LED centers: X = [22.48, 30.48, 38.48], Y = [34.00, 42.00, 50.00]
+		// Row 2: Square Shaped Matrix with 5mm LEDs (Center Y = 45.50 mm)
+		// 3x3 LED centers: X = [22.48, 30.48, 38.48], Y = [37.50, 45.50, 53.50]
 		float ledX[3] = {22.48f, 30.48f, 38.48f};
-		float ledY[3] = {34.00f, 42.00f, 50.00f};
+		float ledY[3] = {37.50f, 45.50f, 53.50f};
 		for (int r = 0; r < 3; ++r) {
 			for (int c = 0; c < 3; ++c) {
 				int idx = r * 3 + c;
@@ -207,16 +207,17 @@ struct Matrix3x3Widget : ModuleWidget {
 			}
 		}
 
-		// Row 3: Three CV Depth Input Jacks (Center Y = 63.50 mm)
-		float cvY = 63.50f;
+		// Row 3: Three CV Depth Input Jacks (Center Y = 70.00 mm)
+		float cvY = 70.00f;
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colX[0], cvY)), module, Matrix3x3::SCAN_X_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colX[1], cvY)), module, Matrix3x3::SCAN_Y_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(colX[2], cvY)), module, Matrix3x3::BLEED_CV_INPUT));
 
-		// Lower Section: Left Attenuverters & Right Outputs (Y = 84.00, 97.50, 111.00 mm)
+		// Lower Section: Left Attenuverters & Right Outputs
+		// Anchored from bottom row at fixed Y = 118.00 mm (pitch 13.5 mm -> 91.00, 104.50, 118.00 mm)
 		float trimX[3] = {9.50f, 18.50f, 27.50f};
 		float outX[3] = {37.50f, 46.50f, 55.50f};
-		float cellY[3] = {84.00f, 97.50f, 111.00f};
+		float cellY[3] = {91.00f, 104.50f, 118.00f};
 
 		for (int r = 0; r < 3; ++r) {
 			for (int c = 0; c < 3; ++c) {
