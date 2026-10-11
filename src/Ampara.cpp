@@ -147,6 +147,114 @@ struct Ampara : Module {
 			return std::string(buf);
 		}
 
+		void setFrequencyValue(float rawVal, bool isPeriod) {
+			Ampara* ampara = getAmpara();
+			if (!ampara) return;
+
+			float fine = (ampara->paramQuantities.size() > Ampara::FINE_PARAM) ? ampara->params[Ampara::FINE_PARAM].getValue() : 0.f;
+			float newCoarse = getValue();
+
+			if (ampara->rangeMode == garmire::ampara::RANGE_VERY_SLOW) {
+				float targetPeriodS = isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 1e6f);
+				if (targetPeriodS <= 1e-5f) targetPeriodS = 1e-5f;
+
+				float fineFactor = 1.0f - fine * 0.10f;
+				if (std::abs(fineFactor) < 1e-4f) fineFactor = 1e-4f;
+				float tCoarse = targetPeriodS / fineFactor;
+				if (tCoarse <= 1e-6f) tCoarse = 1e-6f;
+
+				float ratio = tCoarse / 600.0f;
+				if (ratio <= 0.f) ratio = 1e-6f;
+				newCoarse = std::log(ratio) / std::log(0.1f / 600.0f);
+			} else if (ampara->rangeMode == garmire::ampara::RANGE_LFO) {
+				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 0.01f);
+				float fCoarse = targetHz - fine * 20.0f;
+				if (fCoarse <= 0.01f) {
+					newCoarse = 0.0f;
+				} else {
+					newCoarse = std::sqrt((fCoarse - 0.01f) / 199.99f);
+				}
+			} else {
+				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 100.f);
+				float fineFactor = 1.0f + fine * 0.10f;
+				if (std::abs(fineFactor) < 1e-4f) fineFactor = 1e-4f;
+				float fCoarse = targetHz / fineFactor;
+				if (fCoarse <= 1.0f) fCoarse = 1.0f;
+
+				float ratio = fCoarse / 150.0f;
+				if (ratio <= 0.f) ratio = 1e-6f;
+				newCoarse = std::log(ratio) / std::log(2000.0f / 150.0f);
+			}
+
+			setValue(clampf(newCoarse, 0.0f, 1.0f));
+		}
+
+		void setDisplayValue(float displayValue) override {
+			Ampara* ampara = getAmpara();
+			if (!ampara) {
+				ParamQuantity::setDisplayValue(displayValue);
+				return;
+			}
+			bool isPeriod = (ampara->rangeMode == garmire::ampara::RANGE_VERY_SLOW);
+			setFrequencyValue(displayValue, isPeriod);
+		}
+
+		void setDisplayValueString(std::string s) override {
+			Ampara* ampara = getAmpara();
+			if (!ampara) {
+				ParamQuantity::setDisplayValueString(s);
+				return;
+			}
+
+			std::string str = s;
+			std::string lowerStr = s;
+			for (char& c : lowerStr) c = (char)std::tolower((unsigned char)c);
+
+			enum UnitType { UNIT_NONE, UNIT_HZ, UNIT_KHZ, UNIT_MHZ, UNIT_SEC, UNIT_MS };
+			UnitType unitType = UNIT_NONE;
+
+			if (lowerStr.find("khz") != std::string::npos) {
+				unitType = UNIT_KHZ;
+			} else if (lowerStr.find("mhz") != std::string::npos) {
+				unitType = UNIT_MHZ;
+			} else if (lowerStr.find("hz") != std::string::npos) {
+				unitType = UNIT_HZ;
+			} else if (lowerStr.find("ms") != std::string::npos) {
+				unitType = UNIT_MS;
+			} else if (lowerStr.find("s") != std::string::npos || lowerStr.find("sec") != std::string::npos) {
+				unitType = UNIT_SEC;
+			}
+
+			char* endPtr = nullptr;
+			float rawVal = std::strtof(str.c_str(), &endPtr);
+			if (endPtr == str.c_str()) return;
+
+			bool isPeriod;
+			float finalVal;
+
+			if (unitType == UNIT_SEC) {
+				isPeriod = true;
+				finalVal = rawVal;
+			} else if (unitType == UNIT_MS) {
+				isPeriod = true;
+				finalVal = rawVal * 0.001f;
+			} else if (unitType == UNIT_HZ) {
+				isPeriod = false;
+				finalVal = rawVal;
+			} else if (unitType == UNIT_KHZ) {
+				isPeriod = false;
+				finalVal = rawVal * 1000.0f;
+			} else if (unitType == UNIT_MHZ) {
+				isPeriod = false;
+				finalVal = rawVal * 1000000.0f;
+			} else {
+				isPeriod = (ampara->rangeMode == garmire::ampara::RANGE_VERY_SLOW);
+				finalVal = rawVal;
+			}
+
+			setFrequencyValue(finalVal, isPeriod);
+		}
+
 		std::string getUnit() override {
 			Ampara* ampara = getAmpara();
 			if (!ampara) return "";
@@ -460,12 +568,6 @@ struct AmparaWidget : ModuleWidget {
 	AmparaWidget(Ampara* module) {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Ampara.svg")));
-
-		// 20 HP Screws
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
 		// 6 Columns across 101.60 mm: cols = [12.00, 27.52, 43.04, 58.56, 74.08, 89.60] mm
 		const float cols[6] = {12.00f, 27.52f, 43.04f, 58.56f, 74.08f, 89.60f};

@@ -245,6 +245,12 @@ struct VoiceCore {
         float ampDepth = clampf(ampParam + ampCV * 0.1f, 0.0f, 2.0f);
         float finalDisp = (waveDisp * 0.2f) * ampDepth;
 
+        // Intelligent reduction in scale of the shape in proportion to the amplitude amount:
+        // When ampDepth = 0, geomScale = 1.0 (100% full scale).
+        // As ampDepth increases, the shape shrinks inward to headroom for the waveform ripples:
+        // At max ampDepth = 2.0, geomScale reduces down to ~0.33, preventing clipping bounds.
+        float geomScale = 1.0f / (1.0f + ampDepth);
+
         // 11. Scale & Rotation from Routing Channel R
         float scaleMod = 1.0f + (routing * envR * 0.7f);
         float rotMod = routing * envR * (float)M_PI;
@@ -253,7 +259,7 @@ struct VoiceCore {
         float phaseAngle = clampf(phaseParam + phaseCV * 0.1f, 0.0f, 1.0f) * 2.0f * (float)M_PI;
         float totalAngle = warpAngle + phaseAngle + rotMod;
 
-        float finalRadius = (rGeom + finalDisp) * scaleMod;
+        float finalRadius = (rGeom * geomScale + finalDisp) * scaleMod;
 
         // 13. Convert to Cartesian Coordinates
         float curX = finalRadius * std::cos(totalAngle);
