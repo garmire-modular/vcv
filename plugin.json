@@ -605,6 +605,18 @@
         "Polyphonic",
         "Waveshaper"
       ]
+    },
+    {
+      "slug": "Georgia",
+      "name": "Georgia",
+      "description": "3D rotating wireframe vector synthesizer and oscilloscope displacement engine with 3 geometric families, continuous morphing, 3D Euler rotations, perspective depth, and stereo audio displacement",
+      "tags": [
+        "Visual",
+        "Oscillator",
+        "Low-frequency oscillator",
+        "Polyphonic",
+        "Waveshaper"
+      ]
     }
   ]
 }

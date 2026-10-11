@@ -61,3 +61,4 @@ extern Model* modelBitGalois;
 extern Model* modelBitomata;
 extern Model* modelBitHamming;
 extern Model* modelAmpara;
+extern Model* modelGeorgia;
