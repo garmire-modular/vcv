@@ -242,14 +242,17 @@ struct VoiceCore {
         }
 
         // 10. Amplitude (Waveform displacement amplitude)
-        float ampDepth = clampf(ampParam + ampCV * 0.1f, 0.0f, 2.0f);
-        float finalDisp = (waveDisp * 0.2f) * ampDepth;
+        // Knob raw value is [0.0, 2.0] (displayed as 0% to 200%).
+        // Effective gain is capped at 1.75 (175%) to prevent extreme blowout:
+        float ampKnob = clampf(ampParam + ampCV * 0.1f, 0.0f, 2.0f);
+        float ampGain = ampKnob * (1.75f / 2.0f); // Max 1.75x gain factor
+        float finalDisp = (waveDisp * 0.2f) * ampGain;
 
-        // Intelligent reduction in scale of the shape in proportion to the amplitude amount:
-        // When ampDepth = 0, geomScale = 1.0 (100% full scale).
-        // As ampDepth increases, the shape shrinks inward to headroom for the waveform ripples:
-        // At max ampDepth = 2.0, geomScale reduces down to ~0.33, preventing clipping bounds.
-        float geomScale = 1.0f / (1.0f + ampDepth);
+        // Balanced headroom scaling:
+        // Calculated based on maximum displacement from ampGain, ensuring that as amplitude increases,
+        // the outer boundary of the waveform ripples stays roughly at nominal unity (1.0),
+        // with minimal perceptual shrinking of the outer bounding frame.
+        float geomScale = 1.0f / (1.0f + 0.35f * ampGain);
 
         // 11. Scale & Rotation from Routing Channel R
         float scaleMod = 1.0f + (routing * envR * 0.7f);

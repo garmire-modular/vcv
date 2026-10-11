@@ -648,11 +648,10 @@ struct AmparaWidget : ModuleWidget {
 			"LFO (0.01 - 200 Hz)",
 			"VCO (150 Hz - 2 kHz)"
 		};
-		const char* rightTexts[] = {"Yellow", "Teal", "Magenta"};
 
 		for (int i = 0; i < 3; i++) {
 			Ampara::RangeMode mode = (Ampara::RangeMode)i;
-			menu->addChild(createCheckMenuItem(rangeLabels[i], rightTexts[i],
+			menu->addChild(createCheckMenuItem(rangeLabels[i], "",
 				[=]() { return ampara->rangeMode == mode; },
 				[=]() { ampara->rangeMode = mode; }
 			));
