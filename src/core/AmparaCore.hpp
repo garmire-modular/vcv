@@ -233,40 +233,35 @@ struct VoiceCore {
             rGeom *= (1.0f + warp * 0.4f * std::cos(2.0f * theta));
         }
 
-        // 9. Amplitude (Waveform displacement amplitude)
+        // 9. Pre-Amplitude Transform: Polly's Stretch Parameter (Bipolar [-1.0, +1.0])
+        // Applied directly to geometric base before audio amplitude displacement
+        float stretchVal = clampf(stretchParam + stretchCV * 0.2f, -1.0f, 1.0f);
+        if (std::abs(stretchVal) > 1e-4f) {
+            float dampFactor = 1.0f + stretchVal * 4.0f * (1.0f - rGeom);
+            rGeom *= dampFactor;
+        }
+
+        // 10. Amplitude (Waveform displacement amplitude)
         float ampDepth = clampf(ampParam + ampCV * 0.1f, 0.0f, 2.0f);
         float finalDisp = (waveDisp * 0.2f) * ampDepth;
 
-        // 10. Scale & Rotation from Routing Channel R
+        // 11. Scale & Rotation from Routing Channel R
         float scaleMod = 1.0f + (routing * envR * 0.7f);
         float rotMod = routing * envR * (float)M_PI;
 
-        // 11. End-of-line Phase Rotation
+        // 12. End-of-line Phase Rotation
         float phaseAngle = clampf(phaseParam + phaseCV * 0.1f, 0.0f, 1.0f) * 2.0f * (float)M_PI;
         float totalAngle = warpAngle + phaseAngle + rotMod;
 
         float finalRadius = (rGeom + finalDisp) * scaleMod;
 
-        // 12. Convert to Cartesian Coordinates
+        // 13. Convert to Cartesian Coordinates
         float curX = finalRadius * std::cos(totalAngle);
         float curY = finalRadius * std::sin(totalAngle);
 
-        // 13. Polly's Stretch Parameter (Bipolar [-1.0, +1.0])
-        // Stretch happens LAST (Harmonograph Logarithmic Spiral with Depth Factor 4.0 matching Polly)
-        float stretchVal = clampf(stretchParam + stretchCV * 0.2f, -1.0f, 1.0f);
-        if (std::abs(stretchVal) > 1e-4f) {
-            float rNorm = std::sqrt(curX * curX + curY * curY);
-            float dampFactor = 1.0f + stretchVal * 4.0f * (1.0f - rNorm);
-            curX *= dampFactor;
-            curY *= dampFactor;
-        }
-
-        // 14. Output Deflection (Standard ±5V, soft limiter at ±10V)
-        float rawX = 5.0f * curX;
-        float rawY = 5.0f * curY;
-
-        outX = 10.0f * std::tanh(rawX * 0.1f);
-        outY = 10.0f * std::tanh(rawY * 0.1f);
+        // 14. Output Deflection (Standard Eurorack ±5V, clamped cleanly at ±10V to preserve perfect geometry)
+        outX = clampf(curX * 5.0f, -10.0f, 10.0f);
+        outY = clampf(curY * 5.0f, -10.0f, 10.0f);
     }
 };
 

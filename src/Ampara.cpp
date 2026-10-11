@@ -256,8 +256,8 @@ struct Ampara : Module {
 
 		// Knobs: Row 1
 		// Freq (Range) Fine Shape Warp Window
-		configParam<FreqParamQuantity>(FREQ_PARAM, 0.f, 1.f, 0.5f, "Frequency", " Hz");
-		configButton(RANGE_PARAM, "Frequency Range");
+		configParam<FreqParamQuantity>(FREQ_PARAM, 0.f, 1.f, 0.5477226f, "Frequency", "");
+		configButton(RANGE_PARAM, "Range time-scale");
 		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine Tune", "%", 0.f, 100.f);
 		configParam<ShapeParamQuantity>(SHAPE_PARAM, 2.f, 8.f, 2.f, "Shape", "");
 		configParam(WARP_PARAM, -1.f, 1.f, 0.f, "Warp", "%", 0.f, 100.f);
@@ -292,8 +292,8 @@ struct Ampara : Module {
 
 		// Jacks: Row 1
 		// Left Input, Right Input, Freq, Shape, Warp, Window
-		configInput(L_INPUT, "Audio In L");
-		configInput(R_INPUT, "Audio In R (Normalled to L)");
+		configInput(L_INPUT, "Left audio input");
+		configInput(R_INPUT, "Right audio input");
 		configInput(FREQ_CV_INPUT, "Frequency CV");
 		configInput(SHAPE_CV_INPUT, "Shape CV");
 		configInput(WARP_CV_INPUT, "Warp CV");
@@ -538,10 +538,10 @@ struct AmparaWidget : ModuleWidget {
 		if (!ampara) return;
 
 		menu->addChild(new MenuSeparator());
-		menu->addChild(createMenuLabel("Oscillator Range"));
+		menu->addChild(createMenuLabel("Frequency range time-scale"));
 
 		const char* rangeLabels[] = {
-			"Very Slow (600s - 0.1s)",
+			"Very slow (600s - 0.1s)",
 			"LFO (0.01 - 200 Hz)",
 			"VCO (150 Hz - 2 kHz)"
 		};

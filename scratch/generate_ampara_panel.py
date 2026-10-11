@@ -119,6 +119,8 @@ def main():
 
     # Button between Col 0 and Col 1: (12.00 + 27.52)/2 = 19.76 mm
     btn_x = (cols[0] + cols[1]) / 2.0
+    # Range button label: RANGE at baseline Y = 11.500
+    svg_parts.append(render_qs_text(qs_font, "RANGE", btn_x, 11.500, 0.001600, "#2c2c2c", "RANGE Button Label"))
 
     # Row 1 Knob Labels (Center Y = 21.59, label Y = 14.500)
     svg_parts.append(render_qs_text(qs_font, "FREQ", cols[0], 14.500, 0.002500, "#1c1c1c", "FREQ Label"))
@@ -137,8 +139,8 @@ def main():
 
     # Zone 3: CV Attenuverter Trimpots (6 columns)
     # Row 1: Left Input, Right Input, Freq, Shape, Warp, Window (Center Y = 63.50, label Y = 59.500)
-    svg_parts.append(render_qs_text(qs_font, "IN L", cols[0], 59.500, 0.001800, "#2c2c2c", "IN L Trim"))
-    svg_parts.append(render_qs_text(qs_font, "IN R", cols[1], 59.500, 0.001800, "#2c2c2c", "IN R Trim"))
+    svg_parts.append(render_qs_text(qs_font, "LEFT IN", cols[0], 59.500, 0.001600, "#2c2c2c", "LEFT IN Trim"))
+    svg_parts.append(render_qs_text(qs_font, "RIGHT IN", cols[1], 59.500, 0.001600, "#2c2c2c", "RIGHT IN Trim"))
     svg_parts.append(render_qs_text(qs_font, "FREQ", cols[2], 59.500, 0.001800, "#2c2c2c", "FREQ Trim"))
     svg_parts.append(render_qs_text(qs_font, "SHAPE", cols[3], 59.500, 0.001800, "#2c2c2c", "SHAPE Trim"))
     svg_parts.append(render_qs_text(qs_font, "WARP", cols[4], 59.500, 0.001800, "#2c2c2c", "WARP Trim"))
@@ -154,8 +156,8 @@ def main():
 
     # Zone 4: Jacks
     # Row 1 Jacks: Left Input, Right Input, Freq, Shape, Warp, Window (Center Y = 94.00, label Y = 89.500)
-    svg_parts.append(render_qs_text(qs_font, "IN L", cols[0], 89.500, 0.001900, "#1c1c1c", "IN L Jack"))
-    svg_parts.append(render_qs_text(qs_font, "IN R", cols[1], 89.500, 0.001900, "#1c1c1c", "IN R Jack"))
+    svg_parts.append(render_qs_text(qs_font, "LEFT IN", cols[0], 89.500, 0.001700, "#1c1c1c", "LEFT IN Jack"))
+    svg_parts.append(render_qs_text(qs_font, "RIGHT IN", cols[1], 89.500, 0.001700, "#1c1c1c", "RIGHT IN Jack"))
     svg_parts.append(render_qs_text(qs_font, "FREQ", cols[2], 89.500, 0.001800, "#2c2c2c", "FREQ Jack"))
     svg_parts.append(render_qs_text(qs_font, "SHAPE", cols[3], 89.500, 0.001800, "#2c2c2c", "SHAPE Jack"))
     svg_parts.append(render_qs_text(qs_font, "WARP", cols[4], 89.500, 0.001800, "#2c2c2c", "WARP Jack"))
