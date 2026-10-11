@@ -470,18 +470,19 @@ struct AmparaWidget : ModuleWidget {
 		// 6 Columns across 101.60 mm: cols = [12.00, 27.52, 43.04, 58.56, 74.08, 89.60] mm
 		const float cols[6] = {12.00f, 27.52f, 43.04f, 58.56f, 74.08f, 89.60f};
 
-		// Row 1 Knobs (Center Y = 21.59 mm): Freq (Range) Fine Shape Warp Window
+		// Row 1 (Center Y = 21.59 mm):
+		// Col 0: FREQ
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[0], 21.59f)), module, Ampara::FREQ_PARAM));
 		
-		// Range Button and LED centered between Col 0 and Col 1 (19.76 mm)
-		const float btn_x = 19.76f;
-		addChild(createLightCentered<AmparaRangeLightWidget>(mm2px(Vec(btn_x, 15.50f)), module, Ampara::RANGE_LIGHT_YELLOW));
-		addParam(createParamCentered<TL1105>(mm2px(Vec(btn_x, 21.59f)), module, Ampara::RANGE_PARAM));
+		// Col 1: RANGE Button and LED centered directly above AMP (cols[1])
+		addChild(createLightCentered<AmparaRangeLightWidget>(mm2px(Vec(cols[1], 15.50f)), module, Ampara::RANGE_LIGHT_YELLOW));
+		addParam(createParamCentered<TL1105>(mm2px(Vec(cols[1], 21.59f)), module, Ampara::RANGE_PARAM));
 
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[1], 21.59f)), module, Ampara::FINE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[2], 21.59f)), module, Ampara::SHAPE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[3], 21.59f)), module, Ampara::WARP_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[4], 21.59f)), module, Ampara::WINDOW_PARAM));
+		// Col 2..5: FINE, SHAPE, WARP, WINDOW
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[2], 21.59f)), module, Ampara::FINE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[3], 21.59f)), module, Ampara::SHAPE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[4], 21.59f)), module, Ampara::WARP_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[5], 21.59f)), module, Ampara::WINDOW_PARAM));
 
 		// Row 2 Knobs (Center Y = 43.00 mm): Routing Amp Rise Fall Phase Stretch
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[0], 43.00f)), module, Ampara::ROUTING_PARAM));
