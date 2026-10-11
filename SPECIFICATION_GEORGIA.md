@@ -13,7 +13,7 @@
 - **Palette Badge**: Left-aligned $2.54\text{ mm} \times 88.90\text{ mm}$ rectangle with `#5d5d5d` initial placeholder.
 - **Polyphony**: 1 to 16 voices dynamically allocated based on connected inputs.
 - **Safety Standard**: Real-time safe DSP core (`src/core/GeorgiaCore.hpp`) with zero heap allocations in `process()`, zero system locks, zero file I/O, and no external dependencies.
-- **Module Version**: `v1.1.0`.
+- **Module Version**: `v1.1.1`.
 
 ---
 
@@ -21,7 +21,7 @@
 
 Following repository layout invariants:
 - **Module Title**: Baseline $Y = 7.620\text{ mm}$, centered at $X = 45.720\text{ mm}$ in lowercase `res/Node.otf` (scale 0.0048).
-- **Version Tag**: Baseline $Y = 10.414\text{ mm}$, centered at $X = 45.720\text{ mm}$ in `res/Quicksand-Regular.ttf` (`v1.1.0`, scale 0.0016).
+- **Version Tag**: Baseline $Y = 10.414\text{ mm}$, centered at $X = 45.720\text{ mm}$ in `res/Quicksand-Regular.ttf` (`v1.1.1`, scale 0.0016).
 - **5 Columns across 18 HP ($91.44\text{ mm}$)**:
   - Margins: $13.52\text{ mm}$ left and right.
   - Pitch: $\Delta X = 16.10\text{ mm}$ center-to-center.
@@ -74,10 +74,10 @@ For beam orbit phase $\phi \in [0, 1)$ and wireframe density $K = 2 + 62 \cdot \
 - Parameter $u = 2\pi \cdot (\phi \cdot K \pmod 1)$ (meridian sweep)
 - Parameter $v = \pi \cdot \phi$ (latitude progression)
 
-1. **Family 1: Sphere $\leftrightarrow$ Toroid**:
+1. **Family 1: Sphere $\leftrightarrow$ Toroid (Donut)**:
    - Sphere: $x = \cos(u)\sin(v), y = \sin(u)\sin(v), z = \cos(v)$
-   - Toroid (major radius $R_1 = 0.70$, tube radius $R_2 = 0.35$):
-     $x = (R_1 + R_2\cos(u))\cos(v), y = (R_1 + R_2\cos(u))\sin(v), z = R_2\sin(u)$
+   - Toroid (Donut with central hole): The major ring angle completes a full $2\pi$ revolution via $\varphi = 2v \in [0, 2\pi]$ (with major radius $R_1 = 0.65$, tube radius $R_2 = 0.30$, producing inner hole radius $0.35$ and outer radius $0.95$):
+     $$x = (R_1 + R_2\cos(u))\cos(2v), \quad y = (R_1 + R_2\cos(u))\sin(2v), \quad z = R_2\sin(u)$$
    - Morph blends position and surface normals smoothly.
 
 2. **Family 2: Cube $\leftrightarrow$ Cylinder (Exact Sharp Corners)**:

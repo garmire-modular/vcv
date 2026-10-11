@@ -31,6 +31,32 @@ int main() {
         std::cout << "-> Sharp cube corner check passed (P = " << P.x << ", " << P.y << ", " << P.z << ")" << std::endl;
     }
 
+    // 2b. Toroid Donut Check: At Shape=0, Morph=1, toroid must have a clear donut hole (inner radius ~0.35, outer radius ~0.95)
+    // and full 360-degree revolution in Y both positive and negative
+    {
+        Vec3 p0, n0, pQuarter, nQuarter, pHalf, nHalf, pThreeQuarter, nThreeQuarter;
+        // Inner edge: u = pi (cos(u) = -1) -> radius = R1 - R2 = 0.65 - 0.30 = 0.35
+        VoiceCore::generateSurfacePoint(0.0f, 1.0f, (float)M_PI, 0.0f, p0, n0); // phi = 0
+        assert(std::abs(p0.x - 0.35f) < 1e-3f);
+        assert(std::abs(p0.y) < 1e-3f);
+
+        // At v = pi/4 -> phi = 2*v = pi/2 -> y > 0
+        VoiceCore::generateSurfacePoint(0.0f, 1.0f, (float)M_PI, (float)M_PI * 0.25f, pQuarter, nQuarter);
+        assert(std::abs(pQuarter.x) < 1e-3f);
+        assert(std::abs(pQuarter.y - 0.35f) < 1e-3f);
+
+        // At v = 3*pi/4 -> phi = 2*v = 3*pi/2 -> y < 0 (full closed donut reaching negative Y!)
+        VoiceCore::generateSurfacePoint(0.0f, 1.0f, (float)M_PI, (float)M_PI * 0.75f, pThreeQuarter, nThreeQuarter);
+        assert(std::abs(pThreeQuarter.x) < 1e-3f);
+        assert(std::abs(pThreeQuarter.y - (-0.35f)) < 1e-3f);
+
+        // Outer edge: u = 0 (cos(u) = 1) -> radius = R1 + R2 = 0.65 + 0.30 = 0.95
+        VoiceCore::generateSurfacePoint(0.0f, 1.0f, 0.0f, 0.0f, pHalf, nHalf);
+        assert(std::abs(pHalf.x - 0.95f) < 1e-3f);
+
+        std::cout << "-> Toroid donut hole & 360-degree closed revolution check passed (Hole = 0.35, Outer = 0.95)" << std::endl;
+    }
+
     // 3. Stretch effect on Sphere check: Stretch should alter coordinates off equator
     {
         float x0 = 0.0f, y0 = 0.0f, s0 = 0.0f;

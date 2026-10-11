@@ -115,11 +115,18 @@ struct VoiceCore {
             Vec3 pSphere(cu * sv, su * sv, cv);
             Vec3 nSphere = pSphere.normalized();
 
-            // Toroid: major radius R1 = 0.70, tube radius R2 = 0.35
-            float R1 = 0.70f;
-            float R2 = 0.35f;
-            Vec3 pToroid((R1 + R2 * cu) * cv, (R1 + R2 * cu) * sv, R2 * su);
-            Vec3 nToroid(cu * cv, cu * sv, su);
+            // Toroid (Donut):
+            // The major ring angle completes a full 2*pi revolution over v in [0, pi] (2*v in [0, 2pi])
+            // The tube cross-section is swept by u in [0, 2pi]
+            // Major radius R1 = 0.65, tube radius R2 = 0.30 (inner hole = 0.35, outer = 0.95)
+            float phi = 2.0f * v;
+            float cphi = std::cos(phi);
+            float sphi = std::sin(phi);
+            float R1 = 0.65f;
+            float R2 = 0.30f;
+
+            Vec3 pToroid((R1 + R2 * cu) * cphi, (R1 + R2 * cu) * sphi, R2 * su);
+            Vec3 nToroid(cu * cphi, cu * sphi, su);
 
             p = pSphere * (1.0f - morph) + pToroid * morph;
             n = (nSphere * (1.0f - morph) + nToroid * morph).normalized();
