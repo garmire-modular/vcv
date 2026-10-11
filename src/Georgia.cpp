@@ -9,9 +9,9 @@
 // ─────────────────────────────────────────────────────────────────────
 //  Georgia — 3D Rotating Wireframe Vector Synthesizer (18 HP)
 //  Generate class module producing animated 3D wireframe surfaces
-//  (Sphere/Torus, Cube/Cylinder, Pyramid/Cone) with perspective camera
-//  depth, 3D Euler rotations, Polly logarithmic stretch, and dual-channel
-//  audio waveform displacement.
+//  (Sphere/Toroid, Cube/Cylinder, Pyramid/Cone) with perspective camera
+//  depth, 3D Euler rotations, Polly logarithmic stretch, 3D twist,
+//  and mono audio waveform displacement with equatorial spread control.
 // ─────────────────────────────────────────────────────────────────────
 
 namespace {
@@ -34,59 +34,67 @@ struct Georgia : Module {
 		SHAPE_PARAM,
 		MORPH_PARAM,
 
-		// Row 2 Knobs: DENSITY, DEPTH, WINDOW, ROUTING, AMP
+		// Row 2 Knobs: DENSITY, DEPTH, WINDOW, SPREAD, AMP
 		DENSITY_PARAM,
 		DEPTH_PARAM,
 		WINDOW_PARAM,
-		ROUTING_PARAM,
+		SPREAD_PARAM,
 		AMP_PARAM,
 
-		// Row 3 Knobs: FOV, ROT X, ROT Y, PHASE, STRETCH
-		FOV_PARAM,
+		// Row 3 Knobs: TWIST, ROT X, ROT Y, ROT Z, STRETCH
+		TWIST_PARAM,
 		ROT_X_PARAM,
 		ROT_Y_PARAM,
-		PHASE_PARAM,
+		ROT_Z_PARAM,
 		STRETCH_PARAM,
 
 		// Zone 3 Attenuverter Trimpots: Row 1
-		// LEFT IN, RIGHT IN, FREQ, SHAPE, MORPH
-		L_TRIM_PARAM,
-		R_TRIM_PARAM,
+		// IN, FREQ, FINE, SHAPE, MORPH
+		IN_TRIM_PARAM,
 		FREQ_TRIM_PARAM,
+		FINE_TRIM_PARAM,
 		SHAPE_TRIM_PARAM,
 		MORPH_TRIM_PARAM,
 
 		// Zone 3 Attenuverter Trimpots: Row 2
-		// DENSITY, DEPTH, WINDOW, ROUTING, AMP
+		// DENSITY, DEPTH, WINDOW, SPREAD, AMP
 		DENSITY_TRIM_PARAM,
 		DEPTH_TRIM_PARAM,
 		WINDOW_TRIM_PARAM,
-		ROUTING_TRIM_PARAM,
+		SPREAD_TRIM_PARAM,
 		AMP_TRIM_PARAM,
+
+		// Zone 3 Attenuverter Trimpots: Row 3
+		// TWIST, ROT X, ROT Y, ROT Z, STRETCH
+		TWIST_TRIM_PARAM,
+		ROT_X_TRIM_PARAM,
+		ROT_Y_TRIM_PARAM,
+		ROT_Z_TRIM_PARAM,
+		STRETCH_TRIM_PARAM,
 
 		PARAMS_LEN
 	};
 
 	enum InputId {
-		// Jack Row 1: LEFT IN, RIGHT IN, FREQ, SHAPE, MORPH
-		L_INPUT,
-		R_INPUT,
+		// Jack Row 1: IN, FREQ, FINE, SHAPE, MORPH
+		IN_INPUT,
 		FREQ_CV_INPUT,
+		FINE_CV_INPUT,
 		SHAPE_CV_INPUT,
 		MORPH_CV_INPUT,
 
-		// Jack Row 2: DENSITY, DEPTH, WINDOW, ROUTING, AMP
+		// Jack Row 2: DENSITY, DEPTH, WINDOW, SPREAD, AMP
 		DENSITY_CV_INPUT,
 		DEPTH_CV_INPUT,
 		WINDOW_CV_INPUT,
-		ROUTING_CV_INPUT,
+		SPREAD_CV_INPUT,
 		AMP_CV_INPUT,
 
-		// Jack Row 3: FOV, ROT X, ROT Y, PHASE, STRETCH
-		FOV_CV_INPUT,
+		// Jack Row 3: TWIST, ROT X, ROT Y, ROT Z, STRETCH
+		TWIST_CV_INPUT,
 		ROT_X_CV_INPUT,
 		ROT_Y_CV_INPUT,
-		PHASE_CV_INPUT,
+		ROT_Z_CV_INPUT,
 		STRETCH_CV_INPUT,
 
 		// Jack Row 4: SYNC IN
@@ -277,7 +285,7 @@ struct Georgia : Module {
 			float val = getValue();
 			char buf[64];
 			if (val < 0.5f) {
-				std::snprintf(buf, sizeof(buf), "Sphere / Torus (%.2f)", val);
+				std::snprintf(buf, sizeof(buf), "Sphere / Toroid (%.2f)", val);
 			} else if (val < 1.5f) {
 				std::snprintf(buf, sizeof(buf), "Cube / Cylinder (%.2f)", val);
 			} else {
@@ -306,17 +314,6 @@ struct Georgia : Module {
 		}
 	};
 
-	struct RoutingParamQuantity : ParamQuantity {
-		std::string getDisplayValueString() override {
-			float v = getValue();
-			int avgPct = (int)std::round((1.0f - v) * 100.0f);
-			int sepPct = 100 - avgPct;
-			char buf[64];
-			std::snprintf(buf, sizeof(buf), "%d%% L+R Average : %d%% L R Separate", avgPct, sepPct);
-			return std::string(buf);
-		}
-	};
-
 	struct AngleParamQuantity : ParamQuantity {
 		float getDisplayValue() override {
 			return getValue() * 180.0f;
@@ -331,7 +328,7 @@ struct Georgia : Module {
 		}
 	};
 
-	struct PhaseParamQuantity : ParamQuantity {
+	struct RotZParamQuantity : ParamQuantity {
 		float getDisplayValue() override {
 			return getValue() * 360.0f;
 		}
@@ -352,72 +349,80 @@ struct Georgia : Module {
 		// FREQ, RANGE, FINE, SHAPE, MORPH
 		configParam<FreqParamQuantity>(FREQ_PARAM, 0.f, 1.f, 0.5477226f, "Frequency", "");
 		configButton(RANGE_PARAM, "Range time-scale");
-		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine Tune", "%", 0.f, 100.f);
+		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine tune", "%", 0.f, 100.f);
 		configParam<ShapeParamQuantity>(SHAPE_PARAM, 0.f, 2.f, 0.f, "Shape", "");
 		configParam(MORPH_PARAM, 0.f, 1.f, 0.f, "Morph", "%", 0.f, 100.f);
 
 		// Knobs: Row 2
-		// DENSITY, DEPTH, WINDOW, ROUTING, AMP
+		// DENSITY, DEPTH, WINDOW, SPREAD, AMP
 		configParam(DENSITY_PARAM, 0.f, 1.f, 0.5f, "Density", "%", 0.f, 100.f);
 		configParam(DEPTH_PARAM, 0.f, 1.f, 0.7f, "Depth", "%", 0.f, 100.f);
-		configParam<WindowParamQuantity>(WINDOW_PARAM, 0.f, 1.f, 0.5f, "Buffer Window", " ms");
-		configParam<RoutingParamQuantity>(ROUTING_PARAM, 0.f, 1.f, 0.f, "Routing", "");
-		configParam(AMP_PARAM, 0.f, 2.f, 1.f, "Amplitude", "%", 0.f, 100.f);
+		configParam<WindowParamQuantity>(WINDOW_PARAM, 0.f, 1.f, 0.5f, "Buffer window", " ms");
+		configParam(SPREAD_PARAM, 0.f, 1.f, 1.0f, "Spread", "%", 0.f, 100.f);
+		configParam(AMP_PARAM, 0.f, 1.f, 0.0f, "Amplitude", "%", 0.f, 100.f); // Default 0%, Max 100%
 
 		// Knobs: Row 3
-		// FOV, ROT X, ROT Y, PHASE, STRETCH
-		configParam(FOV_PARAM, 0.f, 1.f, 0.5f, "Field of view", "%", 0.f, 100.f);
+		// TWIST, ROT X, ROT Y, ROT Z, STRETCH
+		configParam(TWIST_PARAM, -1.f, 1.f, 0.f, "Twist", "%", 0.f, 100.f);
 		configParam<AngleParamQuantity>(ROT_X_PARAM, -1.f, 1.f, 0.15f, "X rotation", "°");
 		configParam<AngleParamQuantity>(ROT_Y_PARAM, -1.f, 1.f, 0.25f, "Y rotation", "°");
-		configParam<PhaseParamQuantity>(PHASE_PARAM, 0.f, 1.f, 0.f, "Phase", "°");
+		configParam<RotZParamQuantity>(ROT_Z_PARAM, 0.f, 1.f, 0.f, "Z rotation", "°");
 		configParam(STRETCH_PARAM, -1.f, 1.f, 0.f, "Stretch", "%", 0.f, 100.f);
 
 		// Zone 3 Attenuverter Trimpots: Row 1
-		// LEFT IN, RIGHT IN, FREQ, SHAPE, MORPH
-		configParam(L_TRIM_PARAM, -1.f, 1.f, 1.f, "Left input level", "%", 0.f, 100.f);
-		configParam(R_TRIM_PARAM, -1.f, 1.f, 1.f, "Right input level", "%", 0.f, 100.f);
+		// IN, FREQ, FINE, SHAPE, MORPH
+		configParam(IN_TRIM_PARAM, -1.f, 1.f, 1.f, "Input level", "%", 0.f, 100.f);
 		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV depth", "%", 0.f, 100.f);
+		configParam(FINE_TRIM_PARAM, -1.f, 1.f, 0.f, "Fine tune CV depth", "%", 0.f, 100.f);
 		configParam(SHAPE_TRIM_PARAM, -1.f, 1.f, 0.f, "Shape CV depth", "%", 0.f, 100.f);
 		configParam(MORPH_TRIM_PARAM, -1.f, 1.f, 0.f, "Morph CV depth", "%", 0.f, 100.f);
 
 		// Zone 3 Attenuverter Trimpots: Row 2
-		// DENSITY, DEPTH, WINDOW, ROUTING, AMP
+		// DENSITY, DEPTH, WINDOW, SPREAD, AMP
 		configParam(DENSITY_TRIM_PARAM, -1.f, 1.f, 0.f, "Density CV depth", "%", 0.f, 100.f);
 		configParam(DEPTH_TRIM_PARAM, -1.f, 1.f, 0.f, "Depth CV depth", "%", 0.f, 100.f);
 		configParam(WINDOW_TRIM_PARAM, -1.f, 1.f, 0.f, "Window CV depth", "%", 0.f, 100.f);
-		configParam(ROUTING_TRIM_PARAM, -1.f, 1.f, 0.f, "Routing CV depth", "%", 0.f, 100.f);
+		configParam(SPREAD_TRIM_PARAM, -1.f, 1.f, 0.f, "Spread CV depth", "%", 0.f, 100.f);
 		configParam(AMP_TRIM_PARAM, -1.f, 1.f, 0.f, "Amplitude CV depth", "%", 0.f, 100.f);
 
+		// Zone 3 Attenuverter Trimpots: Row 3
+		// TWIST, ROT X, ROT Y, ROT Z, STRETCH
+		configParam(TWIST_TRIM_PARAM, -1.f, 1.f, 0.f, "Twist CV depth", "%", 0.f, 100.f);
+		configParam(ROT_X_TRIM_PARAM, -1.f, 1.f, 0.f, "X rotation CV depth", "%", 0.f, 100.f);
+		configParam(ROT_Y_TRIM_PARAM, -1.f, 1.f, 0.f, "Y rotation CV depth", "%", 0.f, 100.f);
+		configParam(ROT_Z_TRIM_PARAM, -1.f, 1.f, 0.f, "Z rotation CV depth", "%", 0.f, 100.f);
+		configParam(STRETCH_TRIM_PARAM, -1.f, 1.f, 0.f, "Stretch CV depth", "%", 0.f, 100.f);
+
 		// Jacks: Row 1
-		// LEFT IN, RIGHT IN, FREQ, SHAPE, MORPH
-		configInput(L_INPUT, "Left audio input");
-		configInput(R_INPUT, "Right audio input");
+		// IN, FREQ, FINE, SHAPE, MORPH
+		configInput(IN_INPUT, "Audio");
 		configInput(FREQ_CV_INPUT, "Frequency CV");
+		configInput(FINE_CV_INPUT, "Fine tune CV");
 		configInput(SHAPE_CV_INPUT, "Shape CV");
 		configInput(MORPH_CV_INPUT, "Morph CV");
 
 		// Jacks: Row 2
-		// DENSITY, DEPTH, WINDOW, ROUTING, AMP
+		// DENSITY, DEPTH, WINDOW, SPREAD, AMP
 		configInput(DENSITY_CV_INPUT, "Density CV");
 		configInput(DEPTH_CV_INPUT, "Depth CV");
 		configInput(WINDOW_CV_INPUT, "Window CV");
-		configInput(ROUTING_CV_INPUT, "Routing CV");
+		configInput(SPREAD_CV_INPUT, "Spread CV");
 		configInput(AMP_CV_INPUT, "Amplitude CV");
 
 		// Jacks: Row 3
-		// FOV, ROT X, ROT Y, PHASE, STRETCH
-		configInput(FOV_CV_INPUT, "Field of view CV");
+		// TWIST, ROT X, ROT Y, ROT Z, STRETCH
+		configInput(TWIST_CV_INPUT, "Twist CV");
 		configInput(ROT_X_CV_INPUT, "X rotation CV");
 		configInput(ROT_Y_CV_INPUT, "Y rotation CV");
-		configInput(PHASE_CV_INPUT, "Phase CV");
+		configInput(ROT_Z_CV_INPUT, "Z rotation CV");
 		configInput(STRETCH_CV_INPUT, "Stretch CV");
 
 		// Jacks: Row 4
 		// SYNC IN, X, Y, SYNC OUT
-		configInput(SYNC_INPUT, "Sync In");
+		configInput(SYNC_INPUT, "Sync");
 		configOutput(X_OUTPUT, "X");
 		configOutput(Y_OUTPUT, "Y");
-		configOutput(SYNC_OUTPUT, "Sync Out");
+		configOutput(SYNC_OUTPUT, "Sync");
 
 		for (int c = 0; c < 16; ++c) {
 			voices[c].reset();
@@ -442,20 +447,20 @@ struct Georgia : Module {
 		lights[RANGE_LIGHT_MAGENTA].setBrightness(rangeMode == garmire::georgia::RANGE_VCO ? 1.0f : 0.0f);
 
 		int channels = 1;
-		channels = std::max(channels, inputs[L_INPUT].getChannels());
-		channels = std::max(channels, inputs[R_INPUT].getChannels());
+		channels = std::max(channels, inputs[IN_INPUT].getChannels());
 		channels = std::max(channels, inputs[FREQ_CV_INPUT].getChannels());
+		channels = std::max(channels, inputs[FINE_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[SHAPE_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[MORPH_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[DENSITY_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[DEPTH_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[WINDOW_CV_INPUT].getChannels());
-		channels = std::max(channels, inputs[ROUTING_CV_INPUT].getChannels());
+		channels = std::max(channels, inputs[SPREAD_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[AMP_CV_INPUT].getChannels());
-		channels = std::max(channels, inputs[FOV_CV_INPUT].getChannels());
+		channels = std::max(channels, inputs[TWIST_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[ROT_X_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[ROT_Y_CV_INPUT].getChannels());
-		channels = std::max(channels, inputs[PHASE_CV_INPUT].getChannels());
+		channels = std::max(channels, inputs[ROT_Z_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[STRETCH_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[SYNC_INPUT].getChannels());
 		channels = std::min(channels, 16);
@@ -472,46 +477,52 @@ struct Georgia : Module {
 		float densityVal = params[DENSITY_PARAM].getValue();
 		float depthVal = params[DEPTH_PARAM].getValue();
 		float windowVal = params[WINDOW_PARAM].getValue();
-		float routingVal = params[ROUTING_PARAM].getValue();
+		float spreadVal = params[SPREAD_PARAM].getValue();
 		float ampVal = params[AMP_PARAM].getValue();
 
-		float fovVal = params[FOV_PARAM].getValue();
+		float twistVal = params[TWIST_PARAM].getValue();
 		float rotXVal = params[ROT_X_PARAM].getValue();
 		float rotYVal = params[ROT_Y_PARAM].getValue();
-		float phaseVal = params[PHASE_PARAM].getValue();
+		float rotZVal = params[ROT_Z_PARAM].getValue();
 		float stretchVal = params[STRETCH_PARAM].getValue();
 
-		float lTrim = params[L_TRIM_PARAM].getValue();
-		float rTrim = params[R_TRIM_PARAM].getValue();
+		float inTrim = params[IN_TRIM_PARAM].getValue();
 		float freqTrim = params[FREQ_TRIM_PARAM].getValue();
+		float fineTrim = params[FINE_TRIM_PARAM].getValue();
 		float shapeTrim = params[SHAPE_TRIM_PARAM].getValue();
 		float morphTrim = params[MORPH_TRIM_PARAM].getValue();
 
 		float densityTrim = params[DENSITY_TRIM_PARAM].getValue();
 		float depthTrim = params[DEPTH_TRIM_PARAM].getValue();
 		float windowTrim = params[WINDOW_TRIM_PARAM].getValue();
-		float routingTrim = params[ROUTING_TRIM_PARAM].getValue();
+		float spreadTrim = params[SPREAD_TRIM_PARAM].getValue();
 		float ampTrim = params[AMP_TRIM_PARAM].getValue();
 
+		float twistTrim = params[TWIST_TRIM_PARAM].getValue();
+		float rotXTrim = params[ROT_X_TRIM_PARAM].getValue();
+		float rotYTrim = params[ROT_Y_TRIM_PARAM].getValue();
+		float rotZTrim = params[ROT_Z_TRIM_PARAM].getValue();
+		float stretchTrim = params[STRETCH_TRIM_PARAM].getValue();
+
 		for (int c = 0; c < channels; ++c) {
-			float audioL = inputs[L_INPUT].getPolyVoltage(c) * lTrim;
-			float audioR = inputs[R_INPUT].isConnected() ? (inputs[R_INPUT].getPolyVoltage(c) * rTrim) : audioL;
+			float audioIn = inputs[IN_INPUT].getPolyVoltage(c) * inTrim;
 
 			float freqCV = inputs[FREQ_CV_INPUT].getPolyVoltage(c) * freqTrim;
+			float fineCV = inputs[FINE_CV_INPUT].getPolyVoltage(c) * fineTrim;
 			float shapeCV = inputs[SHAPE_CV_INPUT].getPolyVoltage(c) * shapeTrim;
 			float morphCV = inputs[MORPH_CV_INPUT].getPolyVoltage(c) * morphTrim;
 
 			float densityCV = inputs[DENSITY_CV_INPUT].getPolyVoltage(c) * densityTrim;
 			float depthCV = inputs[DEPTH_CV_INPUT].getPolyVoltage(c) * depthTrim;
 			float windowCV = inputs[WINDOW_CV_INPUT].getPolyVoltage(c) * windowTrim;
-			float routingCV = inputs[ROUTING_CV_INPUT].getPolyVoltage(c) * routingTrim;
+			float spreadCV = inputs[SPREAD_CV_INPUT].getPolyVoltage(c) * spreadTrim;
 			float ampCV = inputs[AMP_CV_INPUT].getPolyVoltage(c) * ampTrim;
 
-			float fovCV = inputs[FOV_CV_INPUT].getPolyVoltage(c);
-			float rotXCV = inputs[ROT_X_CV_INPUT].getPolyVoltage(c);
-			float rotYCV = inputs[ROT_Y_CV_INPUT].getPolyVoltage(c);
-			float phaseCV = inputs[PHASE_CV_INPUT].getPolyVoltage(c);
-			float stretchCV = inputs[STRETCH_CV_INPUT].getPolyVoltage(c);
+			float twistCV = inputs[TWIST_CV_INPUT].getPolyVoltage(c) * twistTrim;
+			float rotXCV = inputs[ROT_X_CV_INPUT].getPolyVoltage(c) * rotXTrim;
+			float rotYCV = inputs[ROT_Y_CV_INPUT].getPolyVoltage(c) * rotYTrim;
+			float rotZCV = inputs[ROT_Z_CV_INPUT].getPolyVoltage(c) * rotZTrim;
+			float stretchCV = inputs[STRETCH_CV_INPUT].getPolyVoltage(c) * stretchTrim;
 
 			float syncIn = inputs[SYNC_INPUT].getPolyVoltage(c);
 
@@ -522,20 +533,20 @@ struct Georgia : Module {
 			voices[c].scopeMode = scopeMode;
 			voices[c].process(
 				args.sampleRate,
-				coarseFreq, fineFreq, rangeMode, freqCV,
+				coarseFreq, fineFreq + fineCV * 0.1f, rangeMode, freqCV,
 				shapeVal, shapeCV,
 				morphVal, morphCV,
 				densityVal, densityCV,
 				depthVal, depthCV,
 				windowVal, windowCV,
-				routingVal, routingCV,
+				spreadVal, spreadCV,
 				ampVal, ampCV,
-				fovVal, fovCV,
+				twistVal, twistCV,
 				rotXVal, rotXCV,
 				rotYVal, rotYCV,
-				phaseVal, phaseCV,
+				rotZVal, rotZCV,
 				stretchVal, stretchCV,
-				audioL, audioR,
+				audioIn,
 				syncIn,
 				outX, outY, syncOut
 			);
@@ -596,57 +607,64 @@ struct GeorgiaWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[3], 21.59f)), module, Georgia::SHAPE_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[4], 21.59f)), module, Georgia::MORPH_PARAM));
 
-		// Row 2 Knobs (Center Y = 36.50 mm):
-		// DENSITY, DEPTH, WINDOW, ROUTING, AMP
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[0], 36.50f)), module, Georgia::DENSITY_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[1], 36.50f)), module, Georgia::DEPTH_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[2], 36.50f)), module, Georgia::WINDOW_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[3], 36.50f)), module, Georgia::ROUTING_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[4], 36.50f)), module, Georgia::AMP_PARAM));
+		// Row 2 Knobs (Center Y = 34.50 mm):
+		// DENSITY, DEPTH, WINDOW, SPREAD, AMP
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[0], 34.50f)), module, Georgia::DENSITY_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[1], 34.50f)), module, Georgia::DEPTH_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[2], 34.50f)), module, Georgia::WINDOW_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[3], 34.50f)), module, Georgia::SPREAD_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[4], 34.50f)), module, Georgia::AMP_PARAM));
 
-		// Row 3 Knobs (Center Y = 51.50 mm):
-		// FOV, ROT X, ROT Y, PHASE, STRETCH
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[0], 51.50f)), module, Georgia::FOV_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[1], 51.50f)), module, Georgia::ROT_X_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[2], 51.50f)), module, Georgia::ROT_Y_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[3], 51.50f)), module, Georgia::PHASE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[4], 51.50f)), module, Georgia::STRETCH_PARAM));
+		// Row 3 Knobs (Center Y = 47.50 mm):
+		// TWIST, ROT X, ROT Y, ROT Z, STRETCH
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[0], 47.50f)), module, Georgia::TWIST_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[1], 47.50f)), module, Georgia::ROT_X_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[2], 47.50f)), module, Georgia::ROT_Y_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[3], 47.50f)), module, Georgia::ROT_Z_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[4], 47.50f)), module, Georgia::STRETCH_PARAM));
 
-		// Zone 3: CV Attenuverter Trimpots (5 columns)
-		// Row 1 (Center Y = 66.00 mm): LEFT IN, RIGHT IN, FREQ, SHAPE, MORPH
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[0], 66.00f)), module, Georgia::L_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[1], 66.00f)), module, Georgia::R_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[2], 66.00f)), module, Georgia::FREQ_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[3], 66.00f)), module, Georgia::SHAPE_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[4], 66.00f)), module, Georgia::MORPH_TRIM_PARAM));
+		// Zone 3: CV Attenuverter Trimpots (3 rows of 5 columns)
+		// Row 1 (Center Y = 59.50 mm): IN, FREQ, FINE, SHAPE, MORPH
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[0], 59.50f)), module, Georgia::IN_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[1], 59.50f)), module, Georgia::FREQ_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[2], 59.50f)), module, Georgia::FINE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[3], 59.50f)), module, Georgia::SHAPE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[4], 59.50f)), module, Georgia::MORPH_TRIM_PARAM));
 
-		// Row 2 (Center Y = 76.00 mm): DENSITY, DEPTH, WINDOW, ROUTING, AMP
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[0], 76.00f)), module, Georgia::DENSITY_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[1], 76.00f)), module, Georgia::DEPTH_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[2], 76.00f)), module, Georgia::WINDOW_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[3], 76.00f)), module, Georgia::ROUTING_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[4], 76.00f)), module, Georgia::AMP_TRIM_PARAM));
+		// Row 2 (Center Y = 68.50 mm): DENSITY, DEPTH, WINDOW, SPREAD, AMP
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[0], 68.50f)), module, Georgia::DENSITY_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[1], 68.50f)), module, Georgia::DEPTH_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[2], 68.50f)), module, Georgia::WINDOW_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[3], 68.50f)), module, Georgia::SPREAD_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[4], 68.50f)), module, Georgia::AMP_TRIM_PARAM));
+
+		// Row 3 (Center Y = 77.50 mm): TWIST, ROT X, ROT Y, ROT Z, STRETCH
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[0], 77.50f)), module, Georgia::TWIST_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[1], 77.50f)), module, Georgia::ROT_X_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[2], 77.50f)), module, Georgia::ROT_Y_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[3], 77.50f)), module, Georgia::ROT_Z_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[4], 77.50f)), module, Georgia::STRETCH_TRIM_PARAM));
 
 		// Zone 4: Jacks
-		// Row 1 (Center Y = 89.50 mm): LEFT IN, RIGHT IN, FREQ, SHAPE, MORPH
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[0], 89.50f)), module, Georgia::L_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[1], 89.50f)), module, Georgia::R_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[2], 89.50f)), module, Georgia::FREQ_CV_INPUT));
+		// Row 1 (Center Y = 89.50 mm): IN, FREQ, FINE, SHAPE, MORPH
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[0], 89.50f)), module, Georgia::IN_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[1], 89.50f)), module, Georgia::FREQ_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[2], 89.50f)), module, Georgia::FINE_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[3], 89.50f)), module, Georgia::SHAPE_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[4], 89.50f)), module, Georgia::MORPH_CV_INPUT));
 
-		// Row 2 (Center Y = 99.00 mm): DENSITY, DEPTH, WINDOW, ROUTING, AMP
+		// Row 2 (Center Y = 99.00 mm): DENSITY, DEPTH, WINDOW, SPREAD, AMP
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[0], 99.00f)), module, Georgia::DENSITY_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[1], 99.00f)), module, Georgia::DEPTH_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[2], 99.00f)), module, Georgia::WINDOW_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[3], 99.00f)), module, Georgia::ROUTING_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[3], 99.00f)), module, Georgia::SPREAD_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[4], 99.00f)), module, Georgia::AMP_CV_INPUT));
 
-		// Row 3 (Center Y = 108.50 mm): FOV, ROT X, ROT Y, PHASE, STRETCH
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[0], 108.50f)), module, Georgia::FOV_CV_INPUT));
+		// Row 3 (Center Y = 108.50 mm): TWIST, ROT X, ROT Y, ROT Z, STRETCH
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[0], 108.50f)), module, Georgia::TWIST_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[1], 108.50f)), module, Georgia::ROT_X_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[2], 108.50f)), module, Georgia::ROT_Y_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[3], 108.50f)), module, Georgia::PHASE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[3], 108.50f)), module, Georgia::ROT_Z_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[4], 108.50f)), module, Georgia::STRETCH_CV_INPUT));
 
 		// Row 4 (Fixed Center Y = 118.00 mm): SYNC IN, X, Y, SYNC OUT
@@ -699,7 +717,7 @@ struct GeorgiaWidget : ModuleWidget {
 		menu->addChild(createMenuLabel("Shape Family Presets"));
 
 		const char* shapeLabels[] = {
-			"Sphere / Torus (Family 1)",
+			"Sphere / Toroid (Family 1)",
 			"Cube / Cylinder (Family 2)",
 			"Pyramid / Cone (Family 3)"
 		};

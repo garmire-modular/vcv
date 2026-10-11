@@ -81,10 +81,10 @@ def main():
             georgia_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version tag "v1.0.0"
+    # Version tag "v1.1.0"
     version_block = [
-        '  <!-- Label: "v1.0.0" -->',
-        render_qs_text(qs_reg_font, "v1.0.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v1.0.0")
+        '  <!-- Label: "v1.1.0" -->',
+        render_qs_text(qs_reg_font, "v1.1.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v1.1.0")
     ]
 
     svg_parts = [
@@ -97,8 +97,8 @@ def main():
         '    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>',
         '  </g>',
         '',
-        '  <!-- Delineator Line 1 (Main Controls / Attenuverters at Y = 59.50mm) -->',
-        f'  <line x1="2.54" y1="59.50" x2="{panel_w - 2.54:.2f}" y2="59.50" stroke="#999999" stroke-width="0.176"/>',
+        '  <!-- Delineator Line 1 (Main Controls / Attenuverters at Y = 53.50mm) -->',
+        f'  <line x1="2.54" y1="53.50" x2="{panel_w - 2.54:.2f}" y2="53.50" stroke="#999999" stroke-width="0.176"/>',
         '',
         '  <!-- Delineator Line 2 (Attenuverters / I/O Jacks at Y = 83.50mm) -->',
         f'  <line x1="2.54" y1="83.50" x2="{panel_w - 2.54:.2f}" y2="83.50" stroke="#999999" stroke-width="0.176"/>',
@@ -114,7 +114,7 @@ def main():
     # Uniform typography scale for all labels
     L_SCALE = 0.002200
 
-    # Row 1 (Center Y = 21.59 mm, label Y = 14.500 mm):
+    # Row 1 Knobs (Center Y = 21.59 mm, label Y = 14.500 mm):
     # Col 0: FREQ
     # Col 1: RANGE (Button + LED centered directly above DEPTH)
     # Col 2: FINE
@@ -126,70 +126,78 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "SHAPE", cols[3], 14.500, L_SCALE, "#1c1c1c", "SHAPE Label"))
     svg_parts.append(render_qs_text(qs_font, "MORPH", cols[4], 14.500, L_SCALE, "#1c1c1c", "MORPH Label"))
 
-    # Row 2 (Center Y = 36.50 mm, label Y = 29.500 mm):
+    # Row 2 Knobs (Center Y = 34.50 mm, label Y = 28.500 mm):
     # Col 0: DENSITY
     # Col 1: DEPTH
     # Col 2: WINDOW
-    # Col 3: ROUTING
+    # Col 3: SPREAD
     # Col 4: AMP
-    svg_parts.append(render_qs_text(qs_font, "DENSITY", cols[0], 29.500, L_SCALE, "#1c1c1c", "DENSITY Label"))
-    svg_parts.append(render_qs_text(qs_font, "DEPTH", cols[1], 29.500, L_SCALE, "#1c1c1c", "DEPTH Label"))
-    svg_parts.append(render_qs_text(qs_font, "WINDOW", cols[2], 29.500, L_SCALE, "#1c1c1c", "WINDOW Label"))
-    svg_parts.append(render_qs_text(qs_font, "ROUTING", cols[3], 29.500, L_SCALE, "#1c1c1c", "ROUTING Label"))
-    svg_parts.append(render_qs_text(qs_font, "AMP", cols[4], 29.500, L_SCALE, "#1c1c1c", "AMP Label"))
+    svg_parts.append(render_qs_text(qs_font, "DENSITY", cols[0], 28.500, L_SCALE, "#1c1c1c", "DENSITY Label"))
+    svg_parts.append(render_qs_text(qs_font, "DEPTH", cols[1], 28.500, L_SCALE, "#1c1c1c", "DEPTH Label"))
+    svg_parts.append(render_qs_text(qs_font, "WINDOW", cols[2], 28.500, L_SCALE, "#1c1c1c", "WINDOW Label"))
+    svg_parts.append(render_qs_text(qs_font, "SPREAD", cols[3], 28.500, L_SCALE, "#1c1c1c", "SPREAD Label"))
+    svg_parts.append(render_qs_text(qs_font, "AMP", cols[4], 28.500, L_SCALE, "#1c1c1c", "AMP Label"))
 
-    # Row 3 (Center Y = 51.50 mm, label Y = 44.500 mm):
-    # Col 0: FOV
+    # Row 3 Knobs (Center Y = 47.50 mm, label Y = 41.500 mm):
+    # Col 0: TWIST
     # Col 1: ROT X
     # Col 2: ROT Y
-    # Col 3: PHASE
+    # Col 3: ROT Z
     # Col 4: STRETCH
-    svg_parts.append(render_qs_text(qs_font, "FOV", cols[0], 44.500, L_SCALE, "#1c1c1c", "FOV Label"))
-    svg_parts.append(render_qs_text(qs_font, "ROT X", cols[1], 44.500, L_SCALE, "#1c1c1c", "ROT X Label"))
-    svg_parts.append(render_qs_text(qs_font, "ROT Y", cols[2], 44.500, L_SCALE, "#1c1c1c", "ROT Y Label"))
-    svg_parts.append(render_qs_text(qs_font, "PHASE", cols[3], 44.500, L_SCALE, "#1c1c1c", "PHASE Label"))
-    svg_parts.append(render_qs_text(qs_font, "STRETCH", cols[4], 44.500, L_SCALE, "#1c1c1c", "STRETCH Label"))
+    svg_parts.append(render_qs_text(qs_font, "TWIST", cols[0], 41.500, L_SCALE, "#1c1c1c", "TWIST Label"))
+    svg_parts.append(render_qs_text(qs_font, "ROT X", cols[1], 41.500, L_SCALE, "#1c1c1c", "ROT X Label"))
+    svg_parts.append(render_qs_text(qs_font, "ROT Y", cols[2], 41.500, L_SCALE, "#1c1c1c", "ROT Y Label"))
+    svg_parts.append(render_qs_text(qs_font, "ROT Z", cols[3], 41.500, L_SCALE, "#1c1c1c", "ROT Z Label"))
+    svg_parts.append(render_qs_text(qs_font, "STRETCH", cols[4], 41.500, L_SCALE, "#1c1c1c", "STRETCH Label"))
 
-    # Zone 3: CV Attenuverter Trimpots (5 columns)
-    # Row 1 (Center Y = 66.00 mm, label Y = 62.000 mm):
-    # LEFT IN, RIGHT IN, FREQ, SHAPE, MORPH
-    svg_parts.append(render_qs_text(qs_font, "LEFT IN", cols[0], 62.000, L_SCALE, "#2c2c2c", "LEFT IN Trim"))
-    svg_parts.append(render_qs_text(qs_font, "RIGHT IN", cols[1], 62.000, L_SCALE, "#2c2c2c", "RIGHT IN Trim"))
-    svg_parts.append(render_qs_text(qs_font, "FREQ", cols[2], 62.000, L_SCALE, "#2c2c2c", "FREQ Trim"))
-    svg_parts.append(render_qs_text(qs_font, "SHAPE", cols[3], 62.000, L_SCALE, "#2c2c2c", "SHAPE Trim"))
-    svg_parts.append(render_qs_text(qs_font, "MORPH", cols[4], 62.000, L_SCALE, "#2c2c2c", "MORPH Trim"))
+    # Zone 3: CV Attenuverter Trimpots (3 rows of 5 columns)
+    # Row 1 (Center Y = 59.50 mm, label Y = 56.000 mm):
+    # AUDIO IN (Col 0), FREQ (Col 1), FINE (Col 2), SHAPE (Col 3), MORPH (Col 4)
+    svg_parts.append(render_qs_text(qs_font, "IN", cols[0], 56.000, L_SCALE, "#2c2c2c", "IN Trim"))
+    svg_parts.append(render_qs_text(qs_font, "FREQ", cols[1], 56.000, L_SCALE, "#2c2c2c", "FREQ Trim"))
+    svg_parts.append(render_qs_text(qs_font, "FINE", cols[2], 56.000, L_SCALE, "#2c2c2c", "FINE Trim"))
+    svg_parts.append(render_qs_text(qs_font, "SHAPE", cols[3], 56.000, L_SCALE, "#2c2c2c", "SHAPE Trim"))
+    svg_parts.append(render_qs_text(qs_font, "MORPH", cols[4], 56.000, L_SCALE, "#2c2c2c", "MORPH Trim"))
 
-    # Row 2 (Center Y = 76.00 mm, label Y = 72.000 mm):
-    # DENSITY, DEPTH, WINDOW, ROUTING, AMP
-    svg_parts.append(render_qs_text(qs_font, "DENSITY", cols[0], 72.000, L_SCALE, "#2c2c2c", "DENSITY Trim"))
-    svg_parts.append(render_qs_text(qs_font, "DEPTH", cols[1], 72.000, L_SCALE, "#2c2c2c", "DEPTH Trim"))
-    svg_parts.append(render_qs_text(qs_font, "WINDOW", cols[2], 72.000, L_SCALE, "#2c2c2c", "WINDOW Trim"))
-    svg_parts.append(render_qs_text(qs_font, "ROUTING", cols[3], 72.000, L_SCALE, "#2c2c2c", "ROUTING Trim"))
-    svg_parts.append(render_qs_text(qs_font, "AMP", cols[4], 72.000, L_SCALE, "#2c2c2c", "AMP Trim"))
+    # Row 2 (Center Y = 68.50 mm, label Y = 65.000 mm):
+    # DENSITY (Col 0), DEPTH (Col 1), WINDOW (Col 2), SPREAD (Col 3), AMP (Col 4)
+    svg_parts.append(render_qs_text(qs_font, "DENSITY", cols[0], 65.000, L_SCALE, "#2c2c2c", "DENSITY Trim"))
+    svg_parts.append(render_qs_text(qs_font, "DEPTH", cols[1], 65.000, L_SCALE, "#2c2c2c", "DEPTH Trim"))
+    svg_parts.append(render_qs_text(qs_font, "WINDOW", cols[2], 65.000, L_SCALE, "#2c2c2c", "WINDOW Trim"))
+    svg_parts.append(render_qs_text(qs_font, "SPREAD", cols[3], 65.000, L_SCALE, "#2c2c2c", "SPREAD Trim"))
+    svg_parts.append(render_qs_text(qs_font, "AMP", cols[4], 65.000, L_SCALE, "#2c2c2c", "AMP Trim"))
+
+    # Row 3 (Center Y = 77.50 mm, label Y = 74.000 mm):
+    # TWIST (Col 0), ROT X (Col 1), ROT Y (Col 2), ROT Z (Col 3), STRETCH (Col 4)
+    svg_parts.append(render_qs_text(qs_font, "TWIST", cols[0], 74.000, L_SCALE, "#2c2c2c", "TWIST Trim"))
+    svg_parts.append(render_qs_text(qs_font, "ROT X", cols[1], 74.000, L_SCALE, "#2c2c2c", "ROT X Trim"))
+    svg_parts.append(render_qs_text(qs_font, "ROT Y", cols[2], 74.000, L_SCALE, "#2c2c2c", "ROT Y Trim"))
+    svg_parts.append(render_qs_text(qs_font, "ROT Z", cols[3], 74.000, L_SCALE, "#2c2c2c", "ROT Z Trim"))
+    svg_parts.append(render_qs_text(qs_font, "STRETCH", cols[4], 74.000, L_SCALE, "#2c2c2c", "STRETCH Trim"))
 
     # Zone 4: Jacks
     # Row 1 Jacks (Center Y = 89.50 mm, label Y = 85.000 mm):
-    # LEFT IN, RIGHT IN, FREQ, SHAPE, MORPH
-    svg_parts.append(render_qs_text(qs_font, "LEFT IN", cols[0], 85.000, L_SCALE, "#1c1c1c", "LEFT IN Jack"))
-    svg_parts.append(render_qs_text(qs_font, "RIGHT IN", cols[1], 85.000, L_SCALE, "#1c1c1c", "RIGHT IN Jack"))
-    svg_parts.append(render_qs_text(qs_font, "FREQ", cols[2], 85.000, L_SCALE, "#2c2c2c", "FREQ Jack"))
+    # IN, FREQ, FINE, SHAPE, MORPH
+    svg_parts.append(render_qs_text(qs_font, "IN", cols[0], 85.000, L_SCALE, "#1c1c1c", "IN Jack"))
+    svg_parts.append(render_qs_text(qs_font, "FREQ", cols[1], 85.000, L_SCALE, "#2c2c2c", "FREQ Jack"))
+    svg_parts.append(render_qs_text(qs_font, "FINE", cols[2], 85.000, L_SCALE, "#2c2c2c", "FINE Jack"))
     svg_parts.append(render_qs_text(qs_font, "SHAPE", cols[3], 85.000, L_SCALE, "#2c2c2c", "SHAPE Jack"))
     svg_parts.append(render_qs_text(qs_font, "MORPH", cols[4], 85.000, L_SCALE, "#2c2c2c", "MORPH Jack"))
 
     # Row 2 Jacks (Center Y = 99.00 mm, label Y = 94.500 mm):
-    # DENSITY, DEPTH, WINDOW, ROUTING, AMP
+    # DENSITY, DEPTH, WINDOW, SPREAD, AMP
     svg_parts.append(render_qs_text(qs_font, "DENSITY", cols[0], 94.500, L_SCALE, "#2c2c2c", "DENSITY Jack"))
     svg_parts.append(render_qs_text(qs_font, "DEPTH", cols[1], 94.500, L_SCALE, "#2c2c2c", "DEPTH Jack"))
     svg_parts.append(render_qs_text(qs_font, "WINDOW", cols[2], 94.500, L_SCALE, "#2c2c2c", "WINDOW Jack"))
-    svg_parts.append(render_qs_text(qs_font, "ROUTING", cols[3], 94.500, L_SCALE, "#2c2c2c", "ROUTING Jack"))
+    svg_parts.append(render_qs_text(qs_font, "SPREAD", cols[3], 94.500, L_SCALE, "#2c2c2c", "SPREAD Jack"))
     svg_parts.append(render_qs_text(qs_font, "AMP", cols[4], 94.500, L_SCALE, "#2c2c2c", "AMP Jack"))
 
     # Row 3 Jacks (Center Y = 108.50 mm, label Y = 104.000 mm):
-    # FOV, ROT X, ROT Y, PHASE, STRETCH
-    svg_parts.append(render_qs_text(qs_font, "FOV", cols[0], 104.000, L_SCALE, "#2c2c2c", "FOV Jack"))
+    # TWIST, ROT X, ROT Y, ROT Z, STRETCH
+    svg_parts.append(render_qs_text(qs_font, "TWIST", cols[0], 104.000, L_SCALE, "#2c2c2c", "TWIST Jack"))
     svg_parts.append(render_qs_text(qs_font, "ROT X", cols[1], 104.000, L_SCALE, "#2c2c2c", "ROT X Jack"))
     svg_parts.append(render_qs_text(qs_font, "ROT Y", cols[2], 104.000, L_SCALE, "#2c2c2c", "ROT Y Jack"))
-    svg_parts.append(render_qs_text(qs_font, "PHASE", cols[3], 104.000, L_SCALE, "#2c2c2c", "PHASE Jack"))
+    svg_parts.append(render_qs_text(qs_font, "ROT Z", cols[3], 104.000, L_SCALE, "#2c2c2c", "ROT Z Jack"))
     svg_parts.append(render_qs_text(qs_font, "STRETCH", cols[4], 104.000, L_SCALE, "#2c2c2c", "STRETCH Jack"))
 
     # Row 4 Jacks (Fixed Y = 118.00 mm, label Y = 113.500 mm):
@@ -235,14 +243,14 @@ def main():
     btn_r = 2.0 * r_px
     draw.ellipse([cols[1] * r_px - btn_r, 21.59 * r_px - btn_r, cols[1] * r_px + btn_r, 21.59 * r_px + btn_r], outline='#f0e442', width=2)
 
-    # Row 2 & Row 3 Knobs (Y = 36.50, 51.50 mm)
-    for ky in [36.50, 51.50]:
+    # Row 2 & Row 3 Knobs (Y = 34.50, 47.50 mm)
+    for ky in [34.50, 47.50]:
         for kx in cols:
             draw.ellipse([kx * r_px - kr, ky * r_px - kr, kx * r_px + kr, ky * r_px + kr], outline='#ffaa00', width=2)
 
-    # Trimpots: 5 cols at Y = 66.00 and 76.00 mm
+    # Trimpots: 5 cols at Y = 59.50, 68.50, 77.50 mm
     tr = 2.5 * r_px
-    for ty in [66.00, 76.00]:
+    for ty in [59.50, 68.50, 77.50]:
         for tx in cols:
             draw.ellipse([tx * r_px - tr, ty * r_px - tr, tx * r_px + tr, ty * r_px + tr], outline='#00ff88', width=2)
 
