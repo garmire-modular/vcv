@@ -21,9 +21,14 @@ Before writing or modifying any code, SVGs, or build configurations, you MUST ou
 ```markdown
 ### Pre-Flight Invariant Verification
 - [ ] **Architecture Check:** DSP changes preserve real-time safety (no malloc, free, locks, or file I/O in `process()`).
+- [ ] **Functional Taxonomy:** Module class (Generate, Transform, Utility, or Control) confirmed via user prompt and tagged in `plugin.json`.
+- [ ] **HP Sizing & Crowding Check:** Pre-flight component spacing verified against clearance tolerances; HP increase proposed to user if crowded.
+- [ ] **No Virtual Screws:** No `ScrewSilver` or `ScrewBlack` widgets added to `ModuleWidget`.
+- [ ] **Version Tracking:** Initial module version starts strictly at `v1.0.0` (independent of the overall plugin suite version `v2.X.X`), with per-module version recorded and autoincremented.
 - [ ] **Panel Edit Method:** Vector modifications target `scratch/generate_<module>_panel.py`, NEVER direct edits to `res/<Module>.svg`.
 - [ ] **Font Handling:** No `<text>` tags used. All typography converted to cubic paths (`C`) via `fontTools` + `pathops`.
-- [ ] **Sync Verification:** Any version bump is synchronously reflected across `plugin.json`, faceplate SVG, and `metamodule/assets/<Module>.png`.
+- [ ] **Port & Parameter Tooltips:** Tooltips use strict sentence case; no redundant "input"/"output" words in jack tooltips; attenuverters named `<Parameter> CV depth`.
+- [ ] **Sync Verification:** Mandatory per-module version bumps are synchronously reflected across `plugin.json`, faceplate SVG, and `metamodule/assets/<Module>.png`.
 - [ ] **Build Targets:** Commands to validate both VCV Rack and MetaModule cross-compilation are identified.
 ```
 
@@ -34,6 +39,11 @@ Before writing or modifying any code, SVGs, or build configurations, you MUST ou
 - **Local Commits on Every Completed Task/Change**:
   - Whenever code, panel scripts, or asset changes are verified (compilation succeeds and pre-flight invariants are satisfied), stage the relevant source files and create a clean, descriptive local commit (e.g., `feat(...)`, `fix(...)`, `panel(...)`, `docs(...)`).
   - Never commit build artifacts (`*.dll`, `*.vcvplugin`, `build/`, `dist/`).
+- **Per-Module Versioning & Autoincrementation Protocol**:
+  - **Individual Module Version**: Each module tracks its own independent semantic version starting at **`v1.0.0`** upon initial creation.
+  - **Module Version Autoincrementation**: Every time a module undergoes changes (DSP fixes, UI adjustments, feature updates), its individual version MUST be bumped (e.g. `v1.0.0` $\rightarrow$ `v1.0.1` for fixes/refinements, `v1.1.0` for feature additions).
+  - **Panel & Asset Synchrony**: The per-module version is stamped on the faceplate SVG (`scratch/generate_<module>_panel.py`), rendered to `res/<Module>.svg`, and mirrored in `metamodule/assets/<Module>.png`.
+  - **Plugin Suite Version Separation**: The overall plugin suite version in `plugin.json` (`"version": "2.26.0"`) is managed separately at the release/package level. Never jump an initial or individual module version to match the suite's global `2.26.0`.
 - **Prompt to Push to GitHub on Milestones**:
   - After creating a new module or completing a substantial revision (e.g., major DSP rewrite, UI overhaul, version bump), explicitly ask the user:
     > *"Would you like to push to GitHub?"*
@@ -67,13 +77,43 @@ Whenever compiling or verifying changes to the VCV Rack plugin:
 
 ---
 
-## 6. Panel Layout & UI Design System
+## 5. Module Taxonomy & Classification Prompt
+
+Every Garmire module belongs to one of four functional classes:
+- **Generate**: Oscillators, noise/chaos generators, pattern/function generators, sources.
+- **Transform**: Waveshapers, slew, filters, spatial/geometric warpers, math operators.
+- **Utility**: Mixers, attenuverters, switches, mutes, routing, splitters.
+- **Control**: Envelopes, CV sources, sequencers, macro controllers.
+
+> [!IMPORTANT]
+> **Mandatory User Classification Prompt**:
+> Whenever designing, scaffolding, or adding a new module, you MUST explicitly prompt the user to confirm/assign which of the 4 classes the module belongs to:
+> *"Which functional class does this module belong to: Generate, Transform, Utility, or Control?"*
+> Once confirmed, record the classification in the pre-flight checklist and add the corresponding tag to the module's entry in `plugin.json`.
+
+---
+
+## 6. Module Sizing, Component Spacing & Crowding Calculation
+
+Before generating a panel or writing widget layouts, conduct a pre-flight panel component calculation:
+- **Minimum Horizontal Clearances**:
+  - Minimum horizontal jack pitch: $\ge 8.50\text{ mm}$ center-to-center (PJ301M knurled collar $\varnothing \approx 8.3\text{ mm}$).
+  - Minimum horizontal knob pitch: $\ge 12.00\text{ mm}$ for small knobs / trimpots; $\ge 15.00\text{ mm}$ for medium knobs.
+  - Minimum side margin from panel edge to component center: $\ge 6.00\text{ mm}$.
+- **Pre-Flight Width Calculation**:
+  $$\text{Width}_{\text{req}} = 2 \times \text{Margin} + (N_{\text{cols}} - 1) \times \Delta X_{\text{min}}$$
+- **Proactive HP Increase Suggestion**:
+  - If placing the required columns or controls in a targeted HP results in clearance violations or visual crowding, you MUST proactively suggest increasing the module's width to the next standard Eurorack HP (e.g. 6 HP $\rightarrow$ 8 HP / 10 HP / 12 HP / 20 HP) before proceeding.
+
+---
+
+## 7. Panel Layout & UI Design System
 
 This section defines the mandatory, unified panel grid, spatial architecture, component clearance tolerances, and typography hierarchy for all **Garmire** hardware-compatible modules.
 
 ---
 
-### 6.1. Grid & Dimensions
+### 7.1. Grid & Dimensions
 
 - **Panel Height**: Standard Eurorack 3U ($128.50\text{ mm}$ / $240\text{ px}$ MetaModule bitmap height).
 - **Slim Module Width (6 HP)**: $30.48\text{ mm}$ ($1.20\text{ in}$) width ($57\text{ px}$ MetaModule bitmap width).
@@ -85,7 +125,7 @@ This section defines the mandatory, unified panel grid, spatial architecture, co
 
 ---
 
-### 6.2. Layout Architecture: Fixed Anchors vs. Bottom-Aligned Dynamic Spacing
+### 7.2. Layout Architecture: Fixed Anchors vs. Bottom-Aligned Dynamic Spacing
 
 Garmire panels utilize a **Fixed-Anchor & Bottom-Aligned** spatial system. Absolute Y-coordinates apply **only** to the top title/first knob row and bottom signal outputs. All intermediate parameter rows, attenuverters, and CV inputs are positioned by **relative spacing rules bottom-aligned upward from the fixed output jacks**.
 
@@ -135,7 +175,7 @@ All jack rows stack **upward from the fixed output row** at $Y = 118.00\text{ mm
 
 ---
 
-### 6.3. Relative Spacing & Clearance Tolerances
+### 7.3. Relative Spacing & Clearance Tolerances
 
 | Relative Interface | Vertical Pitch ($\Delta Y$) | Horizontal Separation ($\Delta X$) | Minimum Physical Clearance |
 | :--- | :--- | :--- | :--- |
@@ -146,7 +186,7 @@ All jack rows stack **upward from the fixed output row** at $Y = 118.00\text{ mm
 
 ---
 
-### 6.4. Typography & Hierarchy
+### 7.4. Typography & Hierarchy
 
 | Typography Role | Font File | Case | Scale Factor | Relative Baseline Offset | Color |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -165,17 +205,17 @@ All jack rows stack **upward from the fixed output row** at $Y = 118.00\text{ mm
 
 ---
 
-### 6.5. Panel Labeling Directives & Clean Design Standards
+### 7.5. Parameter Tooltip & Panel Labeling Directives
 
-To maintain a minimal, professional visual aesthetic and avoid visual clutter, all Garmire faceplates must comply strictly with the following labeling conventions:
+To maintain a minimal, professional aesthetic and avoid tooltip clutter in VCV Rack:
 
-1. **No Redundant "Input" / "Output" Words on Port Labels**:
-   - VCV Rack automatically appends `"input"` or `"output"` to jack tooltips in the software interface.
-   - Do NOT include `"INPUT"` or `"OUTPUT"` in SVG faceplate jack labels. Use concise labels such as `IN`, `OUT`, or centered parameter headers (e.g., `DEPTH`, `COUNT`).
+1. **No Redundant "Input" / "Output" Words in Port Tooltips**:
+   - VCV Rack automatically appends `"input"` to `configInput()` and `"output"` to `configOutput()` tooltips in the software interface.
+   - Do NOT include `"input"` or `"output"` (or `"IN"` / `"OUT"`) in `configInput()` or `configOutput()` port names. Use concise names such as `configInput(X_INPUT, "X")` or `configInput(FREQ_CV_INPUT, "Frequency CV")`.
 
-2. **No Redundant "CV" Words in Attenuverter Section**:
+2. **No Redundant "CV" Words in Attenuverter Section on Faceplates**:
    - Trimpots located in Zone 3 are inherently CV modulation attenuverters.
-   - Do NOT append `"CV"` to trimpot row labels on the faceplate. Label trimpot rows with the parameter name alone (e.g. `DEPTH`, `COUNT`, `RATE`, `SLOPE`) without the word `"CV"`.
+   - Do NOT append `"CV"` to trimpot row labels on the faceplate SVG. Label trimpot rows with the parameter name alone (e.g. `DEPTH`, `COUNT`, `RATE`, `SLOPE`).
 
 3. **Strict Ban on Duplicate Identical Labels (Single Centered Label Across Controls)**:
    - Duplication of labels for adjacent controls (knobs, trimpot attenuverters, or I/O jacks) that share the same function or channel is a **strict no-no**.
@@ -183,15 +223,23 @@ To maintain a minimal, professional visual aesthetic and avoid visual clutter, a
    - Place a **single, horizontally centered label** centered across the entire row/span of controls.
    - Channel / column identity is established solely by the top column headers (e.g., `IN 1`, `IN 2`, `SW`, `OUT` or `X`, `Y`), while row / parameter function is established by the single centered label.
 
-4. **Attenuverter Parameter Labels & Tooltips Standard**:
+4. **Attenuverter Parameter Tooltip Standard**:
    - All attenuverter parameters in source code must be configured with tooltips in the standard format:
      - For channel-specific attenuverters: `"X <parameter> CV depth"` or `"Y <parameter> CV depth"` (e.g., `"X smooth CV depth"`, `"Y slope CV depth"`, `"X crest CV depth"`). The channel prefix `X`/`Y` and `CV` are uppercase; the parameter name and `depth` are lowercase.
      - For non-channel or single-parameter attenuverters: `"<Parameter> CV depth"` (e.g., `"Count CV depth"`, `"Length CV depth"`, `"Rotation CV depth"`). Sentence case with `CV` uppercase and `depth` lowercase.
    - Do NOT use `"Attenuverter"`, `"CV Attenuverter"`, `"Depth"`, or title-cased `"CV Depth"`.
 
+5. **Strict Sentence Case for All Parameter & Port Tooltips**:
+   - All `configParam()`, `configInput()`, and `configOutput()` display strings must use sentence case (e.g., `"Frequency modulation"`, `"Rise time"`, `"X position offset"`), keeping standard capitalized acronyms/abbreviations (`CV`, `VCA`, `LFO`, `RGB`, `OKLCH`, `X`, `Y`).
+   - Do NOT use Title Case for tooltip names (e.g., use `"Rise time"`, NOT `"Rise Time"`).
+
+6. **Strict Ban on Virtual Screws**:
+   - Garmire modules do not include virtual mounting screws in software.
+   - NEVER instantiate `ScrewSilver`, `ScrewBlack`, or any screw widget in `ModuleWidget` constructors.
+
 ---
 
-### 6.6. Module Palette Badge Protocol & Palette Database Synchronization
+### 7.6. Module Palette Badge Protocol & Palette Database Synchronization
 
 All Garmire hardware modules include a vertical color badge oriented along the far left edge of the faceplate to establish visual identity across the rack.
 
