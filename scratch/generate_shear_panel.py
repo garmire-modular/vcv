@@ -59,8 +59,8 @@ def main():
     # Title "shear"
     svg_parts.append(render_text_group(node_font, "shear", 15.24, 7.620, 0.004800, "#ffffff", 'Label: "shear"'))
     
-    # Version "v1.0.0"
-    svg_parts.append(render_text_group(quicksand_font, "v1.0.0", 15.24, 10.414, 0.001600, "#aaaaaa", 'Label: "v1.0.0"'))
+    # Version "v2.0.0"
+    svg_parts.append(render_text_group(quicksand_font, "v2.0.0", 15.24, 10.414, 0.001600, "#aaaaaa", 'Label: "v2.0.0"'))
     
     # Main Knob Labels
     svg_parts.append(render_text_group(quicksand_font, "X", 7.62, 13.070, 0.003000, "#1c1c1c", 'Label: "X"'))

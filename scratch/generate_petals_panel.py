@@ -60,10 +60,10 @@ def main():
         petals_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version tag "v1.0.1"
+    # Version tag "v2.0.0"
     v101_version_block = [
-        '  <!-- Label: "v1.0.1" -->',
-        render_qs_text(qs_reg_font, "v1.0.1", 15.24, 10.414, 0.001600, "#aaaaaa", "v1.0.1")
+        '  <!-- Label: "v2.0.0" -->',
+        render_qs_text(qs_reg_font, "v2.0.0", 15.24, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
     ]
 
     svg_parts = [
@@ -107,7 +107,7 @@ def main():
 
     with open('res/Petals.svg', 'w', encoding='utf-8') as f:
         f.write("\n".join(svg_parts) + "\n")
-    print("Generated res/Petals.svg with v1.0.1.")
+    print("Generated res/Petals.svg with v2.0.0.")
 
 if __name__ == '__main__':
     main()

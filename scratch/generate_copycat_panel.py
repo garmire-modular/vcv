@@ -44,7 +44,7 @@ def main():
     node_font = TTFont('res/Node.otf')
     qs_font = TTFont('res/Quicksand-Medium.ttf')
 
-    # Version v1.0.8 rendered directly
+    # Version v2.0.0 rendered directly
     eight_version_path = get_simplified_glyph_path(qs_font, '8')
 
     # Title "copycat" in Node.otf (scale 0.0048, baseline 7.620)
@@ -62,9 +62,9 @@ def main():
         copycat_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version "v1.0.8" (Auto-incremented from v1.0.7)
+    # Version "v2.0.0" (Reset to v2.0.0)
     v108_version_block = [
-        render_qs_text(qs_font, "v1.0.8", 15.24, 10.414, 0.001600, "#aaaaaa", "v1.0.8")
+        render_qs_text(qs_font, "v2.0.0", 15.24, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
     ]
 
     svg_parts = [

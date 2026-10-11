@@ -75,7 +75,7 @@ def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
         curr += w
     return "\n".join(res)
 
-def generate_3hp_logic_panel(module_slug, title_text, out_pair1_labels, out_pair2_labels, version_str="v2.23.0"):
+def generate_3hp_logic_panel(module_slug, title_text, out_pair1_labels, out_pair2_labels, version_str="v2.0.0"):
     node_font = TTFont('res/Node.otf')
     qs_font = TTFont('res/Quicksand-Medium.ttf')
     qs_reg_font = TTFont('res/Quicksand-Regular.ttf')

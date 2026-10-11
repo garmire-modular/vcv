@@ -84,7 +84,7 @@ def main():
     panel_h = 128.50
     title_text = "route xl"
     col_headers = ["IN", "SW", "OUT 1", "OUT 2"]
-    version_str = "v2.22.0"
+    version_str = "v2.0.0"
 
     scale_title = 0.0035
     cmap = node_font.getBestCmap()

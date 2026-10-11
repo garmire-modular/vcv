@@ -1,7 +1,7 @@
 #include "plugin.hpp"
 
 // ─────────────────────────────────────────────────────────────────────
-//  Trough — Dual X/Y Center-Clipping Trough Waveshaper & Interpolator
+//  Trough — X/Y Center-Clipping Trough Waveshaper & Interpolator
 //  Inspired by Pittsburgh Modular Flamingo (Trough / Lower-Half Clipping)
 // ─────────────────────────────────────────────────────────────────────
 
@@ -169,10 +169,6 @@ struct TroughWidget : ModuleWidget {
 	TroughWidget(Trough* module) {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Trough.svg")));
-
-		// Screws
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
 		// Top 2/3: Controls & Attenuverters
 		// Row 1: X & Y Trough Knobs (Center Y = 21.59 mm)

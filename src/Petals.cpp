@@ -158,10 +158,6 @@ struct PetalsWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Petals.svg")));
 
-		// 6HP Screws
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
 		// Main Controls
 		// Row 1: X SEGM (7.62 mm) & Y SEGM (22.86 mm) Knobs (Center Y = 21.59 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 21.59)), module, Petals::X_SEGM_PARAM));

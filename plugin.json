@@ -75,7 +75,7 @@
     {
       "slug": "Scale",
       "name": "Scale (X/Y)",
-      "description": "Dual X/Y laser trajectory voltage scale transformer with normalized CV modulation",
+      "description": "X/Y laser trajectory voltage scale transformer with normalized CV modulation",
       "tags": [
         "Visual",
         "Utility",
@@ -86,7 +86,7 @@
     {
       "slug": "Position",
       "name": "Position (X/Y)",
-      "description": "Dual X/Y laser trajectory voltage position offset transformer with normalized CV modulation",
+      "description": "X/Y laser trajectory voltage position offset transformer with normalized CV modulation",
       "tags": [
         "Visual",
         "Utility",
@@ -97,7 +97,7 @@
     {
       "slug": "Rotate",
       "name": "Rotate (X/Y)",
-      "description": "Dual X/Y laser trajectory 2D rotation transformer with continuous auto-rotation frequency control",
+      "description": "X/Y laser trajectory 2D rotation transformer with continuous auto-rotation frequency control",
       "tags": [
         "Visual",
         "Utility",
@@ -107,7 +107,7 @@
     {
       "slug": "Spin",
       "name": "Spin (X/Y)",
-      "description": "Dual X/Y laser trajectory independent dual-axis spin frequency transformer",
+      "description": "X/Y laser trajectory independent dual-axis spin frequency transformer",
       "tags": [
         "Visual",
         "Utility",
@@ -117,7 +117,7 @@
     {
       "slug": "Fold",
       "name": "Fold (X/Y)",
-      "description": "Dual X/Y laser trajectory quadratic x^2 voltage wavefolder transformer",
+      "description": "X/Y laser trajectory quadratic x^2 voltage wavefolder transformer",
       "tags": [
         "Visual",
         "Utility",
@@ -128,7 +128,7 @@
     {
       "slug": "Stretch",
       "name": "Stretch (X/Y)",
-      "description": "Dual X/Y laser trajectory cubic x^3 voltage stretch transformer",
+      "description": "X/Y laser trajectory cubic x^3 voltage stretch transformer",
       "tags": [
         "Visual",
         "Utility",
@@ -139,7 +139,7 @@
     {
       "slug": "Shear",
       "name": "Shear (X/Y)",
-      "description": "Dual X/Y laser trajectory 2D affine shear transformer with normalized CV modulation",
+      "description": "X/Y laser trajectory 2D affine shear transformer with normalized CV modulation",
       "tags": [
         "Visual",
         "Utility",
@@ -149,7 +149,7 @@
     {
       "slug": "Smooth",
       "name": "Smooth (X/Y)",
-      "description": "Dual X/Y laser trajectory exponential 1-pole lowpass corner smoother and inertia filter",
+      "description": "X/Y laser trajectory exponential 1-pole lowpass corner smoother and inertia filter",
       "tags": [
         "Visual",
         "Utility",
@@ -161,7 +161,7 @@
     {
       "slug": "Wiggle",
       "name": "Wiggle (X/Y)",
-      "description": "Dual X/Y laser trajectory organic multi-harmonic wobble and displacement engine",
+      "description": "X/Y laser trajectory organic multi-harmonic wobble and displacement engine",
       "tags": [
         "Visual",
         "Utility",
@@ -172,7 +172,7 @@
     {
       "slug": "Crest",
       "name": "Crest (X/Y)",
-      "description": "Dual X/Y 2-cycle trigonometric waveshaper and harmonic trajectory folder",
+      "description": "X/Y 2-cycle trigonometric waveshaper and harmonic trajectory folder",
       "tags": [
         "Visual",
         "Utility",
@@ -183,7 +183,7 @@
     {
       "slug": "Quake",
       "name": "Quake (X/Y)",
-      "description": "Dual X/Y laser trajectory organic timing and micro-jitter humanizer engine",
+      "description": "X/Y laser trajectory organic timing and micro-jitter humanizer engine",
       "tags": [
         "Visual",
         "Utility",
@@ -194,7 +194,7 @@
     {
       "slug": "Steps",
       "name": "Steps (X/Y)",
-      "description": "Dual X/Y laser trajectory unquantized continuous step quantizer and resolution reducer",
+      "description": "X/Y laser trajectory unquantized continuous step quantizer and resolution reducer",
       "tags": [
         "Visual",
         "Utility",
@@ -216,7 +216,7 @@
     {
       "slug": "Petals",
       "name": "Petals",
-      "description": "Dual X/Y rotational vector unfold and angular 16-segment petal multiplier transformer",
+      "description": "X/Y rotational vector unfold and angular 16-segment petal multiplier transformer",
       "tags": [
         "Visual",
         "Utility",
@@ -227,7 +227,7 @@
     {
       "slug": "Knots",
       "name": "Knots",
-      "description": "Dual X/Y polar angle harmonic multiplier and Lissajous knot transformer",
+      "description": "X/Y polar angle harmonic multiplier and Lissajous knot transformer",
       "tags": [
         "Visual",
         "Utility",
@@ -238,7 +238,7 @@
     {
       "slug": "Vortex",
       "name": "Vortex",
-      "description": "Dual X/Y angular phase multiplier and multi-centered rosette swirl engine",
+      "description": "X/Y angular phase multiplier and multi-centered rosette swirl engine",
       "tags": [
         "Visual",
         "Utility",
@@ -249,7 +249,7 @@
     {
       "slug": "Trough",
       "name": "Trough (X/Y)",
-      "description": "Dual X/Y lower half-space center-clipping trough waveshaper and harmonic interpolator",
+      "description": "X/Y lower half-space center-clipping trough waveshaper and harmonic interpolator",
       "tags": [
         "Visual",
         "Utility",
@@ -403,7 +403,7 @@
     {
       "slug": "Daisy",
       "name": "Daisy",
-      "description": "Rhodonea rose curve and Limaçon trajectory generator with Coarse/Fine timebase, 3-state Range oscillator (Very Slow / LFO / VCO), carrier-normalized linear FM, harmonic petal count, center offset, bipolar phase shift, and stretch control",
+      "description": "Rhodonea rose curve and Lima\u00e7on trajectory generator with Coarse/Fine timebase, 3-state Range oscillator (Very Slow / LFO / VCO), carrier-normalized linear FM, harmonic petal count, center offset, bipolar phase shift, and stretch control",
       "tags": [
         "Visual",
         "Oscillator",
@@ -467,7 +467,7 @@
     {
       "slug": "BitMorton",
       "name": "Bit Morton",
-      "description": "6 HP 10-bit Morton space-filling Z-order trajectory interleaver and Hilbert quadrant folding",
+      "description": "10-bit Morton space-filling Z-order trajectory interleaver and Hilbert quadrant folding",
       "tags": [
         "Visual",
         "Waveshaper",
@@ -479,7 +479,7 @@
     {
       "slug": "BitReverse",
       "name": "Bit Reverse",
-      "description": "6 HP 10-bit bitwise reversal and dyadic coordinate reflection with skew warping",
+      "description": "10-bit bitwise reversal and dyadic coordinate reflection with skew warping",
       "tags": [
         "Visual",
         "Waveshaper",
@@ -491,7 +491,7 @@
     {
       "slug": "BitTranspose",
       "name": "Bit Transpose",
-      "description": "6 HP 10-bit bit-plane transposition and 3-way permutation cyclic routing",
+      "description": "10-bit bit-plane transposition and 3-way permutation cyclic routing",
       "tags": [
         "Visual",
         "Waveshaper",
@@ -503,7 +503,7 @@
     {
       "slug": "BitValanche",
       "name": "Bit Valanche",
-      "description": "6 HP 10-bit carry-propagated avalanche cross-modulation and ripple-borrow shearing",
+      "description": "10-bit carry-propagated avalanche cross-modulation and ripple-borrow shearing",
       "tags": [
         "Visual",
         "Waveshaper",
@@ -515,7 +515,7 @@
     {
       "slug": "BitPermute",
       "name": "Bit Permute",
-      "description": "6 HP 20-bit circular permutation matrix with odd/even split, perfect shuffle, and stride cycles",
+      "description": "20-bit circular permutation matrix with odd/even split, perfect shuffle, and stride cycles",
       "tags": [
         "Visual",
         "Waveshaper",
@@ -527,7 +527,7 @@
     {
       "slug": "BitGrayBin",
       "name": "Bit Graybin",
-      "description": "6 HP 10-bit binary-to-Gray and Gray-to-binary reflected code dyadic folder",
+      "description": "10-bit binary-to-Gray and Gray-to-binary reflected code dyadic folder",
       "tags": [
         "Visual",
         "Waveshaper",
@@ -539,7 +539,7 @@
     {
       "slug": "BitGalois",
       "name": "Bit Galois",
-      "description": "6 HP GF(2^10) Galois field irreducible polynomial scrambler, inverter, and cryptographic S-box",
+      "description": "GF(2^10) Galois field irreducible polynomial scrambler, inverter, and cryptographic S-box",
       "tags": [
         "Visual",
         "Waveshaper",
@@ -551,7 +551,7 @@
     {
       "slug": "Bitomata",
       "name": "Bitomata",
-      "description": "6 HP 1D elementary cellular automata mesh with cross-axis seeding and iterative evolution",
+      "description": "1D elementary cellular automata mesh with cross-axis seeding and iterative evolution",
       "tags": [
         "Visual",
         "Waveshaper",
@@ -563,7 +563,7 @@
     {
       "slug": "BitHamming",
       "name": "Bit Hamming",
-      "description": "6 HP 10-bit popcount and Hamming distance metric cross-axis vector disperser",
+      "description": "10-bit popcount and Hamming distance metric cross-axis vector disperser",
       "tags": [
         "Visual",
         "Waveshaper",
@@ -575,7 +575,7 @@
     {
       "slug": "RgbIVca",
       "name": "RGB/I/VCA",
-      "description": "3HP Triple VCA for laser Z/intensity control and RGB signal scaling",
+      "description": "Triple VCA for laser Z/intensity control and RGB signal scaling",
       "tags": [
         "Visual",
         "Utility",
@@ -586,7 +586,7 @@
     {
       "slug": "Matrix3x3",
       "name": "Matrix 3x3",
-      "description": "12 HP 2D spatial crossfade scanner and voltage distributor with 3x3 LED matrix display, bleed dispersion, and per-cell attenuverters",
+      "description": "2D spatial crossfade scanner and voltage distributor with 3x3 LED matrix display, bleed dispersion, and per-cell attenuverters",
       "tags": [
         "Visual",
         "Utility",
@@ -597,7 +597,7 @@
     {
       "slug": "Ampara",
       "name": "Ampara",
-      "description": "16 HP Audio-reactive vector polygon synthesizer and oscilloscope displacement generator with 3-range carrier oscillator, dual envelope followers, Milkdrop polar warp, and stereo morphing",
+      "description": "Audio-reactive vector polygon synthesizer and oscilloscope displacement generator with 3-range carrier oscillator, dual envelope followers, Milkdrop polar warp, and stereo morphing",
       "tags": [
         "Visual",
         "Oscillator",

@@ -139,10 +139,10 @@ def generate_panel_svg(m, node_font, qs_font, qs_reg_font):
             title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale_title:.6f}, {-scale_title:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version tag "v2.26.0"
+    # Version tag "v2.0.0"
     version_block = [
-        '  <!-- Label: "v2.26.0" -->',
-        render_qs_text(qs_reg_font, "v2.26.0", center_x, 10.414, 0.001600, "#aaaaaa", "v2.26.0")
+        '  <!-- Label: "v2.0.0" -->',
+        render_qs_text(qs_reg_font, "v2.0.0", center_x, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
     ]
 
     svg_parts = [

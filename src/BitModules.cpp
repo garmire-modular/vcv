@@ -151,10 +151,6 @@ struct BaseBitWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, svgPath)));
 
-		// 6HP Screws
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
 		// Row 1 Knobs (Center Y = 21.59 mm): P1 (7.62 mm), P2 (22.86 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 21.59)), module, BaseBitModule::P1_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(22.86, 21.59)), module, BaseBitModule::P2_PARAM));

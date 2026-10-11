@@ -85,8 +85,8 @@ def main():
             title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale_title:.6f}, {-scale_title:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version "v1.1.0" in Quicksand-Regular (scale 0.001600, baseline 10.414, centered on 81.28)
-    version_block = [render_qs_text(qs_reg_font, "v1.1.0", center_x, 10.414, 0.001600, "#aaaaaa", "v1.1.0")]
+    # Version "v2.0.0" in Quicksand-Regular (scale 0.001600, baseline 10.414, centered on 81.28)
+    version_block = [render_qs_text(qs_reg_font, "v2.0.0", center_x, 10.414, 0.001600, "#aaaaaa", "v2.0.0")]
 
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',

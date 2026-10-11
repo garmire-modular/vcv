@@ -64,8 +64,8 @@ def main():
             chromance_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version "v2.10.0"
-    v210_version_block = [render_qs_text(qs_font, "v2.10.0", 25.40, 10.414, 0.001600, "#aaaaaa", "Version v2.10.0")]
+    # Version "v2.0.0"
+    v210_version_block = [render_qs_text(qs_font, "v2.0.0", 25.40, 10.414, 0.001600, "#aaaaaa", "Version v2.0.0")]
 
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',

@@ -84,7 +84,7 @@ def main():
     panel_h = 128.50
     title_text = "sum/mix xl"
     col_headers = ["IN 1", "IN 2", "SUM", "MULT"]
-    version_str = "v2.22.0"
+    version_str = "v2.0.0"
 
     scale_title = 0.0035
     cmap = node_font.getBestCmap()

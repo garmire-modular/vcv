@@ -62,9 +62,9 @@ def main():
             title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version tag "v2.17.0"
+    # Version tag "v2.0.0"
     v217_version_block = [
-        render_qs_text(qs_reg_font, "v2.17.0", 15.24, 10.414, 0.001600, "#aaaaaa", "v2.17.0")
+        render_qs_text(qs_reg_font, "v2.0.0", 15.24, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
     ]
 
     svg_parts = [

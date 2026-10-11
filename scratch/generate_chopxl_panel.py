@@ -84,7 +84,7 @@ def main():
     panel_w = 60.96
     panel_h = 128.50
     title_text = "chop xl"
-    version_str = "v2.24.0"
+    version_str = "v2.0.0"
 
     scale_title = 0.0042
     cmap = node_font.getBestCmap()

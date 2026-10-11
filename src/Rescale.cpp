@@ -3,7 +3,7 @@
 
 // ─────────────────────────────────────────────────────────────────────
 //  Rescale — Multi-Range Precision Voltage Scaler, Normalizer & Converter
-//  6 HP module providing bidirectional conversion and summing between
+//  Module providing bidirectional conversion and summing between
 //  standard Eurorack and laser voltage ranges:
 //  - 0-1V   and ±1V
 //  - 0-5V   and ±5V
@@ -148,12 +148,6 @@ struct RescaleWidget : ModuleWidget {
 	RescaleWidget(RescaleModule* module) {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Rescale.svg")));
-
-		// Screws for 6 HP
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
 		// Left Column: X = 7.62 mm | Right Column: X = 22.86 mm
 

@@ -87,8 +87,8 @@ def main():
             title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale_title:.6f}, {-scale_title:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version tag "v2.26.0" in Quicksand-Regular (scale 0.001600, baseline 10.414)
-    version_block = [render_qs_text(qs_reg_font, "v2.26.0", center_x, 10.414, 0.001600, "#aaaaaa", "v2.26.0")]
+    # Version tag "v2.0.0" in Quicksand-Regular (scale 0.001600, baseline 10.414)
+    version_block = [render_qs_text(qs_reg_font, "v2.0.0", center_x, 10.414, 0.001600, "#aaaaaa", "v2.0.0")]
 
     # Delineator line between scanner controls and 3x3 arrays: Y = 78.00 mm
     svg_parts = [

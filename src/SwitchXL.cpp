@@ -152,12 +152,6 @@ struct SwitchXLWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/SwitchXL.svg")));
 
-		// 8HP Screws
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
 		// 4 Columns: [6.07, 15.57, 25.07, 34.57] mm
 		// 6 Rows: [27.00, 45.00, 63.00, 81.00, 99.00, 117.00] mm
 		const double colX[4] = {6.07, 15.57, 25.07, 34.57};

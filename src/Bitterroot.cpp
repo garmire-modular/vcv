@@ -405,12 +405,6 @@ struct BitterrootWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Bitterroot.svg")));
 
-		// Screws for 32 HP (width = 162.56 mm)
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
 		// Columns of Knobs: 3 Effect Columns, each with 4 knobs (pitch 11.5 mm)
 		float colX[3][4] = {
 			{11.53f, 23.03f, 34.53f, 46.03f},

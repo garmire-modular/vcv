@@ -93,10 +93,6 @@ struct StretchWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Stretch.svg")));
 
-		// 6HP Screws
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
 		// Top 2/3: Main Controls & Attenuverters
 		// Row 1: X & Y Stretch Depth Knobs (Center Y = 0.85 in = 21.59 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 21.59)), module, Stretch::X_STRETCH_PARAM));

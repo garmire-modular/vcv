@@ -117,10 +117,6 @@ struct InstabilityWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Instability.svg")));
 
-		// 6HP Screws
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
 		// Main Controls
 		// Row 1: FREQ (7.62 mm) & PHASE (22.86 mm) (Center Y = 21.59 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 21.59)), module, Instability::FREQ_DRIFT_PARAM));

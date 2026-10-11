@@ -61,9 +61,9 @@ def main():
         crest_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version "v1.0.5"
+    # Version "v2.0.0"
     v105_version_block = [
-        render_qs_text(qs_font, "v1.0.5", 15.24, 10.414, 0.001600, "#aaaaaa", "v1.0.5")
+        render_qs_text(qs_font, "v2.0.0", 15.24, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
     ]
 
     svg_parts = [
@@ -121,7 +121,7 @@ def main():
 
     with open('res/Crest.svg', 'w', encoding='utf-8') as f:
         f.write("\n".join(svg_parts) + "\n")
-    print("Generated res/Crest.svg with v1.0.5.")
+    print("Generated res/Crest.svg with v2.0.0.")
 
 if __name__ == '__main__':
     main()

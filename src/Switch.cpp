@@ -113,10 +113,6 @@ struct SwitchWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Switch.svg")));
 
-		// 3HP Screws (Centered at x = 7.62 mm)
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
 		// Center column of jacks (x = 7.62 mm)
 		// Group 1: Input 1 (Main)
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 23.00)), module, SwitchModule::X1_INPUT));

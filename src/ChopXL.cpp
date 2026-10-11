@@ -210,12 +210,6 @@ struct ChopXLWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/ChopXL.svg")));
 
-		// 12HP Screws (width 60.96 mm = 12 * RACK_GRID_WIDTH)
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
 		// 4 Control Columns (x = 7.62, 22.86, 38.10, 53.34 mm)
 		const double ctrlX[4] = {7.62, 22.86, 38.10, 53.34};
 

@@ -172,10 +172,6 @@ struct SmoothWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Smooth.svg")));
 
-		// 6HP Screws
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
 		// Top 2/3: Main Controls & Attenuverters
 		// Row 1: X & Y Cutoff Frequency Knobs (Center Y = 21.59 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 21.59)), module, Smooth::X_FREQ_PARAM));

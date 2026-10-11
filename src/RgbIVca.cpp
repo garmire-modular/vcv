@@ -104,10 +104,6 @@ struct RgbIVcaWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/RgbIVca.svg")));
 
-		// 3HP Screws (Centered at x = 7.62 mm)
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
 		// Section 1: Intensity / I Modulation
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 21.59)), module, RgbIVca::I_ATTV_PARAM));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 35.00)), module, RgbIVca::I_INPUT));

@@ -327,12 +327,6 @@ struct ChromanceWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Chromance.svg")));
 
-		// 10HP Screws (width 50.80mm)
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
 		// 3 Centered Main Knob Columns: X1 = 10.16mm, X2 = 25.40mm (Midline), X3 = 40.64mm
 		// Row 1 Main Knobs (Frequency Group): FREQ (10.16), FINE (25.40), MULT/DIV (40.64) at Center Y = 21.59mm
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.16, 21.59)), module, Chromance::FREQ_PARAM));

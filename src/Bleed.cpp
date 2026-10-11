@@ -331,12 +331,6 @@ struct BleedWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Bleed.svg")));
 
-		// 8 HP Standard Eurorack Screws
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-
 		// Knob Columns: X = 10.82 mm, Y = 29.82 mm
 		// Row 1: Bleed Knobs (Center Y = 20.00 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 20.00)), module, Bleed::X_BLEED_PARAM));

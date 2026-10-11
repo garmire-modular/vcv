@@ -3,8 +3,8 @@
 #include <algorithm>
 
 // ─────────────────────────────────────────────────────────────────────
-//  Knots — Dual X/Y Polar Angle Harmonic Multiplier & Lissajous Engine
-//  6 HP module multiplying polar angle velocities independently on X
+//  Knots — X/Y Polar Angle Harmonic Multiplier & Lissajous Engine
+//  Module multiplying polar angle velocities independently on X
 //  and Y axes to generate intertwined Lissajous knots, kaleidoscopic
 //  radial sectors, and harmonic loop trajectories.
 // ─────────────────────────────────────────────────────────────────────
@@ -111,12 +111,6 @@ struct KnotsWidget : ModuleWidget {
 	KnotsWidget(Knots* module) {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Knots.svg")));
-
-		// 6HP Screws
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
-		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
-		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
 		// Main Controls
 		// Row 1: X Knots (7.62 mm) & Y Knots (22.86 mm) Knobs (Center Y = 21.59 mm)

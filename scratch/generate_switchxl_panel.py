@@ -84,7 +84,7 @@ def main():
     panel_h = 128.50
     title_text = "switch xl"
     col_headers = ["IN 1", "IN 2", "SW", "OUT"]
-    version_str = "v2.22.0"
+    version_str = "v2.0.0"
 
     scale_title = 0.0035
     cmap = node_font.getBestCmap()
