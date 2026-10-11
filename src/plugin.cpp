@@ -59,5 +59,6 @@ void init(Plugin* p) {
 	p->addModel(modelBitGalois);
 	p->addModel(modelBitomata);
 	p->addModel(modelBitHamming);
+	p->addModel(modelAmpara);
 }
 

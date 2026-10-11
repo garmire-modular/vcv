@@ -60,3 +60,4 @@ extern Model* modelBitGrayBin;
 extern Model* modelBitGalois;
 extern Model* modelBitomata;
 extern Model* modelBitHamming;
+extern Model* modelAmpara;

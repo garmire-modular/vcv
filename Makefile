@@ -48,6 +48,7 @@ SOURCES += src/SteppedSlew.cpp
 SOURCES += src/BitModules.cpp
 SOURCES += src/RgbIVca.cpp
 SOURCES += src/Matrix3x3.cpp
+SOURCES += src/Ampara.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res

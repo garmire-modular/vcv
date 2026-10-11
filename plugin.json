@@ -593,6 +593,18 @@
         "Dual",
         "Attenuator"
       ]
+    },
+    {
+      "slug": "Ampara",
+      "name": "Ampara",
+      "description": "16 HP Audio-reactive vector polygon synthesizer and oscilloscope displacement generator with 3-range carrier oscillator, dual envelope followers, Milkdrop polar warp, and stereo morphing",
+      "tags": [
+        "Visual",
+        "Oscillator",
+        "Low-frequency oscillator",
+        "Polyphonic",
+        "Waveshaper"
+      ]
     }
   ]
 }

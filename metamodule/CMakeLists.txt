@@ -65,6 +65,7 @@ target_sources(Garmire PRIVATE
     ${SOURCE_DIR}/src/SteppedSlew.cpp
     ${SOURCE_DIR}/src/Bitterroot.cpp
     ${SOURCE_DIR}/src/RgbIVca.cpp
+    ${SOURCE_DIR}/src/Ampara.cpp
 )
 
 # ── Include paths ────────────────────────────────────────────────────
