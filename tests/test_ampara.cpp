@@ -6,7 +6,7 @@
 using namespace garmire::ampara;
 
 int main() {
-    std::cout << "Testing AmparaCore DSP..." << std::endl;
+    std::cout << "Testing AmparaCore DSP (v2)..." << std::endl;
 
     VoiceCore voice;
     voice.reset();
@@ -25,7 +25,7 @@ int main() {
     assert(std::abs(rSqCenter - (1.0f / std::sqrt(2.0f))) < 0.05f);
     std::cout << "-> Polygon radius invariant passed (Square geometry exact)" << std::endl;
 
-    // 3. Audio stream processing check: 1000 samples
+    // 3. Audio stream processing check: 1000 samples with Polly Stretch & Bipolar Warp
     float sampleRate = 48000.0f;
     for (int i = 0; i < 1000; ++i) {
         float x = 0.0f, y = 0.0f, sOut = 0.0f;
@@ -34,13 +34,14 @@ int main() {
             sampleRate,
             0.5f, 0.0f, RANGE_LFO, 0.0f, // freq
             3.0f, 0.0f,                  // shape (triangle)
-            0.0f, 0.0f,                  // warp
+            -0.5f, 0.0f,                 // warp (bipolar)
             0.5f, 0.0f,                  // window
-            0.5f, 0.0f,                  // disp
-            0.2f, 0.0f,                  // rise
-            0.5f, 0.0f,                  // fall
-            0.0f, 0.0f,                  // morph
+            0.5f, 0.0f,                  // routing
+            1.0f, 0.0f,                  // amp
+            0.0f, 0.0f,                  // rise (default 0)
+            0.0f, 0.0f,                  // fall (default 0)
             0.0f, 0.0f,                  // phase
+            0.5f, 0.0f,                  // stretch
             testAudio, testAudio,        // audio In
             0.0f,                        // sync in
             x, y, sOut

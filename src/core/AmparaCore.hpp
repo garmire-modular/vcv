@@ -15,7 +15,7 @@ inline float clampf(float v, float lo, float hi) {
     return (v < lo) ? lo : (v > hi) ? hi : v;
 }
 
-constexpr size_t BUFFER_SIZE = 16384;
+constexpr size_t BUFFER_SIZE = 65536; // 65536 samples (over 1.36 seconds at 48kHz, 680ms at 96kHz)
 constexpr size_t BUFFER_MASK = BUFFER_SIZE - 1;
 
 enum RangeMode {
@@ -25,7 +25,7 @@ enum RangeMode {
 };
 
 // Pure C++ Core DSP Engine for Ampara voice
-// Completely hardware-agnostic, zero allocations, real-time safe
+// Completely hardware-agnostic, zero heap allocations, real-time safe
 struct VoiceCore {
     float phase = 0.0f;           // Carrier orbit phase [0, 1)
     float envL = 0.0f;            // Envelope detector Left
@@ -92,10 +92,6 @@ struct VoiceCore {
             float diff = localTh - halfSec;
             float cosDiff = std::cos(diff);
             if (std::abs(cosDiff) < 1e-4f) cosDiff = 1e-4f;
-            // Circumradius R=1.0: inradius is cos(pi/k).
-            // Distance from center to edge at diff from facet center is inradius / cos(diff) = cos(pi/k) / cos(diff).
-            // When diff = halfSec (at vertex/corner), cos(diff) = cos(pi/k), so r = 1.0!
-            // When diff = 0 (facet center), r = cos(pi/k).
             return std::cos(halfSec) / cosDiff;
         };
 
@@ -122,11 +118,12 @@ struct VoiceCore {
                  float shapeParam, float shapeCV,
                  float warpParam, float warpCV,
                  float windowParam, float windowCV,
-                 float dispParam, float dispCV,
+                 float routingParam, float routingCV,
+                 float ampParam, float ampCV,
                  float riseParam, float riseCV,
                  float fallParam, float fallCV,
-                 float morphParam, float morphCV,
                  float phaseParam, float phaseCV,
+                 float stretchParam, float stretchCV,
                  float audioInL, float audioInR,
                  float syncIn,
                  float& outX, float& outY, float& syncOut) {
@@ -154,37 +151,48 @@ struct VoiceCore {
         syncOut = syncPulse ? 10.0f : 0.0f;
 
         // 3. Envelope Followers (Rise / Fall)
-        // Rise time: 0.1 ms to 200 ms
-        float riseSec = 0.0001f * std::pow(2000.0f, clampf(riseParam + riseCV * 0.1f, 0.0f, 1.0f));
-        // Fall time: 2 ms to 2000 ms
-        float fallSec = 0.002f * std::pow(1000.0f, clampf(fallParam + fallCV * 0.1f, 0.0f, 1.0f));
-
-        float alphaRise = 1.0f - std::exp(-1.0f / (sampleRate * riseSec));
-        float alphaFall = 1.0f - std::exp(-1.0f / (sampleRate * fallSec));
+        // Rise and Fall time begin at 0 (instant response) up to 2000 ms
+        float riseKnob = clampf(riseParam + riseCV * 0.1f, 0.0f, 1.0f);
+        float fallKnob = clampf(fallParam + fallCV * 0.1f, 0.0f, 1.0f);
 
         float absL = std::abs(audioInL) * 0.2f; // Normalized so 5V -> 1.0
         float absR = std::abs(audioInR) * 0.2f;
 
-        if (absL >= envL) envL += alphaRise * (absL - envL);
-        else envL += alphaFall * (absL - envL);
+        if (riseKnob <= 1e-4f) {
+            if (absL >= envL) envL = absL;
+            if (absR >= envR) envR = absR;
+        } else {
+            float riseSec = 2.0f * (riseKnob * riseKnob); // 0 to 2 seconds quadratic
+            float alphaRise = 1.0f - std::exp(-1.0f / (sampleRate * riseSec));
+            if (absL >= envL) envL += alphaRise * (absL - envL);
+            if (absR >= envR) envR += alphaRise * (absR - envR);
+        }
 
-        if (absR >= envR) envR += alphaRise * (absR - envR);
-        else envR += alphaFall * (absR - envR);
+        if (fallKnob <= 1e-4f) {
+            if (absL < envL) envL = absL;
+            if (absR < envR) envR = absR;
+        } else {
+            float fallSec = 2.0f * (fallKnob * fallKnob); // 0 to 2 seconds quadratic
+            float alphaFall = 1.0f - std::exp(-1.0f / (sampleRate * fallSec));
+            if (absL < envL) envL += alphaFall * (absL - envL);
+            if (absR < envR) envR += alphaFall * (absR - envR);
+        }
 
-        // 4. Morph Routing Parameter
-        float morph = clampf(morphParam + morphCV * 0.1f, 0.0f, 1.0f);
-        // CCW (0.0): mono average displacement; CW (1.0): L displacement, R scale & rotation
-        float lWeight = (1.0f - morph) * 0.5f + morph * 1.0f;
-        float rWeight = (1.0f - morph) * 0.5f;
+        // 4. Routing Parameter (0.0 = 100% L+R Average : 0% L R Separate; 1.0 = 0% L+R Average : 100% L R Separate)
+        float routing = clampf(routingParam + routingCV * 0.1f, 0.0f, 1.0f);
+        float lWeight = (1.0f - routing) * 0.5f + routing * 1.0f;
+        float rWeight = (1.0f - routing) * 0.5f;
 
-        // Store morph-weighted composite audio into circular buffer
+        // Store composite audio into circular buffer
         float inputAudio = audioInL * lWeight + audioInR * rWeight;
         ringBuffer[writeHead] = inputAudio;
         size_t currentHead = writeHead;
         writeHead = (writeHead + 1) & BUFFER_MASK;
 
-        // 6. Buffer Read Time Window (0.2 ms to 50 ms)
-        float windowMs = 0.2f * std::pow(250.0f, clampf(windowParam + windowCV * 0.1f, 0.0f, 1.0f));
+        // 5. Buffer Read Time Window (0.5 ms to 500 ms)
+        float windowKnob = clampf(windowParam + windowCV * 0.1f, 0.0f, 1.0f);
+        // Exponential scale from 0.5 ms to 500.0 ms
+        float windowMs = 0.5f * std::pow(1000.0f, windowKnob);
         float windowSamples = (windowMs * 0.001f) * sampleRate;
         if (windowSamples < 1.0f) windowSamples = 1.0f;
         if (windowSamples > (float)(BUFFER_SIZE - 2)) windowSamples = (float)(BUFFER_SIZE - 2);
@@ -198,7 +206,7 @@ struct VoiceCore {
         float frac = readIndex - (float)((size_t)readIndex);
         float waveDisp = ringBuffer[idx0] + frac * (ringBuffer[idx1] - ringBuffer[idx0]);
 
-        // 7. Shape (2.0 = Circle, 3 = Tri, 4 = Square, 5 = Pent, 6 = Hex, 7 = Hept, 8 = Oct)
+        // 6. Shape (2.0 = Circle, 3 = Tri, 4 = Square, 5 = Pent, 6 = Hex, 7 = Hept, 8 = Oct)
         float shapeVal = clampf(shapeParam + shapeCV * 0.6f, 2.0f, 8.0f);
         // Magnetic detent snap around integer shapes
         float nearestInt = std::round(shapeVal);
@@ -209,41 +217,54 @@ struct VoiceCore {
         // Base angle along perimeter
         float theta = phase * 2.0f * (float)M_PI;
 
-        // 8. Warp (Milkdrop polar spiral swirl)
-        float warp = clampf(warpParam + warpCV * 0.1f, 0.0f, 1.0f);
+        // 7. Warp: Bipolar control [-1.0, +1.0] (±100%)
+        float warp = clampf(warpParam + warpCV * 0.2f, -1.0f, 1.0f);
         float warpAngle = theta;
-        if (warp > 0.001f) {
-            float envFactor = (1.0f - morph) * (0.5f * (envL + envR)) + morph * envL;
+        if (std::abs(warp) > 0.001f) {
+            float envFactor = (1.0f - routing) * (0.5f * (envL + envR)) + routing * envL;
             warpAngle += warp * (0.8f * envFactor + 0.2f) * std::sin(shapeVal * theta);
         }
 
-        // 9. Base Geometry Radius
+        // 8. Base Geometry Radius
         float rGeom = regularPolygonRadius(shapeVal, warpAngle);
 
         // Radial vortex modification
-        if (warp > 0.001f) {
+        if (std::abs(warp) > 0.001f) {
             rGeom *= (1.0f + warp * 0.4f * std::cos(2.0f * theta));
         }
 
-        // 10. Oscilloscope Displacement Ripple
-        float dispDepth = clampf(dispParam + dispCV * 0.1f, 0.0f, 2.0f);
-        float finalDisp = (waveDisp * 0.2f) * dispDepth;
+        // 9. Amplitude (Waveform displacement amplitude)
+        float ampDepth = clampf(ampParam + ampCV * 0.1f, 0.0f, 2.0f);
+        float finalDisp = (waveDisp * 0.2f) * ampDepth;
 
-        // 11. Scale & Rotation from Morph Channel R
-        float scaleMod = 1.0f + (morph * envR * 0.7f);
-        float rotMod = morph * envR * (float)M_PI;
+        // 10. Scale & Rotation from Routing Channel R
+        float scaleMod = 1.0f + (routing * envR * 0.7f);
+        float rotMod = routing * envR * (float)M_PI;
 
-        // 12. End-of-line Phase Rotation
+        // 11. End-of-line Phase Rotation
         float phaseAngle = clampf(phaseParam + phaseCV * 0.1f, 0.0f, 1.0f) * 2.0f * (float)M_PI;
         float totalAngle = warpAngle + phaseAngle + rotMod;
 
         float finalRadius = (rGeom + finalDisp) * scaleMod;
 
-        // 13. Output Deflection (Standard ±5V, soft clipped at ±10V)
-        float rawX = 5.0f * finalRadius * std::cos(totalAngle);
-        float rawY = 5.0f * finalRadius * std::sin(totalAngle);
+        // 12. Convert to Cartesian Coordinates
+        float curX = finalRadius * std::cos(totalAngle);
+        float curY = finalRadius * std::sin(totalAngle);
 
-        // Soft saturation limiter
+        // 13. Polly's Stretch Parameter (Bipolar [-1.0, +1.0])
+        // Stretch happens LAST (Harmonograph Logarithmic Spiral with Depth Factor 4.0 matching Polly)
+        float stretchVal = clampf(stretchParam + stretchCV * 0.2f, -1.0f, 1.0f);
+        if (std::abs(stretchVal) > 1e-4f) {
+            float rNorm = std::sqrt(curX * curX + curY * curY);
+            float dampFactor = 1.0f + stretchVal * 4.0f * (1.0f - rNorm);
+            curX *= dampFactor;
+            curY *= dampFactor;
+        }
+
+        // 14. Output Deflection (Standard ±5V, soft limiter at ±10V)
+        float rawX = 5.0f * curX;
+        float rawY = 5.0f * curY;
+
         outX = 10.0f * std::tanh(rawX * 0.1f);
         outY = 10.0f * std::tanh(rawY * 0.1f);
     }

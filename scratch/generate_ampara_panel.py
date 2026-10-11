@@ -58,12 +58,12 @@ def main():
     qs_font = TTFont('res/Quicksand-Medium.ttf')
     qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
 
-    # Panel dimensions: 16 HP (81.28 mm x 128.5 mm)
-    # MetaModule pixel width: 16 HP = 152 px (9.5 px/HP), Height = 240 px
-    panel_w = 81.28
+    # Panel dimensions: 20 HP (101.60 mm x 128.5 mm)
+    # MetaModule pixel width: 20 HP = 190 px (9.5 px/HP), Height = 240 px
+    panel_w = 101.60
     panel_h = 128.50
 
-    # Title "ampara" in Node.otf (scale 0.0048, baseline 7.620, centered in 81.28 mm)
+    # Title "ampara" in Node.otf (scale 0.0048, baseline 7.620, centered in 101.60 mm)
     scale = 0.0048
     text = "ampara"
     cmap = node_font.getBestCmap()
@@ -90,7 +90,7 @@ def main():
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.1f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.1f}">',
-        f'  <!-- Panel Background: 16 HP -->',
+        f'  <!-- Panel Background: 20 HP -->',
         f'  <rect width="{panel_w:.2f}" height="{panel_h:.1f}" fill="#6e6e6e"/>',
         '  <!-- Left Edge Color Badge (New module default placeholder: #5d5d5d neutral gray per AGENTS.md 6.6.2) -->',
         '  <g id="palette-badge">',
@@ -107,65 +107,76 @@ def main():
     svg_parts.extend(ampara_title_block)
     svg_parts.extend(version_block)
 
-    # Knob Columns (5 columns across 81.28 mm)
-    # col_x = [12.14, 26.39, 40.64, 54.89, 69.14]
-    knob_cols = [12.14, 26.39, 40.64, 54.89, 69.14]
+    # 6 Columns across 101.60 mm
+    # Margin = 12.00 mm, pitch = 15.52 mm
+    cols = [12.00 + i * 15.52 for i in range(6)]
+    # cols = [12.00, 27.52, 43.04, 58.56, 74.08, 89.60]
 
-    # Row 1 Knobs: FREQ, FINE, SHAPE, WARP, WINDOW (Center Y = 21.59, label Y = 14.500)
-    svg_parts.append(render_qs_text(qs_font, "FREQ", knob_cols[0], 14.500, 0.002600, "#1c1c1c", "FREQ Label"))
-    svg_parts.append(render_qs_text(qs_font, "FINE", knob_cols[1], 14.500, 0.002600, "#1c1c1c", "FINE Label"))
-    svg_parts.append(render_qs_text(qs_font, "SHAPE", knob_cols[2], 14.500, 0.002600, "#1c1c1c", "SHAPE Label"))
-    svg_parts.append(render_qs_text(qs_font, "WARP", knob_cols[3], 14.500, 0.002600, "#1c1c1c", "WARP Label"))
-    svg_parts.append(render_qs_text(qs_font, "WINDOW", knob_cols[4], 14.500, 0.002200, "#1c1c1c", "WINDOW Label"))
+    # Row 1 Knobs: FREQ (with RANGE button/LED), FINE, SHAPE, WARP, WINDOW (plus stretch on row 2)
+    # Specified order:
+    # Row 1 Knobs: Freq (Range) Fine Shape Warp Window
+    # Row 2 Knobs: Routing Amp Rise Fall Phase Stretch
 
-    # Row 2 Knobs: DISP, RISE, FALL, MORPH, PHASE (Center Y = 43.00, label Y = 35.800)
-    svg_parts.append(render_qs_text(qs_font, "DISP", knob_cols[0], 35.800, 0.002600, "#1c1c1c", "DISP Label"))
-    svg_parts.append(render_qs_text(qs_font, "RISE", knob_cols[1], 35.800, 0.002600, "#1c1c1c", "RISE Label"))
-    svg_parts.append(render_qs_text(qs_font, "FALL", knob_cols[2], 35.800, 0.002600, "#1c1c1c", "FALL Label"))
-    svg_parts.append(render_qs_text(qs_font, "MORPH", knob_cols[3], 35.800, 0.002400, "#1c1c1c", "MORPH Label"))
-    svg_parts.append(render_qs_text(qs_font, "PHASE", knob_cols[4], 35.800, 0.002400, "#1c1c1c", "PHASE Label"))
+    # Button between Col 0 and Col 1: (12.00 + 27.52)/2 = 19.76 mm
+    btn_x = (cols[0] + cols[1]) / 2.0
 
-    # Zone 3: CV Attenuverter Trimpots
-    # Row 1 Attenuverters (5 Cols): FREQ, SHAPE, WARP, WINDOW, DISP (Center Y = 63.50, label Y = 59.500)
-    trim_row1_cols = [12.14, 26.39, 40.64, 54.89, 69.14]
-    svg_parts.append(render_qs_text(qs_font, "FREQ", trim_row1_cols[0], 59.500, 0.001800, "#2c2c2c", "FREQ Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "SHAPE", trim_row1_cols[1], 59.500, 0.001800, "#2c2c2c", "SHAPE Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "WARP", trim_row1_cols[2], 59.500, 0.001800, "#2c2c2c", "WARP Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "WINDOW", trim_row1_cols[3], 59.500, 0.001500, "#2c2c2c", "WINDOW Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "DISP", trim_row1_cols[4], 59.500, 0.001800, "#2c2c2c", "DISP Trim Label"))
+    # Row 1 Knob Labels (Center Y = 21.59, label Y = 14.500)
+    svg_parts.append(render_qs_text(qs_font, "FREQ", cols[0], 14.500, 0.002500, "#1c1c1c", "FREQ Label"))
+    svg_parts.append(render_qs_text(qs_font, "FINE", cols[1], 14.500, 0.002500, "#1c1c1c", "FINE Label"))
+    svg_parts.append(render_qs_text(qs_font, "SHAPE", cols[2], 14.500, 0.002500, "#1c1c1c", "SHAPE Label"))
+    svg_parts.append(render_qs_text(qs_font, "WARP", cols[3], 14.500, 0.002500, "#1c1c1c", "WARP Label"))
+    svg_parts.append(render_qs_text(qs_font, "WINDOW", cols[4], 14.500, 0.002100, "#1c1c1c", "WINDOW Label"))
 
-    # Row 2 Attenuverters (4 Cols): RISE, FALL, MORPH, PHASE (Center Y = 75.50, label Y = 71.500)
-    trim_row2_cols = [19.265, 33.515, 47.765, 62.015]
-    svg_parts.append(render_qs_text(qs_font, "RISE", trim_row2_cols[0], 71.500, 0.001800, "#2c2c2c", "RISE Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "FALL", trim_row2_cols[1], 71.500, 0.001800, "#2c2c2c", "FALL Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "MORPH", trim_row2_cols[2], 71.500, 0.001700, "#2c2c2c", "MORPH Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "PHASE", trim_row2_cols[3], 71.500, 0.001700, "#2c2c2c", "PHASE Trim Label"))
+    # Row 2 Knobs: ROUTING, AMP, RISE, FALL, PHASE, STRETCH (Center Y = 43.00, label Y = 35.800)
+    svg_parts.append(render_qs_text(qs_font, "ROUTING", cols[0], 35.800, 0.002000, "#1c1c1c", "ROUTING Label"))
+    svg_parts.append(render_qs_text(qs_font, "AMP", cols[1], 35.800, 0.002500, "#1c1c1c", "AMP Label"))
+    svg_parts.append(render_qs_text(qs_font, "RISE", cols[2], 35.800, 0.002500, "#1c1c1c", "RISE Label"))
+    svg_parts.append(render_qs_text(qs_font, "FALL", cols[3], 35.800, 0.002500, "#1c1c1c", "FALL Label"))
+    svg_parts.append(render_qs_text(qs_font, "PHASE", cols[4], 35.800, 0.002300, "#1c1c1c", "PHASE Label"))
+    svg_parts.append(render_qs_text(qs_font, "STRETCH", cols[5], 35.800, 0.002000, "#1c1c1c", "STRETCH Label"))
 
-    # Zone 4: I/O Jacks (4 Columns: 13.09, 31.46, 49.82, 68.19 mm)
-    jack_cols = [13.09, 31.46, 49.82, 68.19]
+    # Zone 3: CV Attenuverter Trimpots (6 columns)
+    # Row 1: Left Input, Right Input, Freq, Shape, Warp, Window (Center Y = 63.50, label Y = 59.500)
+    svg_parts.append(render_qs_text(qs_font, "IN L", cols[0], 59.500, 0.001800, "#2c2c2c", "IN L Trim"))
+    svg_parts.append(render_qs_text(qs_font, "IN R", cols[1], 59.500, 0.001800, "#2c2c2c", "IN R Trim"))
+    svg_parts.append(render_qs_text(qs_font, "FREQ", cols[2], 59.500, 0.001800, "#2c2c2c", "FREQ Trim"))
+    svg_parts.append(render_qs_text(qs_font, "SHAPE", cols[3], 59.500, 0.001800, "#2c2c2c", "SHAPE Trim"))
+    svg_parts.append(render_qs_text(qs_font, "WARP", cols[4], 59.500, 0.001800, "#2c2c2c", "WARP Trim"))
+    svg_parts.append(render_qs_text(qs_font, "WINDOW", cols[5], 59.500, 0.001500, "#2c2c2c", "WINDOW Trim"))
 
-    # Jack Row 1 (Inputs): FREQ, SHAPE, WARP, WINDOW (Center Y = 89.50, label Y = 85.000)
-    svg_parts.append(render_qs_text(qs_font, "FREQ", jack_cols[0], 85.000, 0.001800, "#2c2c2c", "FREQ Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "SHAPE", jack_cols[1], 85.000, 0.001800, "#2c2c2c", "SHAPE Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "WARP", jack_cols[2], 85.000, 0.001800, "#2c2c2c", "WARP Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "WINDOW", jack_cols[3], 85.000, 0.001500, "#2c2c2c", "WINDOW Jack Label"))
+    # Row 2: Routing, Amp, Rise, Fall, Phase, Stretch (Center Y = 75.50, label Y = 71.500)
+    svg_parts.append(render_qs_text(qs_font, "ROUTING", cols[0], 71.500, 0.001500, "#2c2c2c", "ROUTING Trim"))
+    svg_parts.append(render_qs_text(qs_font, "AMP", cols[1], 71.500, 0.001800, "#2c2c2c", "AMP Trim"))
+    svg_parts.append(render_qs_text(qs_font, "RISE", cols[2], 71.500, 0.001800, "#2c2c2c", "RISE Trim"))
+    svg_parts.append(render_qs_text(qs_font, "FALL", cols[3], 71.500, 0.001800, "#2c2c2c", "FALL Trim"))
+    svg_parts.append(render_qs_text(qs_font, "PHASE", cols[4], 71.500, 0.001700, "#2c2c2c", "PHASE Trim"))
+    svg_parts.append(render_qs_text(qs_font, "STRETCH", cols[5], 71.500, 0.001500, "#2c2c2c", "STRETCH Trim"))
 
-    # Jack Row 2 (Inputs): DISP, RISE, FALL, MORPH (Center Y = 99.00, label Y = 94.500)
-    svg_parts.append(render_qs_text(qs_font, "DISP", jack_cols[0], 94.500, 0.001800, "#2c2c2c", "DISP Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "RISE", jack_cols[1], 94.500, 0.001800, "#2c2c2c", "RISE Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "FALL", jack_cols[2], 94.500, 0.001800, "#2c2c2c", "FALL Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "MORPH", jack_cols[3], 94.500, 0.001700, "#2c2c2c", "MORPH Jack Label"))
+    # Zone 4: Jacks
+    # Row 1 Jacks: Left Input, Right Input, Freq, Shape, Warp, Window (Center Y = 94.00, label Y = 89.500)
+    svg_parts.append(render_qs_text(qs_font, "IN L", cols[0], 89.500, 0.001900, "#1c1c1c", "IN L Jack"))
+    svg_parts.append(render_qs_text(qs_font, "IN R", cols[1], 89.500, 0.001900, "#1c1c1c", "IN R Jack"))
+    svg_parts.append(render_qs_text(qs_font, "FREQ", cols[2], 89.500, 0.001800, "#2c2c2c", "FREQ Jack"))
+    svg_parts.append(render_qs_text(qs_font, "SHAPE", cols[3], 89.500, 0.001800, "#2c2c2c", "SHAPE Jack"))
+    svg_parts.append(render_qs_text(qs_font, "WARP", cols[4], 89.500, 0.001800, "#2c2c2c", "WARP Jack"))
+    svg_parts.append(render_qs_text(qs_font, "WINDOW", cols[5], 89.500, 0.001500, "#2c2c2c", "WINDOW Jack"))
 
-    # Jack Row 3: PHASE, SYNC IN, IN L, IN R (Center Y = 108.50, label Y = 104.000)
-    svg_parts.append(render_qs_text(qs_font, "PHASE", jack_cols[0], 104.000, 0.001700, "#2c2c2c", "PHASE Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "SYNC", jack_cols[1], 104.000, 0.001800, "#2c2c2c", "SYNC IN Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "IN L", jack_cols[2], 104.000, 0.002000, "#1c1c1c", "IN L Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "IN R", jack_cols[3], 104.000, 0.002000, "#1c1c1c", "IN R Jack Label"))
+    # Row 2 Jacks: Routing, Amp, Rise, Fall, Phase, Stretch (Center Y = 106.00, label Y = 101.500)
+    svg_parts.append(render_qs_text(qs_font, "ROUTING", cols[0], 101.500, 0.001500, "#2c2c2c", "ROUTING Jack"))
+    svg_parts.append(render_qs_text(qs_font, "AMP", cols[1], 101.500, 0.001800, "#2c2c2c", "AMP Jack"))
+    svg_parts.append(render_qs_text(qs_font, "RISE", cols[2], 101.500, 0.001800, "#2c2c2c", "RISE Jack"))
+    svg_parts.append(render_qs_text(qs_font, "FALL", cols[3], 101.500, 0.001800, "#2c2c2c", "FALL Jack"))
+    svg_parts.append(render_qs_text(qs_font, "PHASE", cols[4], 101.500, 0.001700, "#2c2c2c", "PHASE Jack"))
+    svg_parts.append(render_qs_text(qs_font, "STRETCH", cols[5], 101.500, 0.001500, "#2c2c2c", "STRETCH Jack"))
 
-    # Jack Row 4 (Fixed Y = 118.00): SYNC OUT, (Center Blank/Ground), OUT X, OUT Y (label Y = 113.500)
-    svg_parts.append(render_qs_text(qs_font, "SYNC", jack_cols[0], 113.500, 0.001800, "#2c2c2c", "SYNC OUT Jack Label"))
-    svg_parts.append(render_qs_text(qs_font, "OUT X", jack_cols[2], 113.500, 0.002200, "#1c1c1c", "OUT X Label"))
-    svg_parts.append(render_qs_text(qs_font, "OUT Y", jack_cols[3], 113.500, 0.002200, "#1c1c1c", "OUT Y Label"))
+    # Row 3 Jacks (Fixed Y = 118.00): Sync Input, X Out, Y Out, Sync Output
+    # Centered symmetrically across 4 positions:
+    # Margin = 20.00 mm, pitch = 20.53 mm -> [20.00, 40.53, 61.07, 81.60] mm
+    bottom_jacks = [20.00, 40.53, 61.07, 81.60]
+    svg_parts.append(render_qs_text(qs_font, "SYNC IN", bottom_jacks[0], 113.500, 0.001900, "#2c2c2c", "SYNC IN Jack"))
+    svg_parts.append(render_qs_text(qs_font, "X", bottom_jacks[1], 113.500, 0.002400, "#1c1c1c", "X Jack"))
+    svg_parts.append(render_qs_text(qs_font, "Y", bottom_jacks[2], 113.500, 0.002400, "#1c1c1c", "Y Jack"))
+    svg_parts.append(render_qs_text(qs_font, "SYNC OUT", bottom_jacks[3], 113.500, 0.001900, "#2c2c2c", "SYNC OUT Jack"))
 
     svg_parts.append('</svg>')
 
@@ -175,48 +186,48 @@ def main():
         f.write("\n".join(svg_parts) + "\n")
     print(f"Generated {svg_path} successfully.")
 
-    # Render verification bitmap (152 x 240 at 4x resolution = 608 x 960)
+    # Render verification bitmap (190 x 240 at 4x resolution = 760 x 960)
     os.makedirs('scratch', exist_ok=True)
     verify_png = 'scratch/ampara_verify.png'
-    cairosvg.svg2png(url=svg_path, write_to=verify_png, output_width=152 * 4, output_height=240 * 4)
+    cairosvg.svg2png(url=svg_path, write_to=verify_png, output_width=190 * 4, output_height=240 * 4)
 
-    # Render MetaModule asset (152 x 240)
+    # Render MetaModule asset (190 x 240)
     os.makedirs('metamodule/assets', exist_ok=True)
-    cairosvg.svg2png(url=svg_path, write_to='metamodule/assets/Ampara.png', output_width=152, output_height=240)
+    cairosvg.svg2png(url=svg_path, write_to='metamodule/assets/Ampara.png', output_width=190, output_height=240)
     print("Rendered metamodule/assets/Ampara.png successfully.")
 
     im = Image.open(verify_png)
     draw = ImageDraw.Draw(im)
-    r_px = (152 * 4) / panel_w
+    r_px = (190 * 4) / panel_w
 
-    # Knobs at Y = 21.59, 43.00 mm (radius ~ 4.75 mm)
+    # Row 1 Knobs: 5 knobs at cols[0..4]
     kr = 4.75 * r_px
-    for ky in [21.59, 43.00]:
-        for kx in knob_cols:
-            draw.ellipse([kx * r_px - kr, ky * r_px - kr, kx * r_px + kr, ky * r_px + kr], outline='#ffaa00', width=2)
+    for kx in cols[:5]:
+        draw.ellipse([kx * r_px - kr, 21.59 * r_px - kr, kx * r_px + kr, 21.59 * r_px + kr], outline='#ffaa00', width=2)
+    # Row 2 Knobs: 6 knobs at cols[0..5]
+    for kx in cols:
+        draw.ellipse([kx * r_px - kr, 43.00 * r_px - kr, kx * r_px + kr, 43.00 * r_px + kr], outline='#ffaa00', width=2)
 
-    # Range Button and LED at center between Col 1 and Col 2 (19.265 mm)
-    btn_x = 19.265
+    # Range Button and LED at btn_x
     led_r = 1.5 * r_px
     draw.ellipse([btn_x * r_px - led_r, 15.50 * r_px - led_r, btn_x * r_px + led_r, 15.50 * r_px + led_r], outline='#d35fb7', width=2)
     btn_r = 2.0 * r_px
     draw.ellipse([btn_x * r_px - btn_r, 21.59 * r_px - btn_r, btn_x * r_px + btn_r, 21.59 * r_px + btn_r], outline='#f0e442', width=2)
 
-    # Trimpots: Row 1 (63.50 mm) & Row 2 (75.50 mm)
+    # Trimpots: 6 cols at Y = 63.50 and 75.50 mm
     tr = 2.5 * r_px
-    for tx in trim_row1_cols:
-        draw.ellipse([tx * r_px - tr, 63.50 * r_px - tr, tx * r_px + tr, 63.50 * r_px + tr], outline='#00ff88', width=2)
-    for tx in trim_row2_cols:
-        draw.ellipse([tx * r_px - tr, 75.50 * r_px - tr, tx * r_px + tr, 75.50 * r_px + tr], outline='#00ff88', width=2)
+    for ty in [63.50, 75.50]:
+        for tx in cols:
+            draw.ellipse([tx * r_px - tr, ty * r_px - tr, tx * r_px + tr, ty * r_px + tr], outline='#00ff88', width=2)
 
-    # Jacks: Row 1 (89.50), Row 2 (99.00), Row 3 (108.50), Row 4 (118.00)
+    # Jacks: Row 1 (94.00), Row 2 (106.00)
     jr = 4.15 * r_px
-    for jy in [89.50, 99.00, 108.50]:
-        for jx in jack_cols:
+    for jy in [94.00, 106.00]:
+        for jx in cols:
             draw.ellipse([jx * r_px - jr, jy * r_px - jr, jx * r_px + jr, jy * r_px + jr], outline='#00e5ff', width=2)
 
-    # Row 4 (118.00 mm): SYNC OUT (col 0), OUT X (col 2), OUT Y (col 3)
-    for jx in [jack_cols[0], jack_cols[2], jack_cols[3]]:
+    # Row 3 (118.00 mm): 4 jacks
+    for jx in bottom_jacks:
         draw.ellipse([jx * r_px - jr, 118.00 * r_px - jr, jx * r_px + jr, 118.00 * r_px + jr], outline='#00e5ff', width=2)
 
     im.save(verify_png)

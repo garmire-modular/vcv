@@ -7,11 +7,11 @@
 #include <string>
 
 // ─────────────────────────────────────────────────────────────────────
-//  Ampara — Audio-Reactive Vector Polygon Synthesizer (16 HP)
+//  Ampara — Audio-Reactive Vector Polygon Synthesizer (20 HP)
 //  Generate class module producing animated geometric regular polygons
 //  (Circle to Octagon) wrapped with real-time stereo audio waveforms and
 //  shaped by dual-channel envelope followers, Milkdrop polar warp,
-//  and stereo morphing.
+//  stereo routing, and Polly logarithmic stretch.
 // ─────────────────────────────────────────────────────────────────────
 
 namespace {
@@ -26,66 +26,71 @@ struct Ampara : Module {
 	using RangeMode = garmire::ampara::RangeMode;
 
 	enum ParamId {
-		// Row 1 Knobs: FREQ, FINE, SHAPE, WARP, WINDOW
+		// Row 1 Knobs: FREQ, RANGE (button), FINE, SHAPE, WARP, WINDOW
 		FREQ_PARAM,
+		RANGE_PARAM,
 		FINE_PARAM,
 		SHAPE_PARAM,
 		WARP_PARAM,
 		WINDOW_PARAM,
 
-		// Row 2 Knobs: DISP, RISE, FALL, MORPH, PHASE
-		DISP_PARAM,
+		// Row 2 Knobs: ROUTING, AMP, RISE, FALL, PHASE, STRETCH
+		ROUTING_PARAM,
+		AMP_PARAM,
 		RISE_PARAM,
 		FALL_PARAM,
-		MORPH_PARAM,
 		PHASE_PARAM,
-
-		// Range button
-		RANGE_PARAM,
+		STRETCH_PARAM,
 
 		// Zone 3 Attenuverter Trimpots: Row 1
+		// Left Input, Right Input, Freq, Shape, Warp, Window
+		L_TRIM_PARAM,
+		R_TRIM_PARAM,
 		FREQ_TRIM_PARAM,
 		SHAPE_TRIM_PARAM,
 		WARP_TRIM_PARAM,
 		WINDOW_TRIM_PARAM,
-		DISP_TRIM_PARAM,
 
 		// Zone 3 Attenuverter Trimpots: Row 2
+		// Routing, Amp, Rise, Fall, Phase, Stretch
+		ROUTING_TRIM_PARAM,
+		AMP_TRIM_PARAM,
 		RISE_TRIM_PARAM,
 		FALL_TRIM_PARAM,
-		MORPH_TRIM_PARAM,
 		PHASE_TRIM_PARAM,
+		STRETCH_TRIM_PARAM,
 
 		PARAMS_LEN
 	};
 
 	enum InputId {
-		// Jack Row 1 (Inputs)
+		// Jack Row 1: Left Input, Right Input, Freq, Shape, Warp, Window
+		L_INPUT,
+		R_INPUT,
 		FREQ_CV_INPUT,
 		SHAPE_CV_INPUT,
 		WARP_CV_INPUT,
 		WINDOW_CV_INPUT,
 
-		// Jack Row 2 (Inputs)
-		DISP_CV_INPUT,
+		// Jack Row 2: Routing, Amp, Rise, Fall, Phase, Stretch
+		ROUTING_CV_INPUT,
+		AMP_CV_INPUT,
 		RISE_CV_INPUT,
 		FALL_CV_INPUT,
-		MORPH_CV_INPUT,
-
-		// Jack Row 3 (Inputs & Audio)
 		PHASE_CV_INPUT,
+		STRETCH_CV_INPUT,
+
+		// Jack Row 3: Sync input, X Out, Y Out, Sync output
 		SYNC_INPUT,
-		L_INPUT,
-		R_INPUT,
 
 		INPUTS_LEN
 	};
 
 	enum OutputId {
-		// Jack Row 4 (Outputs & Sync Out)
-		SYNC_OUTPUT,
+		// Jack Row 3: Sync input, X Out, Y Out, Sync output
 		X_OUTPUT,
 		Y_OUTPUT,
+		SYNC_OUTPUT,
 
 		OUTPUTS_LEN
 	};
@@ -174,11 +179,16 @@ struct Ampara : Module {
 
 	struct WindowParamQuantity : ParamQuantity {
 		float getDisplayValue() override {
-			return 0.2f * std::pow(250.0f, getValue());
+			return 0.5f * std::pow(1000.0f, getValue());
 		}
 		std::string getDisplayValueString() override {
+			float v = getDisplayValue();
 			char buf[32];
-			std::snprintf(buf, sizeof(buf), "%.1f", getDisplayValue());
+			if (v < 100.0f) {
+				std::snprintf(buf, sizeof(buf), "%.1f", v);
+			} else {
+				std::snprintf(buf, sizeof(buf), "%.0f", v);
+			}
 			return std::string(buf);
 		}
 		std::string getUnit() override {
@@ -188,7 +198,8 @@ struct Ampara : Module {
 
 	struct RiseParamQuantity : ParamQuantity {
 		float getDisplayValue() override {
-			return 0.1f * std::pow(2000.0f, getValue());
+			float v = getValue();
+			return 2000.0f * (v * v);
 		}
 		std::string getDisplayValueString() override {
 			char buf[32];
@@ -202,7 +213,8 @@ struct Ampara : Module {
 
 	struct FallParamQuantity : ParamQuantity {
 		float getDisplayValue() override {
-			return 2.0f * std::pow(1000.0f, getValue());
+			float v = getValue();
+			return 2000.0f * (v * v);
 		}
 		std::string getDisplayValueString() override {
 			char buf[32];
@@ -211,6 +223,17 @@ struct Ampara : Module {
 		}
 		std::string getUnit() override {
 			return " ms";
+		}
+	};
+
+	struct RoutingParamQuantity : ParamQuantity {
+		std::string getDisplayValueString() override {
+			float v = getValue();
+			int avgPct = (int)std::round((1.0f - v) * 100.0f);
+			int sepPct = 100 - avgPct;
+			char buf[64];
+			std::snprintf(buf, sizeof(buf), "%d%% L+R Average : %d%% L R Separate", avgPct, sepPct);
+			return std::string(buf);
 		}
 	};
 
@@ -232,54 +255,65 @@ struct Ampara : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		// Knobs: Row 1
+		// Freq (Range) Fine Shape Warp Window
 		configParam<FreqParamQuantity>(FREQ_PARAM, 0.f, 1.f, 0.5f, "Frequency", " Hz");
+		configButton(RANGE_PARAM, "Frequency Range");
 		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine Tune", "%", 0.f, 100.f);
 		configParam<ShapeParamQuantity>(SHAPE_PARAM, 2.f, 8.f, 2.f, "Shape", "");
-		configParam(WARP_PARAM, 0.f, 1.f, 0.f, "Warp", "%", 0.f, 100.f);
+		configParam(WARP_PARAM, -1.f, 1.f, 0.f, "Warp", "%", 0.f, 100.f);
 		configParam<WindowParamQuantity>(WINDOW_PARAM, 0.f, 1.f, 0.5f, "Buffer Window", " ms");
 
 		// Knobs: Row 2
-		configParam(DISP_PARAM, 0.f, 2.f, 1.f, "Displacement", "%", 0.f, 100.f);
-		configParam<RiseParamQuantity>(RISE_PARAM, 0.f, 1.f, 0.2f, "Rise Time", " ms");
-		configParam<FallParamQuantity>(FALL_PARAM, 0.f, 1.f, 0.4f, "Fall Time", " ms");
-		configParam(MORPH_PARAM, 0.f, 1.f, 0.f, "Morph Routing", "%", 0.f, 100.f);
+		// Routing Amp Rise Fall Phase Stretch
+		configParam<RoutingParamQuantity>(ROUTING_PARAM, 0.f, 1.f, 0.f, "Routing", "");
+		configParam(AMP_PARAM, 0.f, 2.f, 1.f, "Amplitude", "%", 0.f, 100.f);
+		configParam<RiseParamQuantity>(RISE_PARAM, 0.f, 1.f, 0.f, "Rise Time", " ms");
+		configParam<FallParamQuantity>(FALL_PARAM, 0.f, 1.f, 0.f, "Fall Time", " ms");
 		configParam<PhaseParamQuantity>(PHASE_PARAM, 0.f, 1.f, 0.f, "Phase", "°");
+		configParam(STRETCH_PARAM, -1.f, 1.f, 0.f, "Stretch", "%", 0.f, 100.f);
 
-		// Range Button
-		configButton(RANGE_PARAM, "Frequency Range");
-
-		// Attenuverter Trimpots (Sentence case with CV uppercase and depth lowercase per AGENTS.md 6.5.4)
+		// Zone 3 Attenuverter Trimpots: Row 1
+		// Left Input, Right Input, Freq, Shape, Warp, Window
+		configParam(L_TRIM_PARAM, -1.f, 1.f, 1.f, "Left input level", "%", 0.f, 100.f);
+		configParam(R_TRIM_PARAM, -1.f, 1.f, 1.f, "Right input level", "%", 0.f, 100.f);
 		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV depth", "%", 0.f, 100.f);
 		configParam(SHAPE_TRIM_PARAM, -1.f, 1.f, 0.f, "Shape CV depth", "%", 0.f, 100.f);
 		configParam(WARP_TRIM_PARAM, -1.f, 1.f, 0.f, "Warp CV depth", "%", 0.f, 100.f);
 		configParam(WINDOW_TRIM_PARAM, -1.f, 1.f, 0.f, "Window CV depth", "%", 0.f, 100.f);
-		configParam(DISP_TRIM_PARAM, -1.f, 1.f, 0.f, "Displacement CV depth", "%", 0.f, 100.f);
 
+		// Zone 3 Attenuverter Trimpots: Row 2
+		// Routing, Amp, Rise, Fall, Phase, Stretch
+		configParam(ROUTING_TRIM_PARAM, -1.f, 1.f, 0.f, "Routing CV depth", "%", 0.f, 100.f);
+		configParam(AMP_TRIM_PARAM, -1.f, 1.f, 0.f, "Amplitude CV depth", "%", 0.f, 100.f);
 		configParam(RISE_TRIM_PARAM, -1.f, 1.f, 0.f, "Rise CV depth", "%", 0.f, 100.f);
 		configParam(FALL_TRIM_PARAM, -1.f, 1.f, 0.f, "Fall CV depth", "%", 0.f, 100.f);
-		configParam(MORPH_TRIM_PARAM, -1.f, 1.f, 0.f, "Morph CV depth", "%", 0.f, 100.f);
 		configParam(PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Phase CV depth", "%", 0.f, 100.f);
+		configParam(STRETCH_TRIM_PARAM, -1.f, 1.f, 0.f, "Stretch CV depth", "%", 0.f, 100.f);
 
-		// Inputs
-		configInput(FREQ_CV_INPUT, "Frequency CV (1V/Oct)");
+		// Jacks: Row 1
+		// Left Input, Right Input, Freq, Shape, Warp, Window
+		configInput(L_INPUT, "Audio In L");
+		configInput(R_INPUT, "Audio In R (Normalled to L)");
+		configInput(FREQ_CV_INPUT, "Frequency CV");
 		configInput(SHAPE_CV_INPUT, "Shape CV");
 		configInput(WARP_CV_INPUT, "Warp CV");
 		configInput(WINDOW_CV_INPUT, "Window CV");
 
-		configInput(DISP_CV_INPUT, "Displacement CV");
+		// Jacks: Row 2
+		// Routing, Amp, Rise, Fall, Phase, Stretch
+		configInput(ROUTING_CV_INPUT, "Routing CV");
+		configInput(AMP_CV_INPUT, "Amplitude CV");
 		configInput(RISE_CV_INPUT, "Rise CV");
 		configInput(FALL_CV_INPUT, "Fall CV");
-		configInput(MORPH_CV_INPUT, "Morph CV");
-
 		configInput(PHASE_CV_INPUT, "Phase CV");
-		configInput(SYNC_INPUT, "Sync In");
-		configInput(L_INPUT, "Audio In L");
-		configInput(R_INPUT, "Audio In R (Normalled to L)");
+		configInput(STRETCH_CV_INPUT, "Stretch CV");
 
-		// Outputs
+		// Jacks: Row 3
+		// Sync input, X Out, Y Out, Sync output
+		configInput(SYNC_INPUT, "Sync In");
+		configOutput(X_OUTPUT, "X");
+		configOutput(Y_OUTPUT, "Y");
 		configOutput(SYNC_OUTPUT, "Sync Out");
-		configOutput(X_OUTPUT, "X (±5V Deflection)");
-		configOutput(Y_OUTPUT, "Y (±5V Deflection)");
 
 		for (int c = 0; c < 16; ++c) {
 			voices[c].reset();
@@ -312,11 +346,12 @@ struct Ampara : Module {
 		channels = std::max(channels, inputs[SHAPE_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[WARP_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[WINDOW_CV_INPUT].getChannels());
-		channels = std::max(channels, inputs[DISP_CV_INPUT].getChannels());
+		channels = std::max(channels, inputs[ROUTING_CV_INPUT].getChannels());
+		channels = std::max(channels, inputs[AMP_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[RISE_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[FALL_CV_INPUT].getChannels());
-		channels = std::max(channels, inputs[MORPH_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[PHASE_CV_INPUT].getChannels());
+		channels = std::max(channels, inputs[STRETCH_CV_INPUT].getChannels());
 		channels = std::max(channels, inputs[SYNC_INPUT].getChannels());
 		channels = std::min(channels, 16);
 
@@ -330,37 +365,42 @@ struct Ampara : Module {
 		float warpVal = params[WARP_PARAM].getValue();
 		float windowVal = params[WINDOW_PARAM].getValue();
 
-		float dispVal = params[DISP_PARAM].getValue();
+		float routingVal = params[ROUTING_PARAM].getValue();
+		float ampVal = params[AMP_PARAM].getValue();
 		float riseVal = params[RISE_PARAM].getValue();
 		float fallVal = params[FALL_PARAM].getValue();
-		float morphVal = params[MORPH_PARAM].getValue();
 		float phaseVal = params[PHASE_PARAM].getValue();
+		float stretchVal = params[STRETCH_PARAM].getValue();
 
+		float lTrim = params[L_TRIM_PARAM].getValue();
+		float rTrim = params[R_TRIM_PARAM].getValue();
 		float freqTrim = params[FREQ_TRIM_PARAM].getValue();
 		float shapeTrim = params[SHAPE_TRIM_PARAM].getValue();
 		float warpTrim = params[WARP_TRIM_PARAM].getValue();
 		float windowTrim = params[WINDOW_TRIM_PARAM].getValue();
-		float dispTrim = params[DISP_TRIM_PARAM].getValue();
 
+		float routingTrim = params[ROUTING_TRIM_PARAM].getValue();
+		float ampTrim = params[AMP_TRIM_PARAM].getValue();
 		float riseTrim = params[RISE_TRIM_PARAM].getValue();
 		float fallTrim = params[FALL_TRIM_PARAM].getValue();
-		float morphTrim = params[MORPH_TRIM_PARAM].getValue();
 		float phaseTrim = params[PHASE_TRIM_PARAM].getValue();
+		float stretchTrim = params[STRETCH_TRIM_PARAM].getValue();
 
 		for (int c = 0; c < channels; ++c) {
-			float audioL = inputs[L_INPUT].getPolyVoltage(c);
-			float audioR = inputs[R_INPUT].isConnected() ? inputs[R_INPUT].getPolyVoltage(c) : audioL;
+			float audioL = inputs[L_INPUT].getPolyVoltage(c) * lTrim;
+			float audioR = inputs[R_INPUT].isConnected() ? (inputs[R_INPUT].getPolyVoltage(c) * rTrim) : audioL;
 
 			float freqCV = inputs[FREQ_CV_INPUT].getPolyVoltage(c) * freqTrim;
 			float shapeCV = inputs[SHAPE_CV_INPUT].getPolyVoltage(c) * shapeTrim;
 			float warpCV = inputs[WARP_CV_INPUT].getPolyVoltage(c) * warpTrim;
 			float windowCV = inputs[WINDOW_CV_INPUT].getPolyVoltage(c) * windowTrim;
-			float dispCV = inputs[DISP_CV_INPUT].getPolyVoltage(c) * dispTrim;
 
+			float routingCV = inputs[ROUTING_CV_INPUT].getPolyVoltage(c) * routingTrim;
+			float ampCV = inputs[AMP_CV_INPUT].getPolyVoltage(c) * ampTrim;
 			float riseCV = inputs[RISE_CV_INPUT].getPolyVoltage(c) * riseTrim;
 			float fallCV = inputs[FALL_CV_INPUT].getPolyVoltage(c) * fallTrim;
-			float morphCV = inputs[MORPH_CV_INPUT].getPolyVoltage(c) * morphTrim;
 			float phaseCV = inputs[PHASE_CV_INPUT].getPolyVoltage(c) * phaseTrim;
+			float stretchCV = inputs[STRETCH_CV_INPUT].getPolyVoltage(c) * stretchTrim;
 
 			float syncIn = inputs[SYNC_INPUT].getPolyVoltage(c);
 
@@ -374,11 +414,12 @@ struct Ampara : Module {
 				shapeVal, shapeCV,
 				warpVal, warpCV,
 				windowVal, windowCV,
-				dispVal, dispCV,
+				routingVal, routingCV,
+				ampVal, ampCV,
 				riseVal, riseCV,
 				fallVal, fallCV,
-				morphVal, morphCV,
 				phaseVal, phaseCV,
+				stretchVal, stretchCV,
 				audioL, audioR,
 				syncIn,
 				outX, outY, syncOut
@@ -408,12 +449,9 @@ struct Ampara : Module {
 template <typename TBase = GrayModuleLightWidget>
 struct TAmparaRangeLight : TBase {
 	TAmparaRangeLight() {
-		// Range 0: Very Slow = #e1be6a (Warm Gold)
-		this->addBaseColor(nvgRGBA(0xe1, 0xbe, 0x6a, 0xff));
-		// Range 1: LFO = #40b0a6 (Teal)
-		this->addBaseColor(nvgRGBA(0x40, 0xb0, 0xa6, 0xff));
-		// Range 2: VCO = #d35fb7 (Magenta)
-		this->addBaseColor(nvgRGBA(0xd3, 0x5f, 0xb7, 0xff));
+		this->addBaseColor(nvgRGBA(0xe1, 0xbe, 0x6a, 0xff)); // Very Slow (Warm Gold)
+		this->addBaseColor(nvgRGBA(0x40, 0xb0, 0xa6, 0xff)); // LFO (Teal)
+		this->addBaseColor(nvgRGBA(0xd3, 0x5f, 0xb7, 0xff)); // VCO (Magenta)
 	}
 };
 struct AmparaRangeLightWidget : SmallLight<TAmparaRangeLight<>> {};
@@ -423,76 +461,76 @@ struct AmparaWidget : ModuleWidget {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Ampara.svg")));
 
-		// 16 HP Screws
+		// 20 HP Screws
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		// Knob Columns (5 columns across 81.28 mm)
-		// col_x = [12.14, 26.39, 40.64, 54.89, 69.14]
-		const float knob_cols[5] = {12.14f, 26.39f, 40.64f, 54.89f, 69.14f};
+		// 6 Columns across 101.60 mm: cols = [12.00, 27.52, 43.04, 58.56, 74.08, 89.60] mm
+		const float cols[6] = {12.00f, 27.52f, 43.04f, 58.56f, 74.08f, 89.60f};
 
-		// Row 1 Knobs (Center Y = 21.59 mm): FREQ, FINE, SHAPE, WARP, WINDOW
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(knob_cols[0], 21.59f)), module, Ampara::FREQ_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(knob_cols[1], 21.59f)), module, Ampara::FINE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(knob_cols[2], 21.59f)), module, Ampara::SHAPE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(knob_cols[3], 21.59f)), module, Ampara::WARP_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(knob_cols[4], 21.59f)), module, Ampara::WINDOW_PARAM));
-
-		// Range Button and LED centered between Col 1 and Col 2 (19.265 mm)
-		const float btn_x = 19.265f;
+		// Row 1 Knobs (Center Y = 21.59 mm): Freq (Range) Fine Shape Warp Window
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[0], 21.59f)), module, Ampara::FREQ_PARAM));
+		
+		// Range Button and LED centered between Col 0 and Col 1 (19.76 mm)
+		const float btn_x = 19.76f;
 		addChild(createLightCentered<AmparaRangeLightWidget>(mm2px(Vec(btn_x, 15.50f)), module, Ampara::RANGE_LIGHT_YELLOW));
 		addParam(createParamCentered<TL1105>(mm2px(Vec(btn_x, 21.59f)), module, Ampara::RANGE_PARAM));
 
-		// Row 2 Knobs (Center Y = 43.00 mm): DISP, RISE, FALL, MORPH, PHASE
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(knob_cols[0], 43.00f)), module, Ampara::DISP_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(knob_cols[1], 43.00f)), module, Ampara::RISE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(knob_cols[2], 43.00f)), module, Ampara::FALL_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(knob_cols[3], 43.00f)), module, Ampara::MORPH_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(knob_cols[4], 43.00f)), module, Ampara::PHASE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[1], 21.59f)), module, Ampara::FINE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[2], 21.59f)), module, Ampara::SHAPE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[3], 21.59f)), module, Ampara::WARP_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[4], 21.59f)), module, Ampara::WINDOW_PARAM));
 
-		// Zone 3: Attenuverter Trimpots
-		// Row 1 Trimpots (5 cols at Y = 63.50 mm): FREQ, SHAPE, WARP, WINDOW, DISP
-		const float trim_row1_cols[5] = {12.14f, 26.39f, 40.64f, 54.89f, 69.14f};
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(trim_row1_cols[0], 63.50f)), module, Ampara::FREQ_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(trim_row1_cols[1], 63.50f)), module, Ampara::SHAPE_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(trim_row1_cols[2], 63.50f)), module, Ampara::WARP_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(trim_row1_cols[3], 63.50f)), module, Ampara::WINDOW_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(trim_row1_cols[4], 63.50f)), module, Ampara::DISP_TRIM_PARAM));
+		// Row 2 Knobs (Center Y = 43.00 mm): Routing Amp Rise Fall Phase Stretch
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[0], 43.00f)), module, Ampara::ROUTING_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[1], 43.00f)), module, Ampara::AMP_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[2], 43.00f)), module, Ampara::RISE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[3], 43.00f)), module, Ampara::FALL_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[4], 43.00f)), module, Ampara::PHASE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[5], 43.00f)), module, Ampara::STRETCH_PARAM));
 
-		// Row 2 Trimpots (4 cols at Y = 75.50 mm): RISE, FALL, MORPH, PHASE
-		const float trim_row2_cols[4] = {19.265f, 33.515f, 47.765f, 62.015f};
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(trim_row2_cols[0], 75.50f)), module, Ampara::RISE_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(trim_row2_cols[1], 75.50f)), module, Ampara::FALL_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(trim_row2_cols[2], 75.50f)), module, Ampara::MORPH_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(trim_row2_cols[3], 75.50f)), module, Ampara::PHASE_TRIM_PARAM));
+		// Zone 3: CV Attenuverter Trimpots
+		// Row 1 (Center Y = 63.50 mm): Left Input, Right Input, Freq, Shape, Warp, Window
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[0], 63.50f)), module, Ampara::L_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[1], 63.50f)), module, Ampara::R_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[2], 63.50f)), module, Ampara::FREQ_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[3], 63.50f)), module, Ampara::SHAPE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[4], 63.50f)), module, Ampara::WARP_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[5], 63.50f)), module, Ampara::WINDOW_TRIM_PARAM));
 
-		// Zone 4: I/O Jacks (4 Columns: 13.09, 31.46, 49.82, 68.19 mm)
-		const float jack_cols[4] = {13.09f, 31.46f, 49.82f, 68.19f};
+		// Row 2 (Center Y = 75.50 mm): Routing, Amp, Rise, Fall, Phase, Stretch
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[0], 75.50f)), module, Ampara::ROUTING_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[1], 75.50f)), module, Ampara::AMP_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[2], 75.50f)), module, Ampara::RISE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[3], 75.50f)), module, Ampara::FALL_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[4], 75.50f)), module, Ampara::PHASE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(cols[5], 75.50f)), module, Ampara::STRETCH_TRIM_PARAM));
 
-		// Jack Row 1 (Inputs at Y = 89.50 mm): FREQ, SHAPE, WARP, WINDOW
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack_cols[0], 89.50f)), module, Ampara::FREQ_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack_cols[1], 89.50f)), module, Ampara::SHAPE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack_cols[2], 89.50f)), module, Ampara::WARP_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack_cols[3], 89.50f)), module, Ampara::WINDOW_CV_INPUT));
+		// Zone 4: Jacks
+		// Row 1 (Center Y = 94.00 mm): Left Input, Right Input, Freq, Shape, Warp, Window
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[0], 94.00f)), module, Ampara::L_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[1], 94.00f)), module, Ampara::R_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[2], 94.00f)), module, Ampara::FREQ_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[3], 94.00f)), module, Ampara::SHAPE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[4], 94.00f)), module, Ampara::WARP_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[5], 94.00f)), module, Ampara::WINDOW_CV_INPUT));
 
-		// Jack Row 2 (Inputs at Y = 99.00 mm): DISP, RISE, FALL, MORPH
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack_cols[0], 99.00f)), module, Ampara::DISP_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack_cols[1], 99.00f)), module, Ampara::RISE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack_cols[2], 99.00f)), module, Ampara::FALL_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack_cols[3], 99.00f)), module, Ampara::MORPH_CV_INPUT));
+		// Row 2 (Center Y = 106.00 mm): Routing, Amp, Rise, Fall, Phase, Stretch
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[0], 106.00f)), module, Ampara::ROUTING_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[1], 106.00f)), module, Ampara::AMP_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[2], 106.00f)), module, Ampara::RISE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[3], 106.00f)), module, Ampara::FALL_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[4], 106.00f)), module, Ampara::PHASE_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(cols[5], 106.00f)), module, Ampara::STRETCH_CV_INPUT));
 
-		// Jack Row 3 (Inputs & Audio at Y = 108.50 mm): PHASE, SYNC IN, IN L, IN R
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack_cols[0], 108.50f)), module, Ampara::PHASE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack_cols[1], 108.50f)), module, Ampara::SYNC_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack_cols[2], 108.50f)), module, Ampara::L_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack_cols[3], 108.50f)), module, Ampara::R_INPUT));
-
-		// Jack Row 4 (Outputs at Fixed Y = 118.00 mm): SYNC OUT, (spare), OUT X, OUT Y
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(jack_cols[0], 118.00f)), module, Ampara::SYNC_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(jack_cols[2], 118.00f)), module, Ampara::X_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(jack_cols[3], 118.00f)), module, Ampara::Y_OUTPUT));
+		// Row 3 (Center Y = 118.00 mm): Sync input, X Out, Y Out, Sync output
+		const float bottom_jacks[4] = {20.00f, 40.53f, 61.07f, 81.60f};
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(bottom_jacks[0], 118.00f)), module, Ampara::SYNC_INPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(bottom_jacks[1], 118.00f)), module, Ampara::X_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(bottom_jacks[2], 118.00f)), module, Ampara::Y_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(bottom_jacks[3], 118.00f)), module, Ampara::SYNC_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
