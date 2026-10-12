@@ -13,7 +13,7 @@
 - **Palette Badge**: Left-aligned $2.54\text{ mm} \times 88.90\text{ mm}$ rectangle with `#5d5d5d` initial placeholder.
 - **Polyphony**: 1 to 16 voices dynamically allocated based on connected inputs.
 - **Safety Standard**: Real-time safe DSP core (`src/core/GeorgiaCore.hpp`) with zero heap allocations in `process()`, zero system locks, zero file I/O, and no external dependencies.
-- **Module Version**: `v1.1.2`.
+- **Module Version**: `v1.2.0`.
 
 ---
 
@@ -21,7 +21,7 @@
 
 Following repository layout invariants:
 - **Module Title**: Baseline $Y = 7.620\text{ mm}$, centered at $X = 45.720\text{ mm}$ in lowercase `res/Node.otf` (scale 0.0048).
-- **Version Tag**: Baseline $Y = 10.414\text{ mm}$, centered at $X = 45.720\text{ mm}$ in `res/Quicksand-Regular.ttf` (`v1.1.2`, scale 0.0016).
+- **Version Tag**: Baseline $Y = 10.414\text{ mm}$, centered at $X = 45.720\text{ mm}$ in `res/Quicksand-Regular.ttf` (`v1.2.0`, scale 0.0016).
 - **5 Columns across 18 HP ($91.44\text{ mm}$)**:
   - Margins: $13.52\text{ mm}$ left and right.
   - Pitch: $\Delta X = 16.10\text{ mm}$ center-to-center.
@@ -69,28 +69,33 @@ Identical to Ampara/Polly/Circe:
 - VCO: $150\text{ Hz} - 2000\text{ Hz}$ (default $619.8\text{ Hz}$)
 Hard sync via `SYNC IN` resets carrier phase $\phi = 0$; `SYNC OUT` emits $+10\text{V}$ trigger at cycle boundary.
 
-#### 3.2 3D Geometric Surface Families & Morphing
-For beam orbit phase $\phi \in [0, 1)$ and wireframe density $K = 2 + 62 \cdot \text{Density}^2$:
-- Parameter $u = 2\pi \cdot (\phi \cdot K \pmod 1)$ (meridian sweep)
-- Parameter $v = \pi \cdot \phi$ (latitude progression)
+#### 3.2 4 Discrete Geometric Shape Families & Morphing
+The Shape knob features **4 discrete options** (0: Sphere/Toroid, 1: Cube/Cylinder, 2: Pyramid/Cone, 3: Catenoid/Funnel) with dedicated specialized DSP algorithms per shape and **zero interpolation between different shape families**. Within each family, the Morph control provides continuous smooth morphing between its two variations:
 
-1. **Family 1: Sphere $\leftrightarrow$ Toroid (Donut)**:
+1. **Family 0: Sphere $\leftrightarrow$ Toroid (Donut)**:
    - Sphere: $x = \cos(u)\sin(v), y = \sin(u)\sin(v), z = \cos(v)$
-   - Toroid (Donut with central hole): The major ring angle completes a full $2\pi$ revolution via $\varphi = 2v \in [0, 2\pi]$ (with major radius $R_1 = 0.65$, tube radius $R_2 = 0.30$, producing inner hole radius $0.35$ and outer radius $0.95$):
+   - Toroid (Donut with hollow central hole): The major ring angle completes a full $2\pi$ revolution via $\varphi = 2v \in [0, 2\pi]$ (with major radius $R_1 = 0.65$, tube radius $R_2 = 0.30$, producing inner hole radius $0.35$ and outer radius $0.95$):
      $$x = (R_1 + R_2\cos(u))\cos(2v), \quad y = (R_1 + R_2\cos(u))\sin(2v), \quad z = R_2\sin(u)$$
    - Morph blends position and surface normals smoothly.
 
-2. **Family 2: Cube $\leftrightarrow$ Cylinder (Triple Orthogonal 3D Wireframe Grid)**:
-   - Cube: Traces an authentic 3D wireframe grid across all 6 faces using a seamless 3-pass orthogonal loop, eliminating spherical concentric rings at the top and bottom:
+2. **Family 1: Cube $\leftrightarrow$ Cylinder (Triple Orthogonal 3D Wireframe Grid)**:
+   - Cube: Authentic 3D wireframe grid across all 6 faces using a seamless 3-pass orthogonal loop, eliminating spherical concentric rings at the top and bottom:
      - **Pass 0** ($0 \le \phi < \frac{1}{3}$): $Z$-axis square hoops ($XY$ cross-sections stepping along $Z$ from $+0.85$ to $-0.85$).
      - **Pass 1** ($\frac{1}{3} \le \phi < \frac{2}{3}$): $X$-axis square hoops ($YZ$ cross-sections stepping along $X$ from $+0.85$ to $-0.85$).
      - **Pass 2** ($\frac{2}{3} \le \phi < 1$): $Y$-axis square hoops ($XZ$ cross-sections stepping along $Y$ from $-0.85$ to $+0.85$).
    - Cylinder: Smoothly morphs the square cross-sections into circular hoops in Pass 0, while Passes 1 and 2 trace the longitudinal outer cage boundaries and flat endcaps.
    - Morph blends position and surface normals smoothly.
 
-3. **Family 3: Pyramid $\leftrightarrow$ Cone (Exact Sharp Corners)**:
+3. **Family 2: Pyramid $\leftrightarrow$ Cone (Exact Sharp Corners)**:
    - Height fraction $h = v / \pi \in [0, 1]$, $z = (1 - h) \cdot 1.7 - 0.85$, $R(h) = h \cdot 0.85$.
    - Denominator blends from exact square $\max(|\cos(u)|, |\sin(u)|)$ at Morph 0 to circle $1.0$ at Morph 1.
+
+4. **Family 3: Catenoid $\leftrightarrow$ Funnel (Hourglass Wormhole to Flared Horn)**:
+   - Catenoid: Symmetrical double-flanged spool / wormhole with narrow central waist:
+     $$r_{\text{cat}}(z) = 0.25 \cdot \cosh(z / 0.45), \quad z \in [-0.85, 0.85]$$
+   - Funnel: Gravitational well / flared horn with narrow neck at bottom ($z = -0.85$, $r = 0.20$) and wide flared rim at top ($z = +0.85$, $r = 0.85$):
+     $$r_{\text{fun}}(t) = 0.20 + 0.65 \cdot (1 - t)^{2.2}, \quad t = v / \pi \in [0, 1]$$
+   - Morph blends smoothly between the double-flanged Catenoid ($m=0$) and flared Funnel ($m=1$).
 
 #### 3.3 3D Twist & 3D Polly Logarithmic Spiral Stretch
 - **Twist**: Helical axial rotation around $Z$: $\theta_{\text{twist}} = \text{Twist} \cdot 2\pi \cdot P_z$.

@@ -54,6 +54,36 @@ int main() {
         std::cout << "-> Toroid donut hole & 360-degree closed revolution check passed (Hole = 0.35, Outer = 0.95)" << std::endl;
     }
 
+    // 2c. Catenoid & Funnel Check (Shape 3):
+    // Catenoid: narrow waist in center (z=0), flared at rims
+    // Funnel: narrow neck at bottom, flared horn at top
+    {
+        Vec3 pCatWaist, nCatWaist, pCatRim, nCatRim;
+        Vec3 pFunNeck, nFunNeck, pFunRim, nFunRim;
+
+        // Catenoid (m=0): at phase = 0.5 -> z = 0 (waist)
+        VoiceCore::generateSurfacePoint(3.0f, 0.0f, 0.5f, 16.0f, pCatWaist, nCatWaist);
+        float rWaist = std::sqrt(pCatWaist.x * pCatWaist.x + pCatWaist.y * pCatWaist.y);
+        assert(std::abs(rWaist - 0.25f) < 0.05f);
+
+        // Catenoid (m=0): at phase = 0.0 -> z = +0.85 (rim)
+        VoiceCore::generateSurfacePoint(3.0f, 0.0f, 0.01f, 16.0f, pCatRim, nCatRim);
+        float rRim = std::sqrt(pCatRim.x * pCatRim.x + pCatRim.y * pCatRim.y);
+        assert(rRim > 0.70f);
+
+        // Funnel (m=1): at phase = 0.99 -> z = -0.85 (neck)
+        VoiceCore::generateSurfacePoint(3.0f, 1.0f, 0.99f, 16.0f, pFunNeck, nFunNeck);
+        float rNeck = std::sqrt(pFunNeck.x * pFunNeck.x + pFunNeck.y * pFunNeck.y);
+        assert(std::abs(rNeck - 0.20f) < 0.05f);
+
+        // Funnel (m=1): at phase = 0.01 -> z = +0.85 (flared horn rim)
+        VoiceCore::generateSurfacePoint(3.0f, 1.0f, 0.01f, 16.0f, pFunRim, nFunRim);
+        float rFlare = std::sqrt(pFunRim.x * pFunRim.x + pFunRim.y * pFunRim.y);
+        assert(rFlare > 0.80f);
+
+        std::cout << "-> Catenoid & Funnel check passed (Catenoid waist = 0.25, Funnel neck = 0.20, flare = 0.85)" << std::endl;
+    }
+
     // 3. Stretch effect on Sphere check: Stretch should alter coordinates off equator
     {
         float x0 = 0.0f, y0 = 0.0f, s0 = 0.0f;

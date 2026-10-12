@@ -282,16 +282,16 @@ struct Georgia : Module {
 
 	struct ShapeParamQuantity : ParamQuantity {
 		std::string getDisplayValueString() override {
-			float val = getValue();
-			char buf[64];
-			if (val < 0.5f) {
-				std::snprintf(buf, sizeof(buf), "Sphere / Toroid (%.2f)", val);
-			} else if (val < 1.5f) {
-				std::snprintf(buf, sizeof(buf), "Cube / Cylinder (%.2f)", val);
-			} else {
-				std::snprintf(buf, sizeof(buf), "Pyramid / Cone (%.2f)", val);
+			int fam = (int)std::floor(getValue() + 0.5f);
+			if (fam < 0) fam = 0;
+			if (fam > 3) fam = 3;
+			switch (fam) {
+				case 0: return "Sphere / Toroid (1)";
+				case 1: return "Cube / Cylinder (2)";
+				case 2: return "Pyramid / Cone (3)";
+				case 3: return "Catenoid / Funnel (4)";
+				default: return "Sphere / Toroid (1)";
 			}
-			return std::string(buf);
 		}
 	};
 
@@ -350,7 +350,8 @@ struct Georgia : Module {
 		configParam<FreqParamQuantity>(FREQ_PARAM, 0.f, 1.f, 0.5477226f, "Frequency", "");
 		configButton(RANGE_PARAM, "Range time-scale");
 		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine tune", "%", 0.f, 100.f);
-		configParam<ShapeParamQuantity>(SHAPE_PARAM, 0.f, 2.f, 0.f, "Shape", "");
+		configParam<ShapeParamQuantity>(SHAPE_PARAM, 0.f, 3.f, 0.f, "Shape", "");
+		paramQuantities[SHAPE_PARAM]->snapEnabled = true;
 		configParam(MORPH_PARAM, 0.f, 1.f, 0.f, "Morph", "%", 0.f, 100.f);
 
 		// Knobs: Row 2
@@ -719,10 +720,11 @@ struct GeorgiaWidget : ModuleWidget {
 		const char* shapeLabels[] = {
 			"Sphere / Toroid (Family 1)",
 			"Cube / Cylinder (Family 2)",
-			"Pyramid / Cone (Family 3)"
+			"Pyramid / Cone (Family 3)",
+			"Catenoid / Funnel (Family 4)"
 		};
 
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 4; i++) {
 			float targetVal = (float)i;
 			menu->addChild(createCheckMenuItem(shapeLabels[i], "",
 				[=]() { return std::round(georgia->params[Georgia::SHAPE_PARAM].getValue()) == targetVal; },

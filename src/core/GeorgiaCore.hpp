@@ -94,16 +94,23 @@ struct VoiceCore {
         }
     }
 
-    // 3D Geometric Surface Generator with Continuous Morphing
-    // Returns 3D position P and 3D surface unit normal N
+    // 3D Geometric Surface Generator with 4 Discrete Specialized Algorithms
+    // Shape 0: Sphere <-> Toroid
+    // Shape 1: Cube (Sharp 3D Grid) <-> Cylinder
+    // Shape 2: Pyramid <-> Cone
+    // Shape 3: Catenoid (Hourglass/Wormhole) <-> Funnel (Gravitational Well/Flared Horn)
+    // Zero interpolation between different shape families; pure dedicated DSP per shape.
     static void generateSurfacePoint(float shapeParam, float morphParam,
                                      float phase, float K,
                                      Vec3& outP, Vec3& outN) {
-        // Clamp parameters
-        float s = clampf(shapeParam, 0.0f, 2.0f); // 0 = Sphere/Toroid, 1 = Cube/Cylinder, 2 = Pyramid/Cone
+        // Quantize shape into 4 discrete options: 0, 1, 2, 3
+        int shapeFamily = (int)std::floor(shapeParam + 0.5f);
+        if (shapeFamily < 0) shapeFamily = 0;
+        if (shapeFamily > 3) shapeFamily = 3;
+
         float m = clampf(morphParam, 0.0f, 1.0f); // 0 = 1st variation, 1 = 2nd variation
 
-        // Precompute standard spherical coordinates (u, v) for Family 1 & Family 3
+        // Precompute standard scanning coordinates
         float u = 2.0f * (float)M_PI * std::fmod(phase * K, 1.0f);
         float v = (float)M_PI * phase;
 
@@ -112,15 +119,14 @@ struct VoiceCore {
         float cv = std::cos(v);
         float sv = std::sin(v);
 
-        // ── Family 1: Sphere (m=0) <-> Toroid (m=1) ──
-        auto evalSphereToroid = [&](float morph, Vec3& p, Vec3& n) {
-            // Sphere: unit radius 1.0
+        if (shapeFamily == 0) {
+            // ── Shape 0: Sphere (m=0) <-> Toroid (m=1) ──
+            // Sphere: Unit radius 1.0
             Vec3 pSphere(cu * sv, su * sv, cv);
             Vec3 nSphere = pSphere.normalized();
 
-            // Toroid (Donut):
-            // The major ring angle completes a full 2*pi revolution over v in [0, pi] (2*v in [0, 2pi])
-            // The tube cross-section is swept by u in [0, 2pi]
+            // Toroid (Donut with hollow central hole):
+            // phi = 2*v completes a full 360-degree closed revolution
             // Major radius R1 = 0.65, tube radius R2 = 0.30 (inner hole = 0.35, outer = 0.95)
             float phi = 2.0f * v;
             float cphi = std::cos(phi);
@@ -131,16 +137,14 @@ struct VoiceCore {
             Vec3 pToroid((R1 + R2 * cu) * cphi, (R1 + R2 * cu) * sphi, R2 * su);
             Vec3 nToroid(cu * cphi, cu * sphi, su);
 
-            p = pSphere * (1.0f - morph) + pToroid * morph;
-            n = (nSphere * (1.0f - morph) + nToroid * morph).normalized();
-        };
-
-        // ── Family 2: Cube (m=0) <-> Cylinder (m=1) True 3D Wireframe Grid ──
-        // Seamless 3-pass orthogonal grid tracing all 6 faces without concentric circles:
-        // Pass 0 (0 <= phase < 1/3): Z-axis loops (XY square cross-sections stepping along Z)
-        // Pass 1 (1/3 <= phase < 2/3): X-axis loops (YZ square cross-sections stepping along X)
-        // Pass 2 (2/3 <= phase < 1): Y-axis loops (XZ square cross-sections stepping along Y)
-        auto evalCubeCylinder = [&](float morph, Vec3& p, Vec3& n) {
+            outP = pSphere * (1.0f - m) + pToroid * m;
+            outN = (nSphere * (1.0f - m) + nToroid * m).normalized();
+        } else if (shapeFamily == 1) {
+            // ── Shape 1: Cube (m=0) <-> Cylinder (m=1) ──
+            // Authentic 3-pass orthogonal wireframe grid across all 6 faces without concentric circles:
+            // Pass 0 (0 <= phase < 1/3): Z-axis loops (XY cross-sections stepping along Z)
+            // Pass 1 (1/3 <= phase < 2/3): X-axis loops (YZ cross-sections stepping along X)
+            // Pass 2 (2/3 <= phase < 1): Y-axis loops (XZ cross-sections stepping along Y)
             float ph3 = phase * 3.0f;
             int sec = (int)ph3;
             if (sec > 2) sec = 2;
@@ -155,70 +159,73 @@ struct VoiceCore {
             if (denSq < 1e-6f) denSq = 1e-6f;
 
             // Denominator blends from square (m=0) to circle (m=1)
-            float den = (1.0f - morph) * denSq + morph * 1.0f;
+            float den = (1.0f - m) * denSq + m * 1.0f;
 
             if (sec == 0) {
-                // Pass 0: XY squares descending along Z from +0.85 to -0.85
+                // Pass 0: XY cross-sections stepping along Z from +0.85 to -0.85
                 float z = 0.85f - sub * 1.70f;
                 float x = 0.85f * (cuSec / den);
                 float y = 0.85f * (suSec / den);
-                p = Vec3(x, y, z);
-                n = Vec3(cuSec / den, suSec / den, 0.0f).normalized();
+                outP = Vec3(x, y, z);
+                outN = Vec3(cuSec / den, suSec / den, 0.0f).normalized();
             } else if (sec == 1) {
-                // Pass 1: YZ squares sweeping along X from +0.85 to -0.85
+                // Pass 1: YZ cross-sections stepping along X from +0.85 to -0.85
                 float x = 0.85f - sub * 1.70f;
                 float rCyl = std::sqrt(std::max(0.0f, 0.85f * 0.85f - x * x));
                 float yCube = 0.85f * (cuSec / denSq);
                 float yCyl = (std::abs(cuSec) > 1e-5f) ? (rCyl * ((cuSec >= 0.0f) ? 1.0f : -1.0f)) : 0.0f;
-                float y = (1.0f - morph) * yCube + morph * yCyl;
+                float y = (1.0f - m) * yCube + m * yCyl;
                 float z = 0.85f * (suSec / denSq);
-                p = Vec3(x, y, z);
-                n = Vec3(0.0f, cuSec, suSec).normalized();
+                outP = Vec3(x, y, z);
+                outN = Vec3(0.0f, cuSec, suSec).normalized();
             } else {
-                // Pass 2: XZ squares sweeping along Y from -0.85 to +0.85
+                // Pass 2: XZ cross-sections stepping along Y from -0.85 to +0.85
                 float y = -0.85f + sub * 1.70f;
                 float rCyl = std::sqrt(std::max(0.0f, 0.85f * 0.85f - y * y));
                 float xCube = 0.85f * (cuSec / denSq);
                 float xCyl = (std::abs(cuSec) > 1e-5f) ? (rCyl * ((cuSec >= 0.0f) ? 1.0f : -1.0f)) : 0.0f;
-                float x = (1.0f - morph) * xCube + morph * xCyl;
+                float x = (1.0f - m) * xCube + m * xCyl;
                 float z = 0.85f * (suSec / denSq);
-                p = Vec3(x, y, z);
-                n = Vec3(cuSec, 0.0f, suSec).normalized();
+                outP = Vec3(x, y, z);
+                outN = Vec3(cuSec, 0.0f, suSec).normalized();
             }
-        };
-
-        // ── Family 3: Pyramid (m=0) <-> Cone (m=1) ──
-        auto evalPyramidCone = [&](float morph, Vec3& p, Vec3& n) {
+        } else if (shapeFamily == 2) {
+            // ── Shape 2: Pyramid (m=0) <-> Cone (m=1) ──
             float h = (v / (float)M_PI); // Height fraction [0, 1] from apex to base
             float z = (1.0f - h) * 1.7f - 0.85f; // Apex at +0.85, Base at -0.85
-            float rH = h * 0.85f; // Radius expands linearly
+            float rH = h * 0.85f; // Radius expands linearly from apex to base
 
             float denomSquare = std::max(std::abs(cu), std::abs(su));
             if (denomSquare < 1e-6f) denomSquare = 1e-6f;
 
-            // Denominator blends smoothly from exact square (m=0) to exact circle (m=1)
-            float denom = (1.0f - morph) * denomSquare + morph * 1.0f;
+            // Denominator blends from exact square (m=0) to circle (m=1)
+            float denom = (1.0f - m) * denomSquare + m * 1.0f;
             float x = rH * (cu / denom);
             float y = rH * (su / denom);
 
-            p = Vec3(x, y, z);
-            n = Vec3(x, y, 0.4f).normalized();
-        };
-
-        if (s <= 1.0f) {
-            Vec3 p1, n1, p2, n2;
-            evalSphereToroid(m, p1, n1);
-            evalCubeCylinder(m, p2, n2);
-            float frac = s;
-            outP = p1 * (1.0f - frac) + p2 * frac;
-            outN = (n1 * (1.0f - frac) + n2 * frac).normalized();
+            outP = Vec3(x, y, z);
+            outN = Vec3(x, y, 0.4f).normalized();
         } else {
-            Vec3 p2, n2, p3, n3;
-            evalCubeCylinder(m, p2, n2);
-            evalPyramidCone(m, p3, n3);
-            float frac = s - 1.0f;
-            outP = p2 * (1.0f - frac) + p3 * frac;
-            outN = (n2 * (1.0f - frac) + n3 * frac).normalized();
+            // ── Shape 3: Catenoid (m=0) <-> Funnel (m=1) ──
+            // Catenoid (m=0): Symmetrical double-flanged spool / wormhole with narrow central waist
+            // Funnel (m=1): Flared horn / gravitational well with narrow neck at bottom and wide flare at top
+            float t = (v / (float)M_PI); // [0, 1] from top to bottom
+            float z = (1.0f - t) * 1.70f - 0.85f; // z in [-0.85, 0.85]
+
+            // Catenoid: waist radius = 0.25 at z=0, flaring to ~0.84 at z=±0.85
+            float cCat = 0.25f;
+            float rCat = cCat * std::cosh(z / 0.45f);
+
+            // Funnel: narrow neck (0.20) at bottom (t=1, z=-0.85), wide flare (0.85) at top (t=0, z=+0.85)
+            float flareHeight = std::max(0.0f, 1.0f - t);
+            float rFun = 0.20f + 0.65f * std::pow(flareHeight, 2.2f);
+
+            float r = (1.0f - m) * rCat + m * rFun;
+            float x = r * cu;
+            float y = r * su;
+
+            outP = Vec3(x, y, z);
+            outN = Vec3(cu, su, (t - 0.5f) * 0.5f).normalized();
         }
     }
 
