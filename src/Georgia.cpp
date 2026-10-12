@@ -286,11 +286,11 @@ struct Georgia : Module {
 			if (fam < 0) fam = 0;
 			if (fam > 3) fam = 3;
 			switch (fam) {
-				case 0: return "Sphere / Toroid (1)";
-				case 1: return "Cube / Cylinder (2)";
-				case 2: return "Pyramid / Cone (3)";
-				case 3: return "Funnel / Catenoid (4)";
-				default: return "Sphere / Toroid (1)";
+				case 0: return "Sphere / Toroid";
+				case 1: return "Cube / Cylinder";
+				case 2: return "Pyramid / Cone";
+				case 3: return "Funnel / Catenoid";
+				default: return "Sphere / Toroid";
 			}
 		}
 	};
@@ -309,6 +309,28 @@ struct Georgia : Module {
 			}
 			return std::string(buf);
 		}
+		void setDisplayValue(float displayValue) override {
+			float ms = clampf(displayValue, 0.5f, 500.0f);
+			float raw = std::log10(2.0f * ms) / 3.0f;
+			setValue(clampf(raw, 0.0f, 1.0f));
+		}
+		void setDisplayValueString(std::string s) override {
+			std::string str = s;
+			std::string lowerStr = s;
+			for (char& c : lowerStr) c = (char)std::tolower((unsigned char)c);
+
+			char* endPtr = nullptr;
+			float rawVal = std::strtof(str.c_str(), &endPtr);
+			if (endPtr == str.c_str()) return;
+
+			float ms = rawVal;
+			if (lowerStr.find("ms") != std::string::npos) {
+				ms = rawVal;
+			} else if (lowerStr.find("s") != std::string::npos || lowerStr.find("sec") != std::string::npos) {
+				ms = rawVal * 1000.0f;
+			}
+			setDisplayValue(ms);
+		}
 		std::string getUnit() override {
 			return " ms";
 		}
@@ -322,6 +344,21 @@ struct Georgia : Module {
 			char buf[32];
 			std::snprintf(buf, sizeof(buf), "%.1f", getDisplayValue());
 			return std::string(buf);
+		}
+		void setDisplayValue(float displayValue) override {
+			float deg = std::fmod(displayValue, 360.0f);
+			if (deg < 0.0f) deg += 360.0f;
+			if (displayValue >= 360.0f && deg == 0.0f) {
+				setValue(1.0f);
+			} else {
+				setValue(clampf(deg / 360.0f, 0.0f, 1.0f));
+			}
+		}
+		void setDisplayValueString(std::string s) override {
+			char* endPtr = nullptr;
+			float rawVal = std::strtof(s.c_str(), &endPtr);
+			if (endPtr == s.c_str()) return;
+			setDisplayValue(rawVal);
 		}
 		std::string getUnit() override {
 			return "°";
@@ -343,7 +380,7 @@ struct Georgia : Module {
 		// Knobs: Row 2
 		// DENSITY, DEPTH, WINDOW, SPREAD, AMP
 		configParam(DENSITY_PARAM, 0.f, 1.f, 0.5f, "Density", "%", 0.f, 100.f);
-		configParam(DEPTH_PARAM, 0.f, 1.f, 0.7f, "Depth", "%", 0.f, 100.f);
+		configParam(DEPTH_PARAM, 0.f, 1.f, 1.0f, "Depth", "%", 0.f, 100.f);
 		configParam<WindowParamQuantity>(WINDOW_PARAM, 0.f, 1.f, 0.5f, "Buffer window", " ms");
 		configParam(SPREAD_PARAM, 0.f, 1.f, 1.0f, "Spread", "%", 0.f, 100.f);
 		configParam(AMP_PARAM, 0.f, 1.f, 0.0f, "Amplitude", "%", 0.f, 100.f); // Default 0%, Max 100%
@@ -680,41 +717,6 @@ struct GeorgiaWidget : ModuleWidget {
 			menu->addChild(createCheckMenuItem(rangeLabels[i], "",
 				[=]() { return georgia->rangeMode == mode; },
 				[=]() { georgia->rangeMode = mode; }
-			));
-		}
-
-		menu->addChild(new MenuSeparator());
-		menu->addChild(createMenuLabel("Oscilloscope 3D Mapping"));
-
-		const char* scopeLabels[] = {
-			"Surface normal displacement (3D hull)",
-			"Equatorial scope belt",
-			"Z-depth relief extrusion"
-		};
-
-		for (int i = 0; i < 3; i++) {
-			Georgia::ScopeMode mode = (Georgia::ScopeMode)i;
-			menu->addChild(createCheckMenuItem(scopeLabels[i], "",
-				[=]() { return georgia->scopeMode == mode; },
-				[=]() { georgia->scopeMode = mode; }
-			));
-		}
-
-		menu->addChild(new MenuSeparator());
-		menu->addChild(createMenuLabel("Shape Family Presets"));
-
-		const char* shapeLabels[] = {
-			"Sphere / Toroid (Family 1)",
-			"Cube / Cylinder (Family 2)",
-			"Pyramid / Cone (Family 3)",
-			"Funnel / Catenoid (Family 4)"
-		};
-
-		for (int i = 0; i < 4; i++) {
-			float targetVal = (float)i;
-			menu->addChild(createCheckMenuItem(shapeLabels[i], "",
-				[=]() { return std::round(georgia->params[Georgia::SHAPE_PARAM].getValue()) == targetVal; },
-				[=]() { georgia->params[Georgia::SHAPE_PARAM].setValue(targetVal); }
 			));
 		}
 	}

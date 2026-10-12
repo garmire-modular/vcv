@@ -13,7 +13,7 @@
 - **Palette Badge**: Left-aligned $2.54\text{ mm} \times 88.90\text{ mm}$ rectangle with `#5d5d5d` initial placeholder.
 - **Polyphony**: 1 to 16 voices dynamically allocated based on connected inputs.
 - **Safety Standard**: Real-time safe DSP core (`src/core/GeorgiaCore.hpp`) with zero heap allocations in `process()`, zero system locks, zero file I/O, and no external dependencies.
-- **Module Version**: `v1.3.0`.
+- **Module Version**: `v1.3.1`.
 
 ---
 
@@ -21,7 +21,7 @@
 
 Following repository layout invariants:
 - **Module Title**: Baseline $Y = 7.620\text{ mm}$, centered at $X = 45.720\text{ mm}$ in lowercase `res/Node.otf` (scale 0.0048).
-- **Version Tag**: Baseline $Y = 10.414\text{ mm}$, centered at $X = 45.720\text{ mm}$ in `res/Quicksand-Regular.ttf` (`v1.3.0`, scale 0.0016).
+- **Version Tag**: Baseline $Y = 10.414\text{ mm}$, centered at $X = 45.720\text{ mm}$ in `res/Quicksand-Regular.ttf` (`v1.3.1`, scale 0.0016).
 - **5 Columns across 18 HP ($91.44\text{ mm}$)**:
   - Margins: $13.52\text{ mm}$ left and right.
   - Pitch: $\Delta X = 16.10\text{ mm}$ center-to-center.
@@ -31,20 +31,20 @@ Following repository layout invariants:
     - Col 0: `FREQ` (Coarse carrier timebase, calibrated default 60 Hz)
     - Col 1: `RANGE` (`TL1105` button at $Y=21.59\text{ mm}$, tri-color LED at $Y=15.50\text{ mm}$)
     - Col 2: `FINE` (Fine tune $\pm 10\%$)
-    - Col 3: `SHAPE` (Continuous morph: Sphere/Toroid $\rightarrow$ Cube/Cylinder $\rightarrow$ Pyramid/Cone)
+    - Col 3: `SHAPE` (Discrete options: Sphere/Toroid, Cube/Cylinder, Pyramid/Cone, Funnel/Catenoid)
     - Col 4: `MORPH` (Continuous interpolation between 1st and 2nd variation)
   - **Row 2 ($Y = 34.50\text{ mm}$)**:
-    - Col 0: `DENSITY` (Wireframe raster grid resolution: 2 to 64 scan rings, 2x increased upper ceiling)
-    - Col 1: `DEPTH` (2D middle cross-section at 0% to deep 3D perspective wireframe at 100%)
-    - Col 2: `WINDOW` (Perimeter audio buffer time window: $0.5\text{ ms}$ to $500.0\text{ ms}$)
-    - Col 3: `SPREAD` (Audio scope belt spread: 0% tight equatorial belt $\rightarrow$ 100% full surface normal)
+    - Col 0: `DENSITY` (Wireframe raster grid resolution: 2 to 64 scan rings, default 50%)
+    - Col 1: `DEPTH` (2D middle cross-section at 0% to deep 3D perspective wireframe at 100%, default 100%)
+    - Col 2: `WINDOW` (Perimeter audio buffer time window: $0.5\text{ ms}$ to $500.0\text{ ms}$, supports direct text editing e.g. "50ms")
+    - Col 3: `SPREAD` (Audio scope belt spread: 0% tight equatorial belt $\rightarrow$ 100% full surface normal, default 100%)
     - Col 4: `AMP` (Waveform displacement amplitude, default 0%, max 100%)
   - **Row 3 ($Y = 47.50\text{ mm}$)**:
-    - Col 0: `TWIST` (3D helical axis twist: $-100\%$ to $+100\%$)
-    - Col 1: `ROT X` (Pitch rotation: $0^\circ$ to $360^\circ$, default initial state at $90^\circ$ upright view)
-    - Col 2: `ROT Y` (Yaw rotation: $0^\circ$ to $360^\circ$)
-    - Col 3: `ROT Z` (Roll / In-plane rotation: $0^\circ$ to $360^\circ$)
-    - Col 4: `STRETCH` (Polly logarithmic spiral & polar stretch: $-100\%$ to $+100\%$)
+    - Col 0: `TWIST` (3D helical axis twist: $-100\%$ to $+100\%$, default 0%)
+    - Col 1: `ROT X` (Pitch rotation: $0^\circ$ to $360^\circ$, default 0° / initial upright 90° view, supports direct degree text editing)
+    - Col 2: `ROT Y` (Yaw rotation: $0^\circ$ to $360^\circ$, default 0°, supports direct degree text editing)
+    - Col 3: `ROT Z` (Roll / In-plane rotation: $0^\circ$ to $360^\circ$, default 0°, supports direct degree text editing)
+    - Col 4: `STRETCH` (Polly logarithmic spiral & polar stretch: $-100\%$ to $+100\%$, default 0%)
 - **Delineator Line 1**: $Y = 53.50\text{ mm}$.
 - **Attenuverter Trimpots (Zone 3 - 15 Trimpots across 3 Rows)**:
   - **Trim Row 1 ($Y = 59.50\text{ mm}$)**: `IN`, `FREQ`, `FINE`, `SHAPE`, `MORPH`

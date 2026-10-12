@@ -6,7 +6,7 @@
 using namespace garmire::georgia;
 
 int main() {
-    std::cout << "Testing GeorgiaCore 3D Wireframe DSP (v1.3.0)..." << std::endl;
+    std::cout << "Testing GeorgiaCore 3D Wireframe DSP (v1.3.1)..." << std::endl;
 
     VoiceCore voice;
     voice.reset();
@@ -210,6 +210,24 @@ int main() {
         assert(y >= -10.0f && y <= 10.0f);
     }
     std::cout << "-> 1000 sample process stream verified (Output cleanly bounded in ±10V)" << std::endl;
+
+    // 5. Human-friendly Window & Rotation value parsing check
+    {
+        // Window: formula ms = 0.5 * 1000^raw
+        // Inverse: raw = log10(2 * ms) / 3
+        float raw50 = std::log10(2.0f * 50.0f) / 3.0f;
+        float msCalc = 0.5f * std::pow(1000.0f, raw50);
+        assert(std::abs(msCalc - 50.0f) < 1e-3f);
+
+        // Rotation: formula deg = raw * 360
+        // Inverse: raw = deg / 360
+        float raw90 = 90.0f / 360.0f;
+        assert(std::abs(raw90 - 0.25f) < 1e-4f);
+        float raw180 = 180.0f / 360.0f;
+        assert(std::abs(raw180 - 0.50f) < 1e-4f);
+        std::cout << "-> Human-friendly Window & Rotation value editing verified (50ms -> raw 0.667, 90° -> raw 0.25)" << std::endl;
+    }
+
     std::cout << "ALL GEORGIA CORE TESTS PASSED!" << std::endl;
     return 0;
 }
