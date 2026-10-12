@@ -743,25 +743,25 @@ struct PollyWidget : ModuleWidget {
 		addParam(createParamCentered<PollyCustomTrimpot>(mm2px(Vec(col_x[4], 80.00)), module, Polly::STRETCH_TRIM_PARAM));
 
 		// Zone 4: I/O Jacks
-		// Row 1 (Inputs): FREQ, SIDES, ANGLE, PINCH, TWIST (Center Y = 96.50 mm)
-		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[0], 96.50)), module, Polly::FREQ_CV_INPUT));
-		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[1], 96.50)), module, Polly::SIDES_CV_INPUT));
-		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[2], 96.50)), module, Polly::ANGLE_CV_INPUT));
-		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[3], 96.50)), module, Polly::PINCH_CV_INPUT));
-		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[4], 96.50)), module, Polly::TWIST_CV_INPUT));
+		// Row 1 (Inputs): FREQ, SIDES, ANGLE, PINCH, TWIST (Center Y = 94.50 mm)
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[0], 94.50)), module, Polly::FREQ_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[1], 94.50)), module, Polly::SIDES_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[2], 94.50)), module, Polly::ANGLE_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[3], 94.50)), module, Polly::PINCH_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[4], 94.50)), module, Polly::TWIST_CV_INPUT));
 
-		// Row 2 (Inputs): FM, DIST, BEVEL, PHASE, STRETCH (Center Y = 108.00 mm)
-		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[0], 108.00)), module, Polly::FM_CV_INPUT));
-		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[1], 108.00)), module, Polly::DIST_CV_INPUT));
-		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[2], 108.00)), module, Polly::BEVEL_CV_INPUT));
-		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[3], 108.00)), module, Polly::PHASE_CV_INPUT));
-		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[4], 108.00)), module, Polly::STRETCH_CV_INPUT));
+		// Row 2 (Inputs): FM, DIST, BEVEL, PHASE, STRETCH (Center Y = 106.00 mm)
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[0], 106.00)), module, Polly::FM_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[1], 106.00)), module, Polly::DIST_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[2], 106.00)), module, Polly::BEVEL_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[3], 106.00)), module, Polly::PHASE_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[4], 106.00)), module, Polly::STRETCH_CV_INPUT));
 
-		// Row 3 (Sync & Outputs): SYNC, X, Y, SYNC (Center Y = 120.00 mm)
-		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(jack3_x[0], 120.00)), module, Polly::SYNC_INPUT));
-		addOutput(createOutputCentered<PollyCustomPort>(mm2px(Vec(jack3_x[1], 120.00)), module, Polly::X_OUTPUT));
-		addOutput(createOutputCentered<PollyCustomPort>(mm2px(Vec(jack3_x[2], 120.00)), module, Polly::Y_OUTPUT));
-		addOutput(createOutputCentered<PollyCustomPort>(mm2px(Vec(jack3_x[3], 120.00)), module, Polly::SYNC_OUTPUT));
+		// Row 3 (Sync & Outputs): SYNC, X, Y, SYNC (Center Y = 118.00 mm)
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(jack3_x[0], 118.00)), module, Polly::SYNC_INPUT));
+		addOutput(createOutputCentered<PollyCustomPort>(mm2px(Vec(jack3_x[1], 118.00)), module, Polly::X_OUTPUT));
+		addOutput(createOutputCentered<PollyCustomPort>(mm2px(Vec(jack3_x[2], 118.00)), module, Polly::Y_OUTPUT));
+		addOutput(createOutputCentered<PollyCustomPort>(mm2px(Vec(jack3_x[3], 118.00)), module, Polly::SYNC_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {

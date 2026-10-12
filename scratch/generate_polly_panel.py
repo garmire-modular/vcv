@@ -150,10 +150,10 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0  # 0.0056444
     svg_parts.append(render_text(d_din_bold, "POLLY", panel_w / 2.0, 8.000, title_scale, title_color, "POLLY", align="center"))
 
-    # Version number "v2.0.1" in Quicksand-Regular, scale 0.001600, Y baseline 8mm (same as module name),
+    # Version number "v2.0.2" in Quicksand-Regular, scale 0.001600, Y baseline 8mm (same as module name),
     # right-aligned at X = (panel_w - 2.15 mm)
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v2.0.1", version_x, 8.000, 0.001600, "#aaaaaa", "v2.0.1", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v2.0.2", version_x, 8.000, 0.001600, "#aaaaaa", "v2.0.2", align="right"))
 
     # ── Zone 1 & 2: Knobs (D-DIN Condensed Bold, 10pt, baseline - 5.75mm) ──
     knob_label_scale = 10.0 * 25.4 / 72.0 / 1000.0  # 0.0035278
@@ -197,21 +197,21 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     for i, lbl in enumerate(trim2_labels):
         svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 76.000, trim_label_scale, label_color, f"Trim 2: {lbl}"))
 
-    # ── Zone 4: I/O Jacks (D-DIN Condensed, 8pt, baseline - 4.00mm) ──
-    # Jack Row 1 (Inputs): Center Y = 96.50 mm -> Label baseline Y = 96.50 - 4.00 = 92.50 mm
+    # ── Zone 4: I/O Jacks (D-DIN Condensed, 8pt, baseline - 5.00mm) ──
+    # Jack Row 1 (Inputs): Center Y = 94.50 mm -> Label baseline Y = 94.50 - 5.00 = 89.50 mm
     jack1_labels = ["FREQ", "SIDES", "ANGLE", "PINCH", "TWIST"]
     for i, lbl in enumerate(jack1_labels):
-        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 92.500, trim_label_scale, label_color, f"Jack 1: {lbl}"))
+        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 89.500, trim_label_scale, label_color, f"Jack 1: {lbl}"))
 
-    # Jack Row 2 (Inputs): Center Y = 108.00 mm -> Label baseline Y = 108.00 - 4.00 = 104.00 mm
+    # Jack Row 2 (Inputs): Center Y = 106.00 mm -> Label baseline Y = 106.00 - 5.00 = 101.00 mm
     jack2_labels = ["FM", "DIST", "BEVEL", "PHASE", "STRETCH"]
     for i, lbl in enumerate(jack2_labels):
-        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 104.000, trim_label_scale, label_color, f"Jack 2: {lbl}"))
+        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 101.000, trim_label_scale, label_color, f"Jack 2: {lbl}"))
 
-    # Jack Row 3 (Sync & Outputs): Center Y = 120.00 mm -> Label baseline Y = 120.00 - 4.00 = 116.00 mm
+    # Jack Row 3 (Sync & Outputs): Center Y = 118.00 mm -> Label baseline Y = 118.00 - 5.00 = 113.00 mm
     jack3_labels = ["SYNC", "X", "Y", "SYNC"]
     for i, lbl in enumerate(jack3_labels):
-        svg_parts.append(render_text(d_din_cond, lbl, jack3_x[i], 116.000, trim_label_scale, label_color, f"Jack 3: {lbl}"))
+        svg_parts.append(render_text(d_din_cond, lbl, jack3_x[i], 113.000, trim_label_scale, label_color, f"Jack 3: {lbl}"))
 
     svg_parts.append('</svg>')
     return "\n".join(svg_parts) + "\n"
