@@ -128,8 +128,8 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     # 5 Primary Columns layout (pitch = 13.50 mm)
     col_x = [8.56, 22.06, 35.56, 49.06, 62.56]
 
-    # Row 3 Jacks (4 Columns symmetrically spaced across 14 HP)
-    jack3_x = [11.06, 27.39, 43.73, 60.06]
+    # Row 3 Jacks (4 Columns right-aligned, keeping horizontal pitch of previous rows: col_x[1..4])
+    jack3_x = col_x[1:]
 
     badge_svg = get_palette_badge_svg("Polly")
 
@@ -150,10 +150,10 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0  # 0.0056444
     svg_parts.append(render_text(d_din_bold, "POLLY", panel_w / 2.0, 8.000, title_scale, title_color, "POLLY", align="center"))
 
-    # Version number "v2.0.2" in Quicksand-Regular, scale 0.001600, Y baseline 8mm (same as module name),
+    # Version number "v2.0.3" in Quicksand-Regular, scale 0.001600, Y baseline 8mm (same as module name),
     # right-aligned at X = (panel_w - 2.15 mm)
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v2.0.2", version_x, 8.000, 0.001600, "#aaaaaa", "v2.0.2", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v2.0.3", version_x, 8.000, 0.001600, "#aaaaaa", "v2.0.3", align="right"))
 
     # ── Zone 1 & 2: Knobs (D-DIN Condensed Bold, 10pt, baseline - 5.75mm) ──
     knob_label_scale = 10.0 * 25.4 / 72.0 / 1000.0  # 0.0035278
@@ -209,7 +209,7 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
         svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 101.000, trim_label_scale, label_color, f"Jack 2: {lbl}"))
 
     # Jack Row 3 (Sync & Outputs): Center Y = 118.00 mm -> Label baseline Y = 118.00 - 5.00 = 113.00 mm
-    jack3_labels = ["SYNC", "X", "Y", "SYNC"]
+    jack3_labels = ["SYNC IN", "X", "Y", "SYNC OUT"]
     for i, lbl in enumerate(jack3_labels):
         svg_parts.append(render_text(d_din_cond, lbl, jack3_x[i], 113.000, trim_label_scale, label_color, f"Jack 3: {lbl}"))
 

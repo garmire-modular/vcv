@@ -702,8 +702,8 @@ struct PollyWidget : ModuleWidget {
 		// 5 Columns (X coordinates matching generator script)
 		const float col_x[5] = { 8.56f, 22.06f, 35.56f, 49.06f, 62.56f };
 
-		// 4 Symmetrically Spaced Columns for Bottom Row 3 Jacks
-		const float jack3_x[4] = { 11.06f, 27.39f, 43.73f, 60.06f };
+		// Row 3 Jacks (4 Columns right-aligned, keeping horizontal pitch of previous rows: col_x[1..4])
+		const float jack3_x[4] = { col_x[1], col_x[2], col_x[3], col_x[4] };
 
 		// Row 1 Knobs: FREQ, RANGE, FINE, SIDES, ANGLE (Center Y = 20.00 mm)
 		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[0], 20.00)), module, Polly::FREQ_PARAM));
