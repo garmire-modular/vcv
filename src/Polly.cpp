@@ -97,7 +97,14 @@ struct Polly : Module {
 		RANGE_VCO = 2        // 150.0 Hz to 2000.0 Hz
 	};
 
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT = 1,
+		THEME_DARK = 2
+	};
+
 	RangeMode rangeMode = RANGE_LFO;
+	SkinTheme skinTheme = THEME_MEDIUM;
 	dsp::SchmittTrigger rangeTrigger;
 
 	struct VoiceState {
@@ -577,6 +584,7 @@ struct Polly : Module {
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "rangeMode", json_integer((int)rangeMode));
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		return rootJ;
 	}
 
@@ -585,6 +593,42 @@ struct Polly : Module {
 		if (rmJ) {
 			rangeMode = (RangeMode)json_integer_value(rmJ);
 		}
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) {
+			skinTheme = (SkinTheme)json_integer_value(stJ);
+		}
+	}
+};
+
+// ── Custom Hardware Knob Widget (28.471 px / 9.64 mm Skirt + Rotating Fluted Cap) ──
+struct PollyCustomKnob : RoundKnob {
+	PollyCustomKnob() {
+		setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob.svg")));
+		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob_bg.svg")));
+	}
+};
+
+// ── Custom Hardware Attenuverter Widget (17.967 px / 6.08 mm Skirt + Rotating Pointer) ──
+struct PollyCustomTrimpot : RoundKnob {
+	PollyCustomTrimpot() {
+		setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob.svg")));
+		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob_bg.svg")));
+	}
+};
+
+// ── Custom Hardware Jack Port Widget (3.5mm Eurorack Jack) ──
+struct PollyCustomPort : app::SvgPort {
+	PollyCustomPort() {
+		setSvg(Svg::load(asset::plugin(pluginInstance, "res/3_5mm_jacks.svg")));
+	}
+};
+
+// ── Custom Hardware Tactile Button Widget (button_gray_0 / button_gray_1) ──
+struct PollyCustomButton : app::SvgSwitch {
+	PollyCustomButton() {
+		momentary = true;
+		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_0.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_1.svg")));
 	}
 };
 
@@ -603,9 +647,57 @@ struct TPollyRangeLight : TBase {
 struct PollyRangeLightWidget : SmallLight<TPollyRangeLight<>> {};
 
 struct PollyWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Polly::SkinTheme currentTheme = Polly::THEME_MEDIUM;
+
+	void setTheme(Polly::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Polly::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Polly_Light.svg");
+					break;
+				case Polly::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Polly_Dark.svg");
+					break;
+				case Polly::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Polly.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		Polly* module = dynamic_cast<Polly*>(this->module);
+		if (module && module->skinTheme != currentTheme) {
+			setTheme(module->skinTheme);
+		}
+	}
+
 	PollyWidget(Polly* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Polly.svg")));
+		panel = new SvgPanel();
+		Polly::SkinTheme initTheme = module ? module->skinTheme : Polly::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Polly::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Polly_Light.svg");
+				break;
+			case Polly::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Polly_Dark.svg");
+				break;
+			case Polly::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Polly.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// 5 Columns (X coordinates matching generator script)
 		const float col_x[5] = { 8.56f, 22.06f, 35.56f, 49.06f, 62.56f };
@@ -613,63 +705,63 @@ struct PollyWidget : ModuleWidget {
 		// 4 Symmetrically Spaced Columns for Bottom Row 3 Jacks
 		const float jack3_x[4] = { 11.06f, 27.39f, 43.73f, 60.06f };
 
-		// Row 1 Knobs: FREQ, RANGE, FINE, SIDES, ANGLE (Center Y = 21.59 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 21.59)), module, Polly::FREQ_PARAM));
-		addChild(createLightCentered<PollyRangeLightWidget>(mm2px(Vec(col_x[1], 15.50)), module, Polly::RANGE_LIGHT_YELLOW));
-		addParam(createParamCentered<TL1105>(mm2px(Vec(col_x[1], 21.59)), module, Polly::RANGE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 21.59)), module, Polly::FINE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 21.59)), module, Polly::SIDES_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[4], 21.59)), module, Polly::ANGLE_PARAM));
+		// Row 1 Knobs: FREQ, RANGE, FINE, SIDES, ANGLE (Center Y = 18.00 mm)
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[0], 18.00)), module, Polly::FREQ_PARAM));
+		addChild(createLightCentered<PollyRangeLightWidget>(mm2px(Vec(col_x[1], 14.50)), module, Polly::RANGE_LIGHT_YELLOW));
+		addParam(createParamCentered<PollyCustomButton>(mm2px(Vec(col_x[1], 18.00)), module, Polly::RANGE_PARAM));
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[2], 18.00)), module, Polly::FINE_PARAM));
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[3], 18.00)), module, Polly::SIDES_PARAM));
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[4], 18.00)), module, Polly::ANGLE_PARAM));
 
-		// Row 2 Knobs: Distribution (SPLIT, PAIR, TRIO, GROUP, BUNCH) (Center Y = 37.00 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 37.00)), module, Polly::SPLIT_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 37.00)), module, Polly::PAIR_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 37.00)), module, Polly::TRIO_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 37.00)), module, Polly::GROUP_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[4], 37.00)), module, Polly::BUNCH_PARAM));
+		// Row 2 Knobs: Distribution (SPLIT, PAIR, TRIO, GROUP, BUNCH) (Center Y = 34.00 mm)
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[0], 34.00)), module, Polly::SPLIT_PARAM));
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[1], 34.00)), module, Polly::PAIR_PARAM));
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[2], 34.00)), module, Polly::TRIO_PARAM));
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[3], 34.00)), module, Polly::GROUP_PARAM));
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[4], 34.00)), module, Polly::BUNCH_PARAM));
 
-		// Row 3 Knobs: PINCH, TWIST, BEVEL, PHASE, STRETCH (Center Y = 52.50 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 52.50)), module, Polly::PINCH_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 52.50)), module, Polly::TWIST_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 52.50)), module, Polly::BEVEL_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 52.50)), module, Polly::PHASE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[4], 52.50)), module, Polly::STRETCH_PARAM));
+		// Row 3 Knobs: PINCH, TWIST, BEVEL, PHASE, STRETCH (Center Y = 50.00 mm)
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[0], 50.00)), module, Polly::PINCH_PARAM));
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[1], 50.00)), module, Polly::TWIST_PARAM));
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[2], 50.00)), module, Polly::BEVEL_PARAM));
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[3], 50.00)), module, Polly::PHASE_PARAM));
+		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[4], 50.00)), module, Polly::STRETCH_PARAM));
 
-		// Zone 3: CV Attenuverter Trimpots (Center Y = 70.00 and 79.50 mm, matching Lisa)
-		// Row 1 Attenuverters: FREQ, SIDES, ANGLE, PINCH, TWIST
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 70.00)), module, Polly::FREQ_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 70.00)), module, Polly::SIDES_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 70.00)), module, Polly::ANGLE_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[3], 70.00)), module, Polly::PINCH_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[4], 70.00)), module, Polly::TWIST_TRIM_PARAM));
+		// Zone 3: CV Attenuverter Trimpots
+		// Row 1 Attenuverters: FREQ, SIDES, ANGLE, PINCH, TWIST (Center Y = 67.00 mm)
+		addParam(createParamCentered<PollyCustomTrimpot>(mm2px(Vec(col_x[0], 67.00)), module, Polly::FREQ_TRIM_PARAM));
+		addParam(createParamCentered<PollyCustomTrimpot>(mm2px(Vec(col_x[1], 67.00)), module, Polly::SIDES_TRIM_PARAM));
+		addParam(createParamCentered<PollyCustomTrimpot>(mm2px(Vec(col_x[2], 67.00)), module, Polly::ANGLE_TRIM_PARAM));
+		addParam(createParamCentered<PollyCustomTrimpot>(mm2px(Vec(col_x[3], 67.00)), module, Polly::PINCH_TRIM_PARAM));
+		addParam(createParamCentered<PollyCustomTrimpot>(mm2px(Vec(col_x[4], 67.00)), module, Polly::TWIST_TRIM_PARAM));
 
-		// Row 2 Attenuverters: FM, DIST, BEVEL, PHASE, STRETCH
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 79.50)), module, Polly::FM_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 79.50)), module, Polly::DIST_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 79.50)), module, Polly::BEVEL_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[3], 79.50)), module, Polly::PHASE_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[4], 79.50)), module, Polly::STRETCH_TRIM_PARAM));
+		// Row 2 Attenuverters: FM, DIST, BEVEL, PHASE, STRETCH (Center Y = 78.00 mm)
+		addParam(createParamCentered<PollyCustomTrimpot>(mm2px(Vec(col_x[0], 78.00)), module, Polly::FM_TRIM_PARAM));
+		addParam(createParamCentered<PollyCustomTrimpot>(mm2px(Vec(col_x[1], 78.00)), module, Polly::DIST_TRIM_PARAM));
+		addParam(createParamCentered<PollyCustomTrimpot>(mm2px(Vec(col_x[2], 78.00)), module, Polly::BEVEL_TRIM_PARAM));
+		addParam(createParamCentered<PollyCustomTrimpot>(mm2px(Vec(col_x[3], 78.00)), module, Polly::PHASE_TRIM_PARAM));
+		addParam(createParamCentered<PollyCustomTrimpot>(mm2px(Vec(col_x[4], 78.00)), module, Polly::STRETCH_TRIM_PARAM));
 
 		// Zone 4: I/O Jacks
 		// Row 1 (Inputs): FREQ, SIDES, ANGLE, PINCH, TWIST (Center Y = 94.50 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 94.50)), module, Polly::FREQ_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 94.50)), module, Polly::SIDES_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 94.50)), module, Polly::ANGLE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 94.50)), module, Polly::PINCH_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[4], 94.50)), module, Polly::TWIST_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[0], 94.50)), module, Polly::FREQ_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[1], 94.50)), module, Polly::SIDES_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[2], 94.50)), module, Polly::ANGLE_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[3], 94.50)), module, Polly::PINCH_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[4], 94.50)), module, Polly::TWIST_CV_INPUT));
 
 		// Row 2 (Inputs): FM, DIST, BEVEL, PHASE, STRETCH (Center Y = 106.00 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 106.00)), module, Polly::FM_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 106.00)), module, Polly::DIST_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 106.00)), module, Polly::BEVEL_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 106.00)), module, Polly::PHASE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[4], 106.00)), module, Polly::STRETCH_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[0], 106.00)), module, Polly::FM_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[1], 106.00)), module, Polly::DIST_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[2], 106.00)), module, Polly::BEVEL_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[3], 106.00)), module, Polly::PHASE_CV_INPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(col_x[4], 106.00)), module, Polly::STRETCH_CV_INPUT));
 
 		// Row 3 (Sync & Outputs): SYNC, X, Y, SYNC (Center Y = 118.00 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(jack3_x[0], 118.00)), module, Polly::SYNC_INPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(jack3_x[1], 118.00)), module, Polly::X_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(jack3_x[2], 118.00)), module, Polly::Y_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(jack3_x[3], 118.00)), module, Polly::SYNC_OUTPUT));
+		addInput(createInputCentered<PollyCustomPort>(mm2px(Vec(jack3_x[0], 118.00)), module, Polly::SYNC_INPUT));
+		addOutput(createOutputCentered<PollyCustomPort>(mm2px(Vec(jack3_x[1], 118.00)), module, Polly::X_OUTPUT));
+		addOutput(createOutputCentered<PollyCustomPort>(mm2px(Vec(jack3_x[2], 118.00)), module, Polly::Y_OUTPUT));
+		addOutput(createOutputCentered<PollyCustomPort>(mm2px(Vec(jack3_x[3], 118.00)), module, Polly::SYNC_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
@@ -690,6 +782,26 @@ struct PollyWidget : ModuleWidget {
 			menu->addChild(createCheckMenuItem(rangeLabels[i], "",
 				[=]() { return module->rangeMode == mode; },
 				[=]() { module->rangeMode = mode; }
+			));
+		}
+
+		menu->addChild(new MenuSeparator());
+		menu->addChild(createMenuLabel("Skin"));
+
+		const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; i++) {
+			Polly::SkinTheme theme = (Polly::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
 			));
 		}
 	}
