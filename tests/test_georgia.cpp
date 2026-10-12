@@ -6,7 +6,7 @@
 using namespace garmire::georgia;
 
 int main() {
-    std::cout << "Testing GeorgiaCore 3D Wireframe DSP (v1.2.1)..." << std::endl;
+    std::cout << "Testing GeorgiaCore 3D Wireframe DSP (v1.3.0)..." << std::endl;
 
     VoiceCore voice;
     voice.reset();
@@ -30,9 +30,6 @@ int main() {
         float phB = phA + 1.0f / (2.0f * K);
         VoiceCore::generateSurfacePoint(0.0f, 1.0f, phA, K, pA, nA);
         VoiceCore::generateSurfacePoint(0.0f, 1.0f, phB, K, pB, nB);
-        // Tube angle u at phB is u_A + 2*pi, so cos(u) and sin(u) are identical!
-        // The tube displacement relative to the major ring center must be identical:
-        // Phi advances by 2*(vB - vA) = 2*pi*(1/(2*K)) = pi/K, but tube angle is identical.
         float uA = 2.0f * (float)M_PI * std::fmod(phA * 2.0f * K, 1.0f);
         float uB = 2.0f * (float)M_PI * std::fmod(phB * 2.0f * K, 1.0f);
         assert(std::abs(std::cos(uA) - std::cos(uB)) < 1e-3f);
@@ -40,18 +37,20 @@ int main() {
         std::cout << "-> Toroid 2x ring density doubling verified (kToroid = 2*K at m=1.0)" << std::endl;
     }
 
-    // 2. Wireframe Grid Cube Check: All 3 passes should lie exactly on the cube surface [-0.85, 0.85]^3
+    // 2. Wireframe Grid Cube Check:
+    // Cube scale is reduced by 2.5% to 0.82875 to prevent corner clipping at init settings
     {
+        float cubeScale = 0.85f * 0.975f; // 0.82875f
         for (float ph = 0.01f; ph < 0.99f; ph += 0.05f) {
             Vec3 P, N;
             VoiceCore::generateSurfacePoint(1.0f, 0.0f, ph, 18.0f, P, N); // Family 1 (Cube), Morph 0
-            assert(std::abs(P.x) <= 0.85001f);
-            assert(std::abs(P.y) <= 0.85001f);
-            assert(std::abs(P.z) <= 0.85001f);
+            assert(std::abs(P.x) <= cubeScale + 1e-4f);
+            assert(std::abs(P.y) <= cubeScale + 1e-4f);
+            assert(std::abs(P.z) <= cubeScale + 1e-4f);
             float maxCoord = std::max(std::max(std::abs(P.x), std::abs(P.y)), std::abs(P.z));
-            assert(std::abs(maxCoord - 0.85f) < 1e-3f); // At least one coordinate is on a face!
+            assert(std::abs(maxCoord - cubeScale) < 1e-3f); // At least one coordinate is on a face!
         }
-        std::cout << "-> Wireframe Grid Cube check passed (All vertices on surface [-0.85, 0.85]^3 with zero concentric rings)" << std::endl;
+        std::cout << "-> Wireframe Grid Cube check passed (Scale = 0.82875 with 2.5% reduction, zero concentric rings)" << std::endl;
     }
 
     // 2b. Toroid Donut Check: At Shape=0, Morph=1, toroid must have a clear donut hole (inner radius ~0.35, outer radius ~0.95)
@@ -59,7 +58,6 @@ int main() {
     {
         Vec3 p0, n0, pQuarter, nQuarter, pThreeQuarter, nThreeQuarter;
         // Inner edge: at m=1, kToroid = 2*K. u = pi occurs at phase = 0.5 / (2*K) -> radius = R1 - R2 = 0.65 - 0.30 = 0.35
-        // At phase = 0.5 / (2*K), phi = 2*v = 2*pi*(0.5/32) is very close to 0, so x ~ 0.35
         VoiceCore::generateSurfacePoint(0.0f, 1.0f, 0.5f / (2.0f * 16.0f), 16.0f, p0, n0); // u = pi
         assert(std::abs(p0.x - 0.35f) < 0.05f);
 
@@ -74,34 +72,73 @@ int main() {
         std::cout << "-> Toroid donut hole & 360-degree closed revolution check passed (Hole = 0.35, Outer = 0.95)" << std::endl;
     }
 
-    // 2c. Catenoid & Funnel Check (Shape 3):
+    // 2c. Funnel & Catenoid Check (Shape 3):
+    // Family 4 morphs from Funnel (m=0) to Catenoid (m=1)
+    // Funnel: wide flare at top (z=-0.85), narrow neck at bottom (z=+0.85)
     // Catenoid: narrow waist in center (z=0), flared at rims
-    // Funnel: narrow neck at bottom, flared horn at top
     {
+        Vec3 pFunRim, nFunRim, pFunNeck, nFunNeck;
         Vec3 pCatWaist, nCatWaist, pCatRim, nCatRim;
-        Vec3 pFunNeck, nFunNeck, pFunRim, nFunRim;
 
-        // Catenoid (m=0): at phase = 0.5 -> z = 0 (waist)
-        VoiceCore::generateSurfacePoint(3.0f, 0.0f, 0.5f, 16.0f, pCatWaist, nCatWaist);
-        float rWaist = std::sqrt(pCatWaist.x * pCatWaist.x + pCatWaist.y * pCatWaist.y);
-        assert(std::abs(rWaist - 0.25f) < 0.05f);
-
-        // Catenoid (m=0): at phase = 0.0 -> z = +0.85 (rim)
-        VoiceCore::generateSurfacePoint(3.0f, 0.0f, 0.01f, 16.0f, pCatRim, nCatRim);
-        float rRim = std::sqrt(pCatRim.x * pCatRim.x + pCatRim.y * pCatRim.y);
-        assert(rRim > 0.70f);
-
-        // Funnel (m=1): at phase = 0.99 -> z = -0.85 (neck)
-        VoiceCore::generateSurfacePoint(3.0f, 1.0f, 0.99f, 16.0f, pFunNeck, nFunNeck);
-        float rNeck = std::sqrt(pFunNeck.x * pFunNeck.x + pFunNeck.y * pFunNeck.y);
-        assert(std::abs(rNeck - 0.20f) < 0.05f);
-
-        // Funnel (m=1): at phase = 0.01 -> z = +0.85 (flared horn rim)
-        VoiceCore::generateSurfacePoint(3.0f, 1.0f, 0.01f, 16.0f, pFunRim, nFunRim);
+        // Funnel (m=0): at phase = 0.01 -> z = -0.85 (flared horn rim)
+        VoiceCore::generateSurfacePoint(3.0f, 0.0f, 0.01f, 16.0f, pFunRim, nFunRim);
         float rFlare = std::sqrt(pFunRim.x * pFunRim.x + pFunRim.y * pFunRim.y);
         assert(rFlare > 0.80f);
 
-        std::cout << "-> Catenoid & Funnel check passed (Catenoid waist = 0.25, Funnel neck = 0.20, flare = 0.85)" << std::endl;
+        // Funnel (m=0): at phase = 0.99 -> z = +0.85 (neck)
+        VoiceCore::generateSurfacePoint(3.0f, 0.0f, 0.99f, 16.0f, pFunNeck, nFunNeck);
+        float rNeck = std::sqrt(pFunNeck.x * pFunNeck.x + pFunNeck.y * pFunNeck.y);
+        assert(std::abs(rNeck - 0.20f) < 0.05f);
+
+        // Catenoid (m=1): at phase = 0.5 -> z = 0 (waist)
+        VoiceCore::generateSurfacePoint(3.0f, 1.0f, 0.5f, 16.0f, pCatWaist, nCatWaist);
+        float rWaist = std::sqrt(pCatWaist.x * pCatWaist.x + pCatWaist.y * pCatWaist.y);
+        assert(std::abs(rWaist - 0.25f) < 0.05f);
+
+        // Catenoid (m=1): at phase = 0.01 -> z = -0.85 (rim)
+        VoiceCore::generateSurfacePoint(3.0f, 1.0f, 0.01f, 16.0f, pCatRim, nCatRim);
+        float rRim = std::sqrt(pCatRim.x * pCatRim.x + pCatRim.y * pCatRim.y);
+        assert(rRim > 0.70f);
+
+        std::cout << "-> Funnel (m=0) & Catenoid (m=1) check passed (Funnel flare = 0.85, neck = 0.20; Catenoid waist = 0.25)" << std::endl;
+    }
+
+    // 2d. Pyramid / Cone orientation check (Shape 2):
+    // Small point (apex) must be oriented at the top of the screen: apex has z = -0.85 (maps to y1 = +0.85)
+    {
+        Vec3 pApex, nApex, pBase, nBase;
+        VoiceCore::generateSurfacePoint(2.0f, 0.0f, 0.001f, 16.0f, pApex, nApex); // Apex (h=0)
+        assert(pApex.z < -0.80f); // Apex is at negative z, mapping to positive y (top of screen) under 90° X rotation!
+
+        VoiceCore::generateSurfacePoint(2.0f, 0.0f, 0.999f, 16.0f, pBase, nBase); // Base (h=1)
+        assert(pBase.z > 0.80f); // Base is at positive z, mapping to negative y (bottom of screen)
+
+        std::cout << "-> Pyramid / Cone orientation check passed (Apex z=-0.85 at top of screen, Base z=+0.85 at bottom)" << std::endl;
+    }
+
+    // 2e. Depth 0% 2D middle cross-section check:
+    {
+        float x2D = 0.0f, y2D = 0.0f, s2D = 0.0f;
+        VoiceCore vDepth0;
+        vDepth0.reset();
+        vDepth0.process(
+            48000.0f, 0.5f, 0.0f, RANGE_LFO, 0.0f,
+            0.0f, 0.0f, // Shape = Sphere
+            0.0f, 0.0f, // Morph = 0
+            0.5f, 0.0f, // Density
+            0.0f, 0.0f, // Depth = 0.0 (Pure 2D middle cross-section!)
+            0.5f, 0.0f, 1.0f, 0.0f, // Window, Spread
+            0.0f, 0.0f, 0.0f, 0.0f, // Amp, Twist
+            0.0f, 0.0f, 0.0f, 0.0f, // Rot X, Rot Y
+            0.0f, 0.0f,             // Rot Z
+            0.0f, 0.0f,             // Stretch
+            0.0f, 0.0f,             // Audio, Sync
+            x2D, y2D, s2D
+        );
+        // At Depth 0, sphere middle cross-section is a 2D circle with amplitude ~5.0V
+        float rOut = std::sqrt(x2D * x2D + y2D * y2D);
+        assert(std::abs(rOut - 5.0f) < 0.1f);
+        std::cout << "-> Depth 0% 2D cross-section verified (Circle radius = 5.0V)" << std::endl;
     }
 
     // 3. Stretch effect on Sphere check: Stretch should alter coordinates off equator
@@ -116,7 +153,7 @@ int main() {
         v1.process(
             48000.0f, 0.5f, 0.0f, RANGE_LFO, 0.0f,
             0.0f, 0.0f, 0.0f, 0.0f, // Shape = Sphere
-            0.5f, 0.0f, 0.0f, 0.0f, // Density, Depth
+            0.5f, 0.0f, 1.0f, 0.0f, // Density, Depth = 1.0 (3D mode)
             0.5f, 0.0f, 1.0f, 0.0f, // Window, Spread
             0.0f, 0.0f, 0.0f, 0.0f, // Amp, Twist
             0.0f, 0.0f, 0.0f, 0.0f, // Rot X, Rot Y
@@ -129,7 +166,7 @@ int main() {
         v2.process(
             48000.0f, 0.5f, 0.0f, RANGE_LFO, 0.0f,
             0.0f, 0.0f, 0.0f, 0.0f, // Shape = Sphere
-            0.5f, 0.0f, 0.0f, 0.0f, // Density, Depth
+            0.5f, 0.0f, 1.0f, 0.0f, // Density, Depth = 1.0 (3D mode)
             0.5f, 0.0f, 1.0f, 0.0f, // Window, Spread
             0.0f, 0.0f, 0.0f, 0.0f, // Amp, Twist
             0.0f, 0.0f, 0.0f, 0.0f, // Rot X, Rot Y

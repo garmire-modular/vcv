@@ -99,11 +99,9 @@ struct VoiceCore {
     // Shape 1: Cube (Sharp 3D Grid) <-> Cylinder
     // Shape 2: Pyramid <-> Cone
     // Shape 3: Catenoid (Hourglass/Wormhole) <-> Funnel (Gravitational Well/Flared Horn)
-    // Zero interpolation between different shape families; pure dedicated DSP per shape.
-    static void generateSurfacePoint(float shapeParam, float morphParam,
-                                     float phase, float K,
-                                     Vec3& outP, Vec3& outN) {
-        // Quantize shape into 4 discrete options: 0, 1, 2, 3
+    // Evaluates 3D surface point, outward surface normal, and 2D middle cross-section point
+    static void generateSurfacePoint(float shapeParam, float morphParam, float phase, float K,
+                                     Vec3& outP, Vec3& outN, Vec3& outP2D) {
         int shapeFamily = (int)std::floor(shapeParam + 0.5f);
         if (shapeFamily < 0) shapeFamily = 0;
         if (shapeFamily > 3) shapeFamily = 3;
@@ -146,12 +144,21 @@ struct VoiceCore {
 
             outP = pSphere * (1.0f - m) + pToroid * m;
             outN = (nSphere * (1.0f - m) + nToroid * m).normalized();
+
+            // 2D middle cross-section: equatorial circle (Sphere) <-> donut face ring (Toroid)
+            Vec3 p2DSphere(cu, su, 0.0f);
+            Vec3 p2DToroid((R1 + R2 * cuTor) * cphi, (R1 + R2 * cuTor) * sphi, 0.0f);
+            outP2D = p2DSphere * (1.0f - m) + p2DToroid * m;
         } else if (shapeFamily == 1) {
             // ── Shape 1: Cube (m=0) <-> Cylinder (m=1) ──
             // Authentic 3-pass orthogonal wireframe grid across all 6 faces without concentric circles:
             // Pass 0 (0 <= phase < 1/3): Z-axis loops (XY cross-sections stepping along Z)
             // Pass 1 (1/3 <= phase < 2/3): X-axis loops (YZ cross-sections stepping along X)
             // Pass 2 (2/3 <= phase < 1): Y-axis loops (XZ cross-sections stepping along Y)
+            // Cube scale reduced by 2.5% (0.82875) to prevent corner clipping at init settings; Cylinder scale remains 0.85
+            float cubeSize = 0.85f * (0.975f + 0.025f * m);
+            float cubeSpan = 2.0f * cubeSize;
+
             float ph3 = phase * 3.0f;
             int sec = (int)ph3;
             if (sec > 2) sec = 2;
@@ -169,37 +176,45 @@ struct VoiceCore {
             float den = (1.0f - m) * denSq + m * 1.0f;
 
             if (sec == 0) {
-                // Pass 0: XY cross-sections stepping along Z from +0.85 to -0.85
-                float z = 0.85f - sub * 1.70f;
-                float x = 0.85f * (cuSec / den);
-                float y = 0.85f * (suSec / den);
+                // Pass 0: XY cross-sections stepping along Z from +cubeSize to -cubeSize
+                float z = cubeSize - sub * cubeSpan;
+                float x = cubeSize * (cuSec / den);
+                float y = cubeSize * (suSec / den);
                 outP = Vec3(x, y, z);
                 outN = Vec3(cuSec / den, suSec / den, 0.0f).normalized();
             } else if (sec == 1) {
-                // Pass 1: YZ cross-sections stepping along X from +0.85 to -0.85
-                float x = 0.85f - sub * 1.70f;
+                // Pass 1: YZ cross-sections stepping along X from +cubeSize to -cubeSize
+                float x = cubeSize - sub * cubeSpan;
                 float rCyl = std::sqrt(std::max(0.0f, 0.85f * 0.85f - x * x));
-                float yCube = 0.85f * (cuSec / denSq);
+                float yCube = cubeSize * (cuSec / denSq);
                 float yCyl = (std::abs(cuSec) > 1e-5f) ? (rCyl * ((cuSec >= 0.0f) ? 1.0f : -1.0f)) : 0.0f;
                 float y = (1.0f - m) * yCube + m * yCyl;
-                float z = 0.85f * (suSec / denSq);
+                float z = cubeSize * (suSec / denSq);
                 outP = Vec3(x, y, z);
                 outN = Vec3(0.0f, cuSec, suSec).normalized();
             } else {
-                // Pass 2: XZ cross-sections stepping along Y from -0.85 to +0.85
-                float y = -0.85f + sub * 1.70f;
+                // Pass 2: XZ cross-sections stepping along Y from -cubeSize to +cubeSize
+                float y = -cubeSize + sub * cubeSpan;
                 float rCyl = std::sqrt(std::max(0.0f, 0.85f * 0.85f - y * y));
-                float xCube = 0.85f * (cuSec / denSq);
+                float xCube = cubeSize * (cuSec / denSq);
                 float xCyl = (std::abs(cuSec) > 1e-5f) ? (rCyl * ((cuSec >= 0.0f) ? 1.0f : -1.0f)) : 0.0f;
                 float x = (1.0f - m) * xCube + m * xCyl;
-                float z = 0.85f * (suSec / denSq);
+                float z = cubeSize * (suSec / denSq);
                 outP = Vec3(x, y, z);
                 outN = Vec3(cuSec, 0.0f, suSec).normalized();
             }
+
+            // 2D middle cross-section: square (Cube) <-> circle (Cylinder)
+            float xMid = cubeSize * (cu / den);
+            float yMid = cubeSize * (su / den);
+            outP2D = Vec3(xMid, yMid, 0.0f);
         } else if (shapeFamily == 2) {
             // ── Shape 2: Pyramid (m=0) <-> Cone (m=1) ──
+            // Small point (apex) is oriented at the top of the screen:
+            // Apex (h=0) at z=-0.85, Base (h=1) at z=+0.85.
+            // Under base 90-degree X-rotation (y1 = -z), apex maps to y1 = +0.85 (top).
             float h = (v / (float)M_PI); // Height fraction [0, 1] from apex to base
-            float z = (1.0f - h) * 1.7f - 0.85f; // Apex at +0.85, Base at -0.85
+            float z = -0.85f + h * 1.70f;
             float rH = h * 0.85f; // Radius expands linearly from apex to base
 
             float denomSquare = std::max(std::abs(cu), std::abs(su));
@@ -211,29 +226,47 @@ struct VoiceCore {
             float y = rH * (su / denom);
 
             outP = Vec3(x, y, z);
-            outN = Vec3(x, y, 0.4f).normalized();
+            outN = Vec3(x, y, -0.4f).normalized();
+
+            // 2D middle cross-section: mid-height square (Pyramid) <-> circle (Cone)
+            float rMid = 0.425f;
+            float xMid = rMid * (cu / denom);
+            float yMid = rMid * (su / denom);
+            outP2D = Vec3(xMid, yMid, 0.0f);
         } else {
-            // ── Shape 3: Catenoid (m=0) <-> Funnel (m=1) ──
-            // Catenoid (m=0): Symmetrical double-flanged spool / wormhole with narrow central waist
-            // Funnel (m=1): Flared horn / gravitational well with narrow neck at bottom and wide flare at top
+            // ── Shape 3: Funnel (m=0) <-> Catenoid (m=1) ──
+            // Funnel (m=0): Flared horn / gravitational well with wide flare at top and narrow neck at bottom
+            // Catenoid (m=1): Symmetrical double-flanged spool / wormhole with narrow central waist
             float t = (v / (float)M_PI); // [0, 1] from top to bottom
-            float z = (1.0f - t) * 1.70f - 0.85f; // z in [-0.85, 0.85]
+            float z = -0.85f + t * 1.70f; // z in [-0.85, +0.85]: top of screen at t=0, bottom at t=1
 
-            // Catenoid: waist radius = 0.25 at z=0, flaring to ~0.84 at z=±0.85
-            float cCat = 0.25f;
-            float rCat = cCat * std::cosh(z / 0.45f);
-
-            // Funnel: narrow neck (0.20) at bottom (t=1, z=-0.85), wide flare (0.85) at top (t=0, z=+0.85)
+            // Funnel (m=0): wide flare (0.85) at top (t=0, z=-0.85 -> y1=+0.85), narrow neck (0.20) at bottom (t=1, z=+0.85 -> y1=-0.85)
             float flareHeight = std::max(0.0f, 1.0f - t);
             float rFun = 0.20f + 0.65f * std::pow(flareHeight, 2.2f);
 
-            float r = (1.0f - m) * rCat + m * rFun;
+            // Catenoid (m=1): waist radius = 0.25 at z=0, flaring to ~0.84 at rims z=±0.85
+            float cCat = 0.25f;
+            float rCat = cCat * std::cosh(z / 0.45f);
+
+            float r = (1.0f - m) * rFun + m * rCat;
             float x = r * cu;
             float y = r * su;
 
             outP = Vec3(x, y, z);
-            outN = Vec3(cu, su, (t - 0.5f) * 0.5f).normalized();
+            outN = Vec3(cu, su, (0.5f - t) * 0.5f).normalized();
+
+            // 2D middle cross-section: mid-height circle (Funnel r~0.34) <-> waist circle (Catenoid r=0.25)
+            float rFunMid = 0.20f + 0.65f * std::pow(0.5f, 2.2f);
+            float rMid = (1.0f - m) * rFunMid + m * 0.25f;
+            outP2D = Vec3(rMid * cu, rMid * su, 0.0f);
         }
+    }
+
+    // Overload for callers only needing 3D position and normal
+    static void generateSurfacePoint(float shapeParam, float morphParam, float phase, float K,
+                                     Vec3& outP, Vec3& outN) {
+        Vec3 dummy2D;
+        generateSurfacePoint(shapeParam, morphParam, phase, K, outP, outN, dummy2D);
     }
 
     // Process a single sample
@@ -305,12 +338,12 @@ struct VoiceCore {
         // Latitude progression parameter v for spread belt modulation
         float v = (float)M_PI * phase;
 
-        // 6. Generate 3D Surface Point & Normal
-        float shapeVal = clampf(shapeParam + shapeCV * 0.2f, 0.0f, 2.0f);
+        // 6. Generate 3D Surface Point, Normal & 2D Middle Cross-Section Point
+        float shapeVal = clampf(shapeParam + shapeCV * 0.2f, 0.0f, 3.0f);
         float morphVal = clampf(morphParam + morphCV * 0.1f, 0.0f, 1.0f);
 
-        Vec3 P, N;
-        generateSurfacePoint(shapeVal, morphVal, phase, K, P, N);
+        Vec3 P, N, P2D;
+        generateSurfacePoint(shapeVal, morphVal, phase, K, P, N, P2D);
 
         // 7. 3D Twist Transformation
         float twistVal = clampf(twistParam + twistCV * 0.2f, -1.0f, 1.0f);
@@ -372,9 +405,11 @@ struct VoiceCore {
         }
 
         // 10. 3D Euler Rotations: Pitch (X), Yaw (Y), Roll (Z)
-        float rotX = (clampf(rotXParam + rotXCV * 0.1f, -1.0f, 1.0f) * (float)M_PI);
-        float rotY = (clampf(rotYParam + rotYCV * 0.1f, -1.0f, 1.0f) * (float)M_PI);
-        float rotZ = (clampf(rotZParam + rotZCV * 0.1f, 0.0f, 1.0f) * 2.0f * (float)M_PI);
+        // All rotation angles span 0 to 360 degrees (0 to 2*pi).
+        // Initial state (rotXParam = 0) has a base 90° (pi/2) offset for an upright initial view.
+        float rotX = (float)M_PI * 0.5f + (rotXParam + rotXCV * 0.1f) * 2.0f * (float)M_PI;
+        float rotY = (rotYParam + rotYCV * 0.1f) * 2.0f * (float)M_PI;
+        float rotZ = (rotZParam + rotZCV * 0.1f) * 2.0f * (float)M_PI;
 
         // Rotate X (Pitch)
         float cx = std::cos(rotX), sx = std::sin(rotX);
@@ -391,14 +426,23 @@ struct VoiceCore {
         float x3 = x2 * cz - y1 * sz;
         float y3 = x2 * sz + y1 * cz;
 
-        // 11. Perspective Camera Projection
+        // In-plane rotation for 2D middle cross-section (controlled by Rot Z)
+        float x2D = P2D.x * cz - P2D.y * sz;
+        float y2D = P2D.x * sz + P2D.y * cz;
+
+        // 11. Perspective Camera Projection & Depth Control
         float depthKnob = clampf(depthParam + depthCV * 0.1f, 0.0f, 1.0f);
         float dCam = 3.0f;
         float zEff = 1.0f + depthKnob * (z2 / dCam);
         if (zEff < 0.2f) zEff = 0.2f;
 
-        float projX = x3 / zEff;
-        float projY = y3 / zEff;
+        float x3D = x3 / zEff;
+        float y3D = y3 / zEff;
+
+        // At Depth 0%, present a pure 2D version (middle cross section).
+        // Increasing Depth blooms into the full 3D rotated perspective wireframe.
+        float projX = (1.0f - depthKnob) * x2D + depthKnob * x3D;
+        float projY = (1.0f - depthKnob) * y2D + depthKnob * y3D;
 
         // 12. Output Deflection (Standard Eurorack ±5V, clamped safely at ±10V)
         outX = clampf(projX * 5.0f, -10.0f, 10.0f);

@@ -81,10 +81,10 @@ def main():
             georgia_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version tag "v1.2.1"
+    # Version tag "v1.3.0"
     version_block = [
-        '  <!-- Label: "v1.2.1" -->',
-        render_qs_text(qs_reg_font, "v1.2.1", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v1.2.1")
+        '  <!-- Label: "v1.3.0" -->',
+        render_qs_text(qs_reg_font, "v1.3.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v1.3.0")
     ]
 
     svg_parts = [

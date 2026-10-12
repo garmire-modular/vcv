@@ -289,7 +289,7 @@ struct Georgia : Module {
 				case 0: return "Sphere / Toroid (1)";
 				case 1: return "Cube / Cylinder (2)";
 				case 2: return "Pyramid / Cone (3)";
-				case 3: return "Catenoid / Funnel (4)";
+				case 3: return "Funnel / Catenoid (4)";
 				default: return "Sphere / Toroid (1)";
 			}
 		}
@@ -314,21 +314,7 @@ struct Georgia : Module {
 		}
 	};
 
-	struct AngleParamQuantity : ParamQuantity {
-		float getDisplayValue() override {
-			return getValue() * 180.0f;
-		}
-		std::string getDisplayValueString() override {
-			char buf[32];
-			std::snprintf(buf, sizeof(buf), "%.1f", getDisplayValue());
-			return std::string(buf);
-		}
-		std::string getUnit() override {
-			return "°";
-		}
-	};
-
-	struct RotZParamQuantity : ParamQuantity {
+	struct RotAngleParamQuantity : ParamQuantity {
 		float getDisplayValue() override {
 			return getValue() * 360.0f;
 		}
@@ -365,9 +351,9 @@ struct Georgia : Module {
 		// Knobs: Row 3
 		// TWIST, ROT X, ROT Y, ROT Z, STRETCH
 		configParam(TWIST_PARAM, -1.f, 1.f, 0.f, "Twist", "%", 0.f, 100.f);
-		configParam<AngleParamQuantity>(ROT_X_PARAM, -1.f, 1.f, 0.15f, "X rotation", "°");
-		configParam<AngleParamQuantity>(ROT_Y_PARAM, -1.f, 1.f, 0.25f, "Y rotation", "°");
-		configParam<RotZParamQuantity>(ROT_Z_PARAM, 0.f, 1.f, 0.f, "Z rotation", "°");
+		configParam<RotAngleParamQuantity>(ROT_X_PARAM, 0.f, 1.f, 0.f, "X rotation", "°");
+		configParam<RotAngleParamQuantity>(ROT_Y_PARAM, 0.f, 1.f, 0.f, "Y rotation", "°");
+		configParam<RotAngleParamQuantity>(ROT_Z_PARAM, 0.f, 1.f, 0.f, "Z rotation", "°");
 		configParam(STRETCH_PARAM, -1.f, 1.f, 0.f, "Stretch", "%", 0.f, 100.f);
 
 		// Zone 3 Attenuverter Trimpots: Row 1
@@ -721,7 +707,7 @@ struct GeorgiaWidget : ModuleWidget {
 			"Sphere / Toroid (Family 1)",
 			"Cube / Cylinder (Family 2)",
 			"Pyramid / Cone (Family 3)",
-			"Catenoid / Funnel (Family 4)"
+			"Funnel / Catenoid (Family 4)"
 		};
 
 		for (int i = 0; i < 4; i++) {

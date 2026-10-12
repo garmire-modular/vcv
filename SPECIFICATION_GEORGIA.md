@@ -13,7 +13,7 @@
 - **Palette Badge**: Left-aligned $2.54\text{ mm} \times 88.90\text{ mm}$ rectangle with `#5d5d5d` initial placeholder.
 - **Polyphony**: 1 to 16 voices dynamically allocated based on connected inputs.
 - **Safety Standard**: Real-time safe DSP core (`src/core/GeorgiaCore.hpp`) with zero heap allocations in `process()`, zero system locks, zero file I/O, and no external dependencies.
-- **Module Version**: `v1.2.1`.
+- **Module Version**: `v1.3.0`.
 
 ---
 
@@ -21,7 +21,7 @@
 
 Following repository layout invariants:
 - **Module Title**: Baseline $Y = 7.620\text{ mm}$, centered at $X = 45.720\text{ mm}$ in lowercase `res/Node.otf` (scale 0.0048).
-- **Version Tag**: Baseline $Y = 10.414\text{ mm}$, centered at $X = 45.720\text{ mm}$ in `res/Quicksand-Regular.ttf` (`v1.2.1`, scale 0.0016).
+- **Version Tag**: Baseline $Y = 10.414\text{ mm}$, centered at $X = 45.720\text{ mm}$ in `res/Quicksand-Regular.ttf` (`v1.3.0`, scale 0.0016).
 - **5 Columns across 18 HP ($91.44\text{ mm}$)**:
   - Margins: $13.52\text{ mm}$ left and right.
   - Pitch: $\Delta X = 16.10\text{ mm}$ center-to-center.
@@ -35,14 +35,14 @@ Following repository layout invariants:
     - Col 4: `MORPH` (Continuous interpolation between 1st and 2nd variation)
   - **Row 2 ($Y = 34.50\text{ mm}$)**:
     - Col 0: `DENSITY` (Wireframe raster grid resolution: 2 to 64 scan rings, 2x increased upper ceiling)
-    - Col 1: `DEPTH` (Z-depth perspective camera scaling: 2D orthographic to deep 3D perspective)
+    - Col 1: `DEPTH` (2D middle cross-section at 0% to deep 3D perspective wireframe at 100%)
     - Col 2: `WINDOW` (Perimeter audio buffer time window: $0.5\text{ ms}$ to $500.0\text{ ms}$)
     - Col 3: `SPREAD` (Audio scope belt spread: 0% tight equatorial belt $\rightarrow$ 100% full surface normal)
     - Col 4: `AMP` (Waveform displacement amplitude, default 0%, max 100%)
   - **Row 3 ($Y = 47.50\text{ mm}$)**:
     - Col 0: `TWIST` (3D helical axis twist: $-100\%$ to $+100\%$)
-    - Col 1: `ROT X` (Pitch rotation: $-180^\circ$ to $+180^\circ$)
-    - Col 2: `ROT Y` (Yaw rotation: $-180^\circ$ to $+180^\circ$)
+    - Col 1: `ROT X` (Pitch rotation: $0^\circ$ to $360^\circ$, default initial state at $90^\circ$ upright view)
+    - Col 2: `ROT Y` (Yaw rotation: $0^\circ$ to $360^\circ$)
     - Col 3: `ROT Z` (Roll / In-plane rotation: $0^\circ$ to $360^\circ$)
     - Col 4: `STRETCH` (Polly logarithmic spiral & polar stretch: $-100\%$ to $+100\%$)
 - **Delineator Line 1**: $Y = 53.50\text{ mm}$.
@@ -70,7 +70,7 @@ Identical to Ampara/Polly/Circe:
 Hard sync via `SYNC IN` resets carrier phase $\phi = 0$; `SYNC OUT` emits $+10\text{V}$ trigger at cycle boundary.
 
 #### 3.2 4 Discrete Geometric Shape Families & Morphing
-The Shape knob features **4 discrete options** (0: Sphere/Toroid, 1: Cube/Cylinder, 2: Pyramid/Cone, 3: Catenoid/Funnel) with dedicated specialized DSP algorithms per shape and **zero interpolation between different shape families**. Within each family, the Morph control provides continuous smooth morphing between its two variations:
+The Shape knob features **4 discrete options** (0: Sphere/Toroid, 1: Cube/Cylinder, 2: Pyramid/Cone, 3: Funnel/Catenoid) with dedicated specialized DSP algorithms per shape and **zero interpolation between different shape families**. Within each family, the Morph control provides continuous smooth morphing between its two variations:
 
 1. **Family 0: Sphere $\leftrightarrow$ Toroid (Donut)**:
    - Sphere: $x = \cos(u)\sin(v), y = \sin(u)\sin(v), z = \cos(v)$ swept over latitude $v \in [0, \pi]$ with $K$ rings.
@@ -81,22 +81,25 @@ The Shape knob features **4 discrete options** (0: Sphere/Toroid, 1: Cube/Cylind
 
 2. **Family 1: Cube $\leftrightarrow$ Cylinder (Triple Orthogonal 3D Wireframe Grid)**:
    - Cube: Authentic 3D wireframe grid across all 6 faces using a seamless 3-pass orthogonal loop, eliminating spherical concentric rings at the top and bottom:
-     - **Pass 0** ($0 \le \phi < \frac{1}{3}$): $Z$-axis square hoops ($XY$ cross-sections stepping along $Z$ from $+0.85$ to $-0.85$).
-     - **Pass 1** ($\frac{1}{3} \le \phi < \frac{2}{3}$): $X$-axis square hoops ($YZ$ cross-sections stepping along $X$ from $+0.85$ to $-0.85$).
-     - **Pass 2** ($\frac{2}{3} \le \phi < 1$): $Y$-axis square hoops ($XZ$ cross-sections stepping along $Y$ from $-0.85$ to $+0.85$).
+     - **Pass 0** ($0 \le \phi < \frac{1}{3}$): $Z$-axis square hoops ($XY$ cross-sections stepping along $Z$).
+     - **Pass 1** ($\frac{1}{3} \le \phi < \frac{2}{3}$): $X$-axis square hoops ($YZ$ cross-sections stepping along $X$).
+     - **Pass 2** ($\frac{2}{3} \le \phi < 1$): $Y$-axis square hoops ($XZ$ cross-sections stepping along $Y$).
+   - **Cube Scale Reduction**: Cube scale is reduced by 2.5% ($0.82875$ at $m=0$) to prevent diagonal corner clipping at init settings ($\pm 10\text{V}$ bounds), while Cylinder scaling remains $0.85$ at $m=1$.
    - Cylinder: Smoothly morphs the square cross-sections into circular hoops in Pass 0, while Passes 1 and 2 trace the longitudinal outer cage boundaries and flat endcaps.
    - Morph blends position and surface normals smoothly.
 
-3. **Family 2: Pyramid $\leftrightarrow$ Cone (Exact Sharp Corners)**:
-   - Height fraction $h = v / \pi \in [0, 1]$, $z = (1 - h) \cdot 1.7 - 0.85$, $R(h) = h \cdot 0.85$.
+3. **Family 2: Pyramid $\leftrightarrow$ Cone (Exact Sharp Corners & Upright Apex)**:
+   - Apex oriented at top of the screen: apex at $z = -0.85$ (mapping to $y_{\text{screen}} = +0.85$ under base $90^\circ$ X rotation), base at $z = +0.85$ ($y_{\text{screen}} = -0.85$).
+   - Height fraction $h = v / \pi \in [0, 1]$ from apex to base, $z = -0.85 + h \cdot 1.70$, $R(h) = h \cdot 0.85$.
    - Denominator blends from exact square $\max(|\cos(u)|, |\sin(u)|)$ at Morph 0 to circle $1.0$ at Morph 1.
 
-4. **Family 3: Catenoid $\leftrightarrow$ Funnel (Hourglass Wormhole to Flared Horn)**:
+4. **Family 3: Funnel $\leftrightarrow$ Catenoid (Flared Horn to Hourglass Wormhole)**:
+   - Morph 0 is Funnel, Morph 1 is Catenoid.
+   - Funnel: Gravitational well / flared horn with wide flared rim at top ($z = -0.85$, $y_{\text{screen}} = +0.85$, $r = 0.85$) and narrow neck at bottom ($z = +0.85$, $y_{\text{screen}} = -0.85$, $r = 0.20$):
+     $$r_{\text{fun}}(t) = 0.20 + 0.65 \cdot (1 - t)^{2.2}, \quad t = v / \pi \in [0, 1]$$
    - Catenoid: Symmetrical double-flanged spool / wormhole with narrow central waist:
      $$r_{\text{cat}}(z) = 0.25 \cdot \cosh(z / 0.45), \quad z \in [-0.85, 0.85]$$
-   - Funnel: Gravitational well / flared horn with narrow neck at bottom ($z = -0.85$, $r = 0.20$) and wide flared rim at top ($z = +0.85$, $r = 0.85$):
-     $$r_{\text{fun}}(t) = 0.20 + 0.65 \cdot (1 - t)^{2.2}, \quad t = v / \pi \in [0, 1]$$
-   - Morph blends smoothly between the double-flanged Catenoid ($m=0$) and flared Funnel ($m=1$).
+   - Morph blends smoothly between the flared Funnel ($m=0$) and double-flanged Catenoid ($m=1$).
 
 #### 3.3 3D Twist & 3D Polly Logarithmic Spiral Stretch
 - **Twist**: Helical axial rotation around $Z$: $\theta_{\text{twist}} = \text{Twist} \cdot 2\pi \cdot P_z$.
@@ -117,9 +120,12 @@ The Shape knob features **4 discrete options** (0: Sphere/Toroid, 1: Cube/Cylind
   2. Dedicated equatorial scope belt
   3. Z-depth relief extrusion
 
-#### 3.5 3D Euler Rotations & Output Scaling
-- Rotates $\vec{P}$ by angles $\theta_X$ (Pitch), $\theta_Y$ (Yaw), and $\theta_Z$ (Roll / Rot Z):
-  $$\vec{P}' = \mathbf{R}_z(\theta_Z) \mathbf{R}_y(\theta_Y) \mathbf{R}_x(\theta_X) \vec{P}$$
-- Perspective camera projection with focal distance $d_{\text{cam}} = 3.0$:
-  $$z_{\text{eff}} = 1.0 + \text{Depth} \cdot \left(\frac{z'}{d_{\text{cam}}}\right)$$
+#### 3.5 3D Euler Rotations & Depth Control
+- **Rotation Ranges**: `ROT X`, `ROT Y`, and `ROT Z` knobs all span $0^\circ$ to $360^\circ$ ($0.0$ to $1.0$).
+- **Base Initial Orientation**: `ROT X` has a base $+90^\circ$ ($+\pi/2$) offset, presenting the shape in the natural upright view at the default knob position ($0^\circ$).
+  $$\theta_X = \frac{\pi}{2} + \text{rotX} \cdot 2\pi, \quad \theta_Y = \text{rotY} \cdot 2\pi, \quad \theta_Z = \text{rotZ} \cdot 2\pi$$
+- **Depth Control (2D Cross-Section to 3D Perspective)**:
+  - At $\text{Depth} = 0\%$: Presents a pure 2D version of the object (middle cross-section) in $(X, Y)$ with zero perspective distortion and zero out-of-plane tilting.
+  - As Depth increases towards $100\%$: Smoothly expands and blooms from the flat middle cross-section into the full 3D rotating wireframe mesh with perspective camera projection ($d_{\text{cam}} = 3.0$):
+    $$\text{proj} = (1 - \text{Depth}) \cdot \mathbf{P}_{\text{2D}} + \text{Depth} \cdot \left(\frac{\mathbf{P}_{\text{3D}}}{z_{\text{eff}}}\right)$$
 - Output deflection: Standard Eurorack $\pm 5\text{V}$, clamped cleanly at $\pm 10\text{V}$ without non-linear cushion distortion.
