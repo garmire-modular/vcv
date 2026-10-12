@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Polly Range Button Ring Tuner</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+</head>
+<body class="bg-transparent text-[var(--foreground)] antialiased p-4">
+  <div class="bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)] rounded-xl p-5 shadow-lg max-w-4xl mx-auto space-y-6">
+    
+    <!-- Header -->
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] pb-4">
+      <div>
+        <h2 class="text-xl font-bold tracking-tight">Range Button LED Ring Tuner</h2>
+        <p class="text-[var(--muted-foreground)] text-sm">Tune the halo ring width and distance from the center of the button in real time.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs px-2.5 py-1 rounded-full bg-[var(--accent)] text-[var(--accent-foreground)] font-mono font-medium">Polly 14 HP</span>
+      </div>
+    </div>
+
+    <!-- Main Grid: Controls + Visualizer -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      
+      <!-- Controls Column (5 cols) -->
+      <div class="lg:col-span-5 space-y-5 bg-[var(--background)] p-4 rounded-lg border border-[var(--border)]">
+        
+        <!-- Parameter 1: Distance from Button Center -->
+        <div>
+          <div class="flex justify-between items-center mb-1.5">
+            <label for="input-dist" class="text-xs font-semibold uppercase tracking-wider text-[var(--foreground)]">Center Distance ($R_{center}$)</label>
+            <span id="label-dist" class="text-sm font-mono font-bold text-amber-500">3.84 mm</span>
+          </div>
+          <input type="range" id="input-dist" min="2.65" max="5.00" step="0.01" value="3.84" class="w-full accent-amber-500 cursor-pointer">
+          <div class="flex justify-between text-[11px] text-[var(--muted-foreground)] mt-1 font-mono">
+            <span>2.65 mm</span>
+            <span>3.84 mm (default)</span>
+            <span>5.00 mm</span>
+          </div>
+        </div>
+
+        <!-- Parameter 2: Ring Stroke Width -->
+        <div>
+          <div class="flex justify-between items-center mb-1.5">
+            <label for="input-width" class="text-xs font-semibold uppercase tracking-wider text-[var(--foreground)]">Ring Width ($W$)</label>
+            <span id="label-width" class="text-sm font-mono font-bold text-emerald-500">0.94 mm</span>
+          </div>
+          <input type="range" id="input-width" min="0.10" max="3.00" step="0.01" value="0.94" class="w-full accent-emerald-500 cursor-pointer">
+          <div class="flex justify-between text-[11px] text-[var(--muted-foreground)] mt-1 font-mono">
+            <span>0.10 mm (fine)</span>
+            <span>0.94 mm (default)</span>
+            <span>3.00 mm (wide)</span>
+          </div>
+        </div>
+
+        <!-- Calculated Offset Readout -->
+        <div class="p-3 bg-[var(--card)] rounded-md border border-[var(--border)] space-y-1.5 font-mono text-xs">
+          <div class="flex justify-between">
+            <span class="text-[var(--muted-foreground)]">Button Outer Radius:</span>
+            <span class="font-medium text-[var(--foreground)]">2.60 mm</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-[var(--muted-foreground)]">Inner Ring Radius:</span>
+            <span id="val-inner" class="font-bold text-indigo-400">2.85 mm</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-[var(--muted-foreground)]">Outer Ring Radius:</span>
+            <span id="val-outer" class="font-bold text-purple-400">3.15 mm</span>
+          </div>
+          <div class="flex justify-between pt-1 border-t border-[var(--border)]">
+            <span class="text-[var(--muted-foreground)]">Offset from Button Rim:</span>
+            <span id="val-offset" class="font-bold text-amber-400">0.25 mm</span>
+          </div>
+        </div>
+
+        <!-- Theme & Ring Color Controls -->
+        <div class="space-y-3 pt-2 border-t border-[var(--border)]">
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wider text-[var(--foreground)] block mb-1.5">Illumination State</label>
+            <div class="grid grid-cols-4 gap-1.5">
+              <button onclick="setColor('#e1be6a', 'Warm Gold (Slow)')" class="px-2 py-1.5 rounded text-xs font-medium bg-[#e1be6a]/20 text-[#e1be6a] border border-[#e1be6a]/40 hover:bg-[#e1be6a]/30">Gold</button>
+              <button onclick="setColor('#40b0a6', 'Teal (LFO)')" class="px-2 py-1.5 rounded text-xs font-medium bg-[#40b0a6]/20 text-[#40b0a6] border border-[#40b0a6]/40 hover:bg-[#40b0a6]/30">Teal</button>
+              <button onclick="setColor('#d35fb7', 'Magenta (VCO)')" class="px-2 py-1.5 rounded text-xs font-medium bg-[#d35fb7]/20 text-[#d35fb7] border border-[#d35fb7]/40 hover:bg-[#d35fb7]/30">Magenta</button>
+              <button onclick="setColor('#3a3a3a', 'Unlit (Off)')" class="px-2 py-1.5 rounded text-xs font-medium bg-[#3a3a3a]/40 text-gray-300 border border-gray-600 hover:bg-[#3a3a3a]/60">Unlit</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wider text-[var(--foreground)] block mb-1.5">Panel Skin</label>
+            <div class="grid grid-cols-3 gap-2">
+              <button onclick="setSkin('Medium', '#6e6e6e', '#222222', '#ffffff')" class="px-2 py-1.5 rounded text-xs font-medium bg-[#6e6e6e] text-white border border-gray-500 shadow-sm">Medium</button>
+              <button onclick="setSkin('Light', '#c6c6c6', '#222222', '#333333')" class="px-2 py-1.5 rounded text-xs font-medium bg-[#c6c6c6] text-black border border-gray-400 shadow-sm">Light</button>
+              <button onclick="setSkin('Dark', '#333333', '#ffffff', '#c6c6c6')" class="px-2 py-1.5 rounded text-xs font-medium bg-[#333333] text-white border border-gray-700 shadow-sm">Dark</button>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <label for="toggle-halo" class="text-xs text-[var(--muted-foreground)] cursor-pointer">Simulate Optical Halo Glow</label>
+            <input type="checkbox" id="toggle-halo" checked class="accent-amber-500 cursor-pointer">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Live Mockup Column (7 cols) -->
+      <div class="lg:col-span-7 space-y-4">
+        
+        <!-- SVG Canvas Card -->
+        <div class="p-4 bg-[var(--background)] rounded-lg border border-[var(--border)] flex flex-col items-center justify-center relative overflow-hidden">
+          <div class="w-full flex justify-between items-center mb-2 px-1 text-xs text-[var(--muted-foreground)]">
+            <span id="status-badge" class="font-mono">Skin: Medium | Range: Gold</span>
+            <span>Row 1 Context View (Scale: 12x)</span>
+          </div>
+
+          <!-- Scaled SVG Panel Viewport -->
+          <div class="w-full overflow-hidden rounded-md border border-[var(--border)] shadow-inner flex items-center justify-center p-2 bg-[#1a1a1a]">
+            <svg id="panel-svg" viewBox="0 0 45 28" class="w-full h-auto max-h-[320px] select-none" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));">
+              <!-- Background -->
+              <rect id="svg-bg" x="0" y="0" width="45" height="28" fill="#6e6e6e"/>
+
+              <!-- Labels -->
+              <!-- FREQ label -->
+              <text id="lbl-freq" x="8.56" y="14.25" font-family="sans-serif" font-weight="bold" font-size="2.6" fill="#222222" text-anchor="middle">FREQ</text>
+              <!-- RANGE label -->
+              <text id="lbl-range" x="22.06" y="14.25" font-family="sans-serif" font-weight="bold" font-size="2.6" fill="#222222" text-anchor="middle">RANGE</text>
+              <!-- FINE label -->
+              <text id="lbl-fine" x="35.56" y="14.25" font-family="sans-serif" font-weight="bold" font-size="2.6" fill="#222222" text-anchor="middle">FINE</text>
+
+              <!-- Adjacent FREQ Knob (X = 8.56, Y = 20.00, R = 4.82mm) -->
+              <circle cx="8.56" cy="20.00" r="4.82" fill="#242424" stroke="#111111" stroke-width="0.3"/>
+              <circle cx="8.56" cy="20.00" r="3.70" fill="#1b1b1b" stroke="#333333" stroke-width="0.15"/>
+              <line x1="8.56" y1="20.00" x2="8.56" y2="16.50" stroke="#ffffff" stroke-width="0.35"/>
+
+              <!-- Adjacent FINE Knob (X = 35.56, Y = 20.00, R = 4.82mm) -->
+              <circle cx="35.56" cy="20.00" r="4.82" fill="#242424" stroke="#111111" stroke-width="0.3"/>
+              <circle cx="35.56" cy="20.00" r="3.70" fill="#1b1b1b" stroke="#333333" stroke-width="0.15"/>
+              <line x1="35.56" y1="20.00" x2="35.56" y2="16.50" stroke="#ffffff" stroke-width="0.35"/>
+
+              <!-- ILLUMINATED HALO RING (Behind / Under Button) -->
+              <circle id="svg-halo" cx="22.06" cy="20.00" r="3.00" fill="none" stroke="#e1be6a" stroke-width="1.10" opacity="0.35" style="filter: blur(0.4px);"/>
+
+              <!-- ILLUMINATED CORE RING -->
+              <circle id="svg-ring" cx="22.06" cy="20.00" r="3.00" fill="none" stroke="#e1be6a" stroke-width="0.30"/>
+
+              <!-- PUSH BUTTON (X = 22.06, Y = 20.00, R = 2.60mm) -->
+              <g id="svg-btn">
+                <!-- Outer rim bezel (#333333) R = 2.60mm -->
+                <circle cx="22.06" cy="20.00" r="2.60" fill="#333333"/>
+                <!-- Upper shadow ring -->
+                <circle cx="22.06" cy="19.86" r="2.16" fill="#808080"/>
+                <!-- Cap body -->
+                <circle cx="22.06" cy="20.00" r="2.16" fill="#6e6e6e"/>
+              </g>
+
+              <!-- Dimension Guidelines (Interactive Display) -->
+              <g id="guide-lines" opacity="0.65">
+                <line x1="22.06" y1="20.00" x2="22.06" y2="25.50" stroke="#ffffff" stroke-width="0.08" stroke-dasharray="0.3,0.3"/>
+                <line x1="24.66" y1="20.00" x2="24.66" y2="25.50" stroke="#ffffff" stroke-width="0.08" stroke-dasharray="0.3,0.3"/>
+                <line id="guide-outer" x1="25.21" y1="20.00" x2="25.21" y2="25.50" stroke="#e1be6a" stroke-width="0.08" stroke-dasharray="0.3,0.3"/>
+              </g>
+            </svg>
+          </div>
+
+          <div class="flex justify-between w-full text-[11px] text-[var(--muted-foreground)] mt-2">
+            <span>Button: $\varnothing 5.20\text{ mm}$ ($R=2.60$)</span>
+            <span>Spacing to FINE Knob Skirt: <strong id="val-skirt-clearance" class="text-[var(--foreground)]">4.51 mm</strong></span>
+          </div>
+        </div>
+
+        <!-- Generated Code Snippet Card -->
+        <div class="p-3 bg-[var(--background)] rounded-lg border border-[var(--border)] font-mono text-xs">
+          <div class="flex justify-between items-center mb-1 text-[var(--muted-foreground)]">
+            <span>Ready-to-use Parameters:</span>
+            <button onclick="copyValues()" id="btn-copy" class="text-amber-500 hover:text-amber-400 font-bold">Copy Values</button>
+          </div>
+          <pre id="code-snippet" class="p-2.5 bg-black/40 rounded border border-white/10 text-emerald-400 overflow-x-auto text-[11px] leading-relaxed">
+float r = mm2px(3.00f);  // Center distance (mm)
+float w = mm2px(0.30f);  // Ring stroke width (mm)
+// Offset from 2.60mm button = 0.25mm
+// Inner radius = 2.85mm | Outer radius = 3.15mm</pre>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let currentDist = 3.84;
+    let currentWidth = 0.94;
+    let currentColor = '#e1be6a';
+    let currentTheme = 'Medium';
+    let haloEnabled = true;
+
+    const inputDist = document.getElementById('input-dist');
+    const inputWidth = document.getElementById('input-width');
+    const toggleHalo = document.getElementById('toggle-halo');
+
+    const labelDist = document.getElementById('label-dist');
+    const labelWidth = document.getElementById('label-width');
+    const valInner = document.getElementById('val-inner');
+    const valOuter = document.getElementById('val-outer');
+    const valOffset = document.getElementById('val-offset');
+    const valSkirt = document.getElementById('val-skirt-clearance');
+    const codeSnippet = document.getElementById('code-snippet');
+    const statusBadge = document.getElementById('status-badge');
+
+    const svgRing = document.getElementById('svg-ring');
+    const svgHalo = document.getElementById('svg-halo');
+    const svgBg = document.getElementById('svg-bg');
+    const lblFreq = document.getElementById('lbl-freq');
+    const lblRange = document.getElementById('lbl-range');
+    const lblFine = document.getElementById('lbl-fine');
+    const guideOuter = document.getElementById('guide-outer');
+
+    function update() {
+      currentDist = parseFloat(inputDist.value);
+      currentWidth = parseFloat(inputWidth.value);
+      haloEnabled = toggleHalo.checked;
+
+      labelDist.textContent = currentDist.toFixed(2) + ' mm';
+      labelWidth.textContent = currentWidth.toFixed(2) + ' mm';
+
+      const innerR = currentDist - (currentWidth / 2.0);
+      const outerR = currentDist + (currentWidth / 2.0);
+      const offset = innerR - 2.60;
+      const skirtClearance = 35.56 - 4.82 - outerR; // FINE knob left skirt is at 30.74mm
+
+      valInner.textContent = innerR.toFixed(2) + ' mm';
+      valOuter.textContent = outerR.toFixed(2) + ' mm';
+      valOffset.textContent = (offset >= 0 ? '+' : '') + offset.toFixed(2) + ' mm';
+      valSkirt.textContent = skirtClearance.toFixed(2) + ' mm';
+
+      // Update SVG
+      svgRing.setAttribute('r', currentDist.toFixed(3));
+      svgRing.setAttribute('stroke-width', currentWidth.toFixed(3));
+      svgRing.setAttribute('stroke', currentColor);
+
+      svgHalo.setAttribute('r', currentDist.toFixed(3));
+      svgHalo.setAttribute('stroke-width', (currentWidth + 0.80).toFixed(3));
+      svgHalo.setAttribute('stroke', currentColor);
+      svgHalo.setAttribute('opacity', haloEnabled && currentColor !== '#3a3a3a' ? '0.35' : '0');
+
+      guideOuter.setAttribute('x1', (22.06 + outerR).toFixed(3));
+      guideOuter.setAttribute('x2', (22.06 + outerR).toFixed(3));
+      guideOuter.setAttribute('stroke', currentColor);
+
+      // Code snippet
+      codeSnippet.textContent = 
+`float r = mm2px(${currentDist.toFixed(2)}f);  // Center distance (mm)
+float w = mm2px(${currentWidth.toFixed(2)}f);  // Ring stroke width (mm)
+// Offset from 2.60mm button = ${offset.toFixed(2)}mm
+// Inner radius = ${innerR.toFixed(2)}mm | Outer radius = ${outerR.toFixed(2)}mm`;
+    }
+
+    inputDist.addEventListener('input', update);
+    inputWidth.addEventListener('input', update);
+    toggleHalo.addEventListener('change', update);
+
+    function setColor(color, name) {
+      currentColor = color;
+      statusBadge.textContent = `Skin: ${currentTheme} | State: ${name}`;
+      update();
+    }
+
+    function setSkin(name, bg, labelCol, titleCol) {
+      currentTheme = name;
+      svgBg.setAttribute('fill', bg);
+      lblFreq.setAttribute('fill', labelCol);
+      lblRange.setAttribute('fill', labelCol);
+      lblFine.setAttribute('fill', labelCol);
+      statusBadge.textContent = `Skin: ${currentTheme}`;
+      update();
+    }
+
+    function copyValues() {
+      const text = `Center distance: ${currentDist.toFixed(2)}mm, Stroke width: ${currentWidth.toFixed(2)}mm (Offset: ${(currentDist - currentWidth/2.0 - 2.60).toFixed(2)}mm)`;
+      navigator.clipboard.writeText(text);
+      const btn = document.getElementById('btn-copy');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy Values'; }, 1500);
+    }
+
+    update();
+  </script>
+</body>
+</html>
