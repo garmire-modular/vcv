@@ -1,4 +1,6 @@
+import json
 import os
+from pathlib import Path
 import re
 import sys
 
@@ -64,30 +66,53 @@ def get_text_width(font, text, scale):
     hmtx = font['hmtx']
     return sum(hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text)
 
-def render_section_divider(center_y, panel_w, hi_color, sh_color):
-    # Stretched to exactly 80% of module width:
-    # Width = 0.8 * 71.12 = 56.896 mm, centered with 7.112 mm margins
-    divider_w = panel_w * 0.80
-    x_start = (panel_w - divider_w) / 2.0  # 7.112 mm
-    fade_w = divider_w * 0.10             # 5.690 mm (10% fade at each end)
-    mid_w = divider_w * 0.80              # 45.516 mm (80% solid in center)
-    x_mid1 = x_start + fade_w             # 12.802 mm
-    x_mid2 = x_mid1 + mid_w              # 58.318 mm
+def get_palette_badge_svg(module_name="Polly"):
+    palette_path = Path("scratch/palette/palette.json")
+    if palette_path.exists():
+        try:
+            with open(palette_path, "r", encoding="utf-8") as f:
+                pal_data = json.load(f)
+            if module_name in pal_data:
+                entry = pal_data[module_name]
+                geom = entry.get("badgeGeometry", {})
+                bw = geom.get("widthMm", 2.54)
+                start_y = geom.get("y", 19.8)
+                start_x = geom.get("x", 0.0)
+                bands = entry.get("bands", [])
+                if bands:
+                    lines = ['  <!-- Left Edge Color Badge (from scratch/palette/palette.json) -->',
+                             '  <g id="palette-badge">']
+                    curr_y = start_y
+                    for b in bands:
+                        bh = b.get("heightMm", 0.0)
+                        hex_col = b.get("hex", "#5d5d5d")
+                        lines.append(f'    <rect x="{start_x:.3f}" y="{curr_y:.3f}" width="{bw:.3f}" height="{bh:.3f}" fill="{hex_col}" stroke="none"/>')
+                        curr_y += bh
+                    lines.append('  </g>')
+                    return "\n".join(lines)
+        except Exception as e:
+            print(f"Warning: could not load palette.json: {e}")
+    return '''  <!-- Left Edge Color Badge (Placeholder #5d5d5d) -->
+  <g id="palette-badge">
+    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>
+  </g>'''
 
-    # Total vertical height = 0.600 mm (0.300 mm highlight + 0.300 mm shadow)
-    top_y = center_y - 0.300
+def render_section_divider(center_y, panel_w, hi_color, sh_color):
+    # Stretched to exactly 80% of module width, aligned to the right edge:
+    # Width = 0.8 * 71.12 = 56.896 mm; x_start = 71.12 - 56.896 = 14.224 mm
+    divider_w = panel_w * 0.80
+    x_start = panel_w - divider_w
+
+    # Total vertical height = 0.300 mm (0.150 mm highlight + 0.150 mm shadow)
+    top_y = center_y - 0.150
     bot_y = center_y
 
-    return f'''  <!-- Section Divider at Center Y = {center_y:.2f}mm (Width = {divider_w:.3f}mm, Total Height = 0.600mm) -->
+    return f'''  <!-- Section Divider at Center Y = {center_y:.2f}mm (Width = {divider_w:.3f}mm, Right-Aligned, Total Height = 0.300mm) -->
   <g>
     <!-- Top Highlight Line ({hi_color}) -->
-    <rect x="{x_start:.3f}" y="{top_y:.3f}" width="{fade_w:.3f}" height="0.300" fill="url(#div-fade-in-hi)"/>
-    <rect x="{x_mid1:.3f}" y="{top_y:.3f}" width="{mid_w:.3f}" height="0.300" fill="{hi_color}"/>
-    <rect x="{x_mid2:.3f}" y="{top_y:.3f}" width="{fade_w:.3f}" height="0.300" fill="url(#div-fade-out-hi)"/>
+    <rect x="{x_start:.3f}" y="{top_y:.3f}" width="{divider_w:.3f}" height="0.150" fill="{hi_color}"/>
     <!-- Bottom Shadow Line ({sh_color}) -->
-    <rect x="{x_start:.3f}" y="{bot_y:.3f}" width="{fade_w:.3f}" height="0.300" fill="url(#div-fade-in-sh)"/>
-    <rect x="{x_mid1:.3f}" y="{bot_y:.3f}" width="{mid_w:.3f}" height="0.300" fill="{sh_color}"/>
-    <rect x="{x_mid2:.3f}" y="{bot_y:.3f}" width="{fade_w:.3f}" height="0.300" fill="url(#div-fade-out-sh)"/>
+    <rect x="{x_start:.3f}" y="{bot_y:.3f}" width="{divider_w:.3f}" height="0.150" fill="{sh_color}"/>
   </g>'''
 
 def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, hi_color, sh_color, fonts):
@@ -106,34 +131,14 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     # Row 3 Jacks (4 Columns symmetrically spaced across 14 HP)
     jack3_x = [11.06, 27.39, 43.73, 60.06]
 
+    badge_svg = get_palette_badge_svg("Polly")
+
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.1f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.1f}">',
-        '  <defs>',
-        '    <!-- Faked transparency gradients between background color and highlight/shadow -->',
-        '    <linearGradient id="div-fade-in-hi" x1="0" y1="0" x2="1" y2="0">',
-        f'      <stop offset="0" stop-color="{bg_color}"/>',
-        f'      <stop offset="1" stop-color="{hi_color}"/>',
-        '    </linearGradient>',
-        '    <linearGradient id="div-fade-out-hi" x1="0" y1="0" x2="1" y2="0">',
-        f'      <stop offset="0" stop-color="{hi_color}"/>',
-        f'      <stop offset="1" stop-color="{bg_color}"/>',
-        '    </linearGradient>',
-        '    <linearGradient id="div-fade-in-sh" x1="0" y1="0" x2="1" y2="0">',
-        f'      <stop offset="0" stop-color="{bg_color}"/>',
-        f'      <stop offset="1" stop-color="{sh_color}"/>',
-        '    </linearGradient>',
-        '    <linearGradient id="div-fade-out-sh" x1="0" y1="0" x2="1" y2="0">',
-        f'      <stop offset="0" stop-color="{sh_color}"/>',
-        f'      <stop offset="1" stop-color="{bg_color}"/>',
-        '    </linearGradient>',
-        '  </defs>',
         f'  <!-- Panel Background: 14 HP ({theme_name} Theme) -->',
         f'  <rect width="{panel_w:.2f}" height="{panel_h:.1f}" fill="{bg_color}"/>',
-        '  <!-- Left Edge Color Badge (Placeholder #5d5d5d per Rule 6.6.2) -->',
-        '  <g id="palette-badge">',
-        '    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>',
-        '  </g>',
+        badge_svg,
         '',
         render_section_divider(58.00, panel_w, hi_color, sh_color),
         '',

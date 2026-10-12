@@ -1,53 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="71.12mm" height="128.5mm" viewBox="0 0 71.12 128.5">
-  <defs>
-    <!-- Faked transparency gradients between background color and highlight/shadow -->
-    <linearGradient id="div-fade-in-hi" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#c6c6c6"/>
-      <stop offset="1" stop-color="#e4e4e4"/>
-    </linearGradient>
-    <linearGradient id="div-fade-out-hi" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#e4e4e4"/>
-      <stop offset="1" stop-color="#c6c6c6"/>
-    </linearGradient>
-    <linearGradient id="div-fade-in-sh" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#c6c6c6"/>
-      <stop offset="1" stop-color="#a8a8a8"/>
-    </linearGradient>
-    <linearGradient id="div-fade-out-sh" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#a8a8a8"/>
-      <stop offset="1" stop-color="#c6c6c6"/>
-    </linearGradient>
-  </defs>
   <!-- Panel Background: 14 HP (Light Theme) -->
   <rect width="71.12" height="128.5" fill="#c6c6c6"/>
-  <!-- Left Edge Color Badge (Placeholder #5d5d5d per Rule 6.6.2) -->
+  <!-- Left Edge Color Badge (from scratch/palette/palette.json) -->
   <g id="palette-badge">
-    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>
+    <rect x="0.000" y="19.800" width="2.540" height="28.448" fill="#1A1A1A" stroke="none"/>
+    <rect x="0.000" y="48.248" width="2.540" height="19.558" fill="#FF8866" stroke="none"/>
+    <rect x="0.000" y="67.806" width="2.540" height="40.894" fill="#0072B2" stroke="none"/>
   </g>
 
-  <!-- Section Divider at Center Y = 58.00mm (Width = 56.896mm, Total Height = 0.600mm) -->
+  <!-- Section Divider at Center Y = 58.00mm (Width = 56.896mm, Right-Aligned, Total Height = 0.300mm) -->
   <g>
     <!-- Top Highlight Line (#e4e4e4) -->
-    <rect x="7.112" y="57.700" width="5.690" height="0.300" fill="url(#div-fade-in-hi)"/>
-    <rect x="12.802" y="57.700" width="45.517" height="0.300" fill="#e4e4e4"/>
-    <rect x="58.318" y="57.700" width="5.690" height="0.300" fill="url(#div-fade-out-hi)"/>
+    <rect x="14.224" y="57.850" width="56.896" height="0.150" fill="#e4e4e4"/>
     <!-- Bottom Shadow Line (#a8a8a8) -->
-    <rect x="7.112" y="58.000" width="5.690" height="0.300" fill="url(#div-fade-in-sh)"/>
-    <rect x="12.802" y="58.000" width="45.517" height="0.300" fill="#a8a8a8"/>
-    <rect x="58.318" y="58.000" width="5.690" height="0.300" fill="url(#div-fade-out-sh)"/>
+    <rect x="14.224" y="58.000" width="56.896" height="0.150" fill="#a8a8a8"/>
   </g>
 
-  <!-- Section Divider at Center Y = 83.00mm (Width = 56.896mm, Total Height = 0.600mm) -->
+  <!-- Section Divider at Center Y = 83.00mm (Width = 56.896mm, Right-Aligned, Total Height = 0.300mm) -->
   <g>
     <!-- Top Highlight Line (#e4e4e4) -->
-    <rect x="7.112" y="82.700" width="5.690" height="0.300" fill="url(#div-fade-in-hi)"/>
-    <rect x="12.802" y="82.700" width="45.517" height="0.300" fill="#e4e4e4"/>
-    <rect x="58.318" y="82.700" width="5.690" height="0.300" fill="url(#div-fade-out-hi)"/>
+    <rect x="14.224" y="82.850" width="56.896" height="0.150" fill="#e4e4e4"/>
     <!-- Bottom Shadow Line (#a8a8a8) -->
-    <rect x="7.112" y="83.000" width="5.690" height="0.300" fill="url(#div-fade-in-sh)"/>
-    <rect x="12.802" y="83.000" width="45.517" height="0.300" fill="#a8a8a8"/>
-    <rect x="58.318" y="83.000" width="5.690" height="0.300" fill="url(#div-fade-out-sh)"/>
+    <rect x="14.224" y="83.000" width="56.896" height="0.150" fill="#a8a8a8"/>
   </g>
 
   <!-- Label: "POLLY" -->
