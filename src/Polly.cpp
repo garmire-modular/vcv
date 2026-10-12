@@ -632,10 +632,13 @@ struct PollyCustomButton : app::SvgSwitch {
 	}
 };
 
-// ── Custom 3-Color Range Light Widget (Palette: #e1be6a, #40b0a6, #d35fb7) ──
-template <typename TBase = GrayModuleLightWidget>
-struct TPollyRangeLight : TBase {
-	TPollyRangeLight() {
+// ── Custom 3-Color Range Light Ring Widget (Concentric Ring around Range Button) ──
+// Outer radius = 3.15 mm, Inner radius = 2.85 mm, Center radius = 3.00 mm, Stroke = 0.30 mm
+// Offset from 2.60 mm button radius = 0.25 mm
+struct PollyRangeLightRing : ModuleLightWidget {
+	PollyRangeLightRing() {
+		// Box size (8.0 mm x 8.0 mm) large enough to contain R=3.15 mm ring plus halo
+		box.size = mm2px(Vec(8.0f, 8.0f));
 		// Range 0: Very Slow = #e1be6a (Warm Gold)
 		this->addBaseColor(nvgRGBA(0xe1, 0xbe, 0x6a, 0xff));
 		// Range 1: LFO = #40b0a6 (Teal)
@@ -643,8 +646,46 @@ struct TPollyRangeLight : TBase {
 		// Range 2: VCO = #d35fb7 (Magenta)
 		this->addBaseColor(nvgRGBA(0xd3, 0x5f, 0xb7, 0xff));
 	}
+
+	void drawBackground(const DrawArgs& args) override {
+		Vec c = box.size.div(2.f);
+		float r = mm2px(3.00f);
+		float w = mm2px(0.30f);
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, nvgRGBA(0x22, 0x22, 0x22, 0x99));
+		nvgStrokeWidth(args.vg, w);
+		nvgStroke(args.vg);
+	}
+
+	void drawLight(const DrawArgs& args) override {
+		if (color.a <= 0.0f) return;
+		Vec c = box.size.div(2.f);
+		float r = mm2px(3.00f);
+		float w = mm2px(0.30f);
+
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, color);
+		nvgStrokeWidth(args.vg, w);
+		nvgStroke(args.vg);
+	}
+
+	void drawHalo(const DrawArgs& args) override {
+		if (color.a <= 0.0f) return;
+		Vec c = box.size.div(2.f);
+		float r = mm2px(3.00f);
+		float haloW = mm2px(0.80f);
+		NVGcolor haloColor = color;
+		haloColor.a *= 0.35f;
+
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, haloColor);
+		nvgStrokeWidth(args.vg, mm2px(0.30f) + haloW);
+		nvgStroke(args.vg);
+	}
 };
-struct PollyRangeLightWidget : SmallLight<TPollyRangeLight<>> {};
 
 struct PollyWidget : ModuleWidget {
 	SvgPanel* panel = nullptr;
@@ -707,7 +748,7 @@ struct PollyWidget : ModuleWidget {
 
 		// Row 1 Knobs: FREQ, RANGE, FINE, SIDES, ANGLE (Center Y = 20.00 mm)
 		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[0], 20.00)), module, Polly::FREQ_PARAM));
-		addChild(createLightCentered<PollyRangeLightWidget>(mm2px(Vec(col_x[1] + 4.00f, 16.50f)), module, Polly::RANGE_LIGHT_YELLOW));
+		addChild(createLightCentered<PollyRangeLightRing>(mm2px(Vec(col_x[1], 20.00f)), module, Polly::RANGE_LIGHT_YELLOW));
 		addParam(createParamCentered<PollyCustomButton>(mm2px(Vec(col_x[1], 20.00)), module, Polly::RANGE_PARAM));
 		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[2], 20.00)), module, Polly::FINE_PARAM));
 		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[3], 20.00)), module, Polly::SIDES_PARAM));

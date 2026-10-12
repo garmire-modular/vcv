@@ -115,7 +115,7 @@ def render_section_divider(center_y, panel_w, hi_color, sh_color):
     <rect x="{x_start:.3f}" y="{bot_y:.3f}" width="{divider_w:.3f}" height="0.150" fill="{sh_color}"/>
   </g>'''
 
-def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, hi_color, sh_color, fonts):
+def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, hi_color, sh_color, ring_color, fonts):
     d_din_bold = fonts['d_din_bold']
     d_din_cond_bold = fonts['d_din_cond_bold']
     d_din_cond = fonts['d_din_cond']
@@ -143,6 +143,9 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
         render_section_divider(60.00, panel_w, hi_color, sh_color),
         '',
         render_section_divider(85.00, panel_w, hi_color, sh_color),
+        '',
+        '  <!-- Range Button Indicator Ring Track (R = 3.00mm, Stroke = 0.30mm, 0.25mm offset from 2.60mm button) -->',
+        f'  <circle cx="{col_x[1]:.3f}" cy="20.000" r="3.000" fill="none" stroke="{ring_color}" stroke-width="0.300"/>',
         ''
     ]
 
@@ -150,10 +153,10 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0  # 0.0056444
     svg_parts.append(render_text(d_din_bold, "POLLY", panel_w / 2.0, 8.000, title_scale, title_color, "POLLY", align="center"))
 
-    # Version number "v2.0.5" in Quicksand-Regular, scale 0.001600, Y baseline 8mm (same as module name),
+    # Version number "v2.0.6" in Quicksand-Regular, scale 0.001600, Y baseline 8mm (same as module name),
     # right-aligned at X = (panel_w - 2.15 mm)
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v2.0.5", version_x, 8.000, 0.001600, "#aaaaaa", "v2.0.5", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v2.0.6", version_x, 8.000, 0.001600, "#aaaaaa", "v2.0.6", align="right"))
 
     # ── Zone 1 & 2: Knobs (D-DIN Condensed Bold, 10pt, baseline - 5.75mm) ──
     knob_label_scale = 10.0 * 25.4 / 72.0 / 1000.0  # 0.0035278
@@ -233,7 +236,8 @@ def main():
             'label_color': '#222222',
             'line_color': '#222222',
             'hi_color': '#999999',
-            'sh_color': '#5e5e5e'
+            'sh_color': '#5e5e5e',
+            'ring_color': '#484848'
         },
         {
             'name': 'Light',
@@ -243,7 +247,8 @@ def main():
             'label_color': '#222222',
             'line_color': '#222222',
             'hi_color': '#e4e4e4',
-            'sh_color': '#a8a8a8'
+            'sh_color': '#a8a8a8',
+            'ring_color': '#9e9e9e'
         },
         {
             'name': 'Dark',
@@ -253,7 +258,8 @@ def main():
             'label_color': '#ffffff',
             'line_color': '#ffffff',
             'hi_color': '#585858',
-            'sh_color': '#202020'
+            'sh_color': '#202020',
+            'ring_color': '#222222'
         }
     ]
 
@@ -267,6 +273,7 @@ def main():
             skin['line_color'],
             skin['hi_color'],
             skin['sh_color'],
+            skin['ring_color'],
             fonts
         )
         with open(skin['filename'], 'w', encoding='utf-8') as f:
@@ -276,7 +283,7 @@ def main():
     # Render verification bitmap (133 x 240 at 4x resolution = 532 x 960) using default Medium skin
     panel_w = 71.12
     col_x = [8.56, 22.06, 35.56, 49.06, 62.56]
-    jack3_x = [11.06, 27.39, 43.73, 60.06]
+    jack3_x = col_x[1:]
 
     verify_png = 'scratch/polly_verify.png'
     cairosvg.svg2png(url='res/Polly.svg', write_to=verify_png, output_width=133 * 4, output_height=240 * 4)
@@ -299,13 +306,11 @@ def main():
                 continue
             draw.ellipse([kx * r_px - kr, ky * r_px - kr, kx * r_px + kr, ky * r_px + kr], outline='#ffaa00', width=2)
 
-    # Range Button at col_x[1] (22.06 mm, 20.00 mm) and LED above & to right (26.06 mm, 16.50 mm)
-    led_r = 1.35 * r_px
-    led_x = col_x[1] + 4.00
-    led_y = 16.50
-    draw.ellipse([led_x * r_px - led_r, led_y * r_px - led_r, led_x * r_px + led_r, led_y * r_px + led_r], outline='#d35fb7', width=2)
+    # Range Button at col_x[1] (22.06 mm, 20.00 mm) with LED Ring (R = 3.00 mm, stroke = 0.30 mm)
     btn_r = 2.60 * r_px
     draw.ellipse([col_x[1] * r_px - btn_r, 20.00 * r_px - btn_r, col_x[1] * r_px + btn_r, 20.00 * r_px + btn_r], outline='#f0e442', width=2)
+    ring_r = 3.00 * r_px
+    draw.ellipse([col_x[1] * r_px - ring_r, 20.00 * r_px - ring_r, col_x[1] * r_px + ring_r, 20.00 * r_px + ring_r], outline='#d35fb7', width=2)
 
     # Trimpots: Y = 69.00 and 80.00 mm
     tr = 2.5 * r_px
