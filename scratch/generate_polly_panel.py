@@ -64,32 +64,33 @@ def get_text_width(font, text, scale):
     hmtx = font['hmtx']
     return sum(hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text)
 
-def render_section_divider(center_y, panel_w):
-    # Stretched to 80% of module width:
+def render_section_divider(center_y, panel_w, hi_color, sh_color):
+    # Stretched to exactly 80% of module width:
     # Width = 0.8 * 71.12 = 56.896 mm, centered with 7.112 mm margins
     divider_w = panel_w * 0.80
     x_start = (panel_w - divider_w) / 2.0  # 7.112 mm
-    fade_w = divider_w * 0.10             # 5.690 mm
-    mid_w = divider_w * 0.80              # 45.517 mm
+    fade_w = divider_w * 0.10             # 5.690 mm (10% fade at each end)
+    mid_w = divider_w * 0.80              # 45.516 mm (80% solid in center)
     x_mid1 = x_start + fade_w             # 12.802 mm
     x_mid2 = x_mid1 + mid_w              # 58.318 mm
 
-    top_y = center_y - 0.850
+    # Total vertical height = 0.600 mm (0.300 mm highlight + 0.300 mm shadow)
+    top_y = center_y - 0.300
     bot_y = center_y
 
-    return f'''  <!-- Section Divider at Center Y = {center_y:.2f}mm (Width = {divider_w:.3f}mm) -->
+    return f'''  <!-- Section Divider at Center Y = {center_y:.2f}mm (Width = {divider_w:.3f}mm, Total Height = 0.600mm) -->
   <g>
-    <!-- Top Highlight Line (#999999) -->
-    <rect x="{x_start:.3f}" y="{top_y:.3f}" width="{fade_w:.3f}" height="0.850" fill="url(#div-fade-in-light)"/>
-    <rect x="{x_mid1:.3f}" y="{top_y:.3f}" width="{mid_w:.3f}" height="0.850" fill="#999999"/>
-    <rect x="{x_mid2:.3f}" y="{top_y:.3f}" width="{fade_w:.3f}" height="0.850" fill="url(#div-fade-out-light)"/>
-    <!-- Bottom Shadow Line (#5e5e5e) -->
-    <rect x="{x_start:.3f}" y="{bot_y:.3f}" width="{fade_w:.3f}" height="0.850" fill="url(#div-fade-in-dark)"/>
-    <rect x="{x_mid1:.3f}" y="{bot_y:.3f}" width="{mid_w:.3f}" height="0.850" fill="#5e5e5e"/>
-    <rect x="{x_mid2:.3f}" y="{bot_y:.3f}" width="{fade_w:.3f}" height="0.850" fill="url(#div-fade-out-dark)"/>
+    <!-- Top Highlight Line ({hi_color}) -->
+    <rect x="{x_start:.3f}" y="{top_y:.3f}" width="{fade_w:.3f}" height="0.300" fill="url(#div-fade-in-hi)"/>
+    <rect x="{x_mid1:.3f}" y="{top_y:.3f}" width="{mid_w:.3f}" height="0.300" fill="{hi_color}"/>
+    <rect x="{x_mid2:.3f}" y="{top_y:.3f}" width="{fade_w:.3f}" height="0.300" fill="url(#div-fade-out-hi)"/>
+    <!-- Bottom Shadow Line ({sh_color}) -->
+    <rect x="{x_start:.3f}" y="{bot_y:.3f}" width="{fade_w:.3f}" height="0.300" fill="url(#div-fade-in-sh)"/>
+    <rect x="{x_mid1:.3f}" y="{bot_y:.3f}" width="{mid_w:.3f}" height="0.300" fill="{sh_color}"/>
+    <rect x="{x_mid2:.3f}" y="{bot_y:.3f}" width="{fade_w:.3f}" height="0.300" fill="url(#div-fade-out-sh)"/>
   </g>'''
 
-def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, fonts):
+def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, hi_color, sh_color, fonts):
     d_din_bold = fonts['d_din_bold']
     d_din_cond_bold = fonts['d_din_cond_bold']
     d_din_cond = fonts['d_din_cond']
@@ -109,21 +110,22 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.1f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.1f}">',
         '  <defs>',
-        '    <linearGradient id="div-fade-in-light" x1="0" y1="0" x2="1" y2="0">',
-        '      <stop offset="0" stop-color="#999999" stop-opacity="0"/>',
-        '      <stop offset="1" stop-color="#999999" stop-opacity="1"/>',
+        '    <!-- Faked transparency gradients between background color and highlight/shadow -->',
+        '    <linearGradient id="div-fade-in-hi" x1="0" y1="0" x2="1" y2="0">',
+        f'      <stop offset="0" stop-color="{bg_color}"/>',
+        f'      <stop offset="1" stop-color="{hi_color}"/>',
         '    </linearGradient>',
-        '    <linearGradient id="div-fade-out-light" x1="0" y1="0" x2="1" y2="0">',
-        '      <stop offset="0" stop-color="#999999" stop-opacity="1"/>',
-        '      <stop offset="1" stop-color="#999999" stop-opacity="0"/>',
+        '    <linearGradient id="div-fade-out-hi" x1="0" y1="0" x2="1" y2="0">',
+        f'      <stop offset="0" stop-color="{hi_color}"/>',
+        f'      <stop offset="1" stop-color="{bg_color}"/>',
         '    </linearGradient>',
-        '    <linearGradient id="div-fade-in-dark" x1="0" y1="0" x2="1" y2="0">',
-        '      <stop offset="0" stop-color="#5e5e5e" stop-opacity="0"/>',
-        '      <stop offset="1" stop-color="#5e5e5e" stop-opacity="1"/>',
+        '    <linearGradient id="div-fade-in-sh" x1="0" y1="0" x2="1" y2="0">',
+        f'      <stop offset="0" stop-color="{bg_color}"/>',
+        f'      <stop offset="1" stop-color="{sh_color}"/>',
         '    </linearGradient>',
-        '    <linearGradient id="div-fade-out-dark" x1="0" y1="0" x2="1" y2="0">',
-        '      <stop offset="0" stop-color="#5e5e5e" stop-opacity="1"/>',
-        '      <stop offset="1" stop-color="#5e5e5e" stop-opacity="0"/>',
+        '    <linearGradient id="div-fade-out-sh" x1="0" y1="0" x2="1" y2="0">',
+        f'      <stop offset="0" stop-color="{sh_color}"/>',
+        f'      <stop offset="1" stop-color="{bg_color}"/>',
         '    </linearGradient>',
         '  </defs>',
         f'  <!-- Panel Background: 14 HP ({theme_name} Theme) -->',
@@ -133,9 +135,9 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
         '    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>',
         '  </g>',
         '',
-        render_section_divider(58.00, panel_w),
+        render_section_divider(58.00, panel_w, hi_color, sh_color),
         '',
-        render_section_divider(83.00, panel_w),
+        render_section_divider(83.00, panel_w, hi_color, sh_color),
         ''
     ]
 
@@ -224,7 +226,9 @@ def main():
             'bg_color': '#6e6e6e',
             'title_color': '#ffffff',
             'label_color': '#222222',
-            'line_color': '#222222'
+            'line_color': '#222222',
+            'hi_color': '#999999',
+            'sh_color': '#5e5e5e'
         },
         {
             'name': 'Light',
@@ -232,7 +236,9 @@ def main():
             'bg_color': '#c6c6c6',
             'title_color': '#333333',
             'label_color': '#222222',
-            'line_color': '#222222'
+            'line_color': '#222222',
+            'hi_color': '#e4e4e4',
+            'sh_color': '#a8a8a8'
         },
         {
             'name': 'Dark',
@@ -240,7 +246,9 @@ def main():
             'bg_color': '#333333',
             'title_color': '#c6c6c6',
             'label_color': '#ffffff',
-            'line_color': '#ffffff'
+            'line_color': '#ffffff',
+            'hi_color': '#585858',
+            'sh_color': '#202020'
         }
     ]
 
@@ -252,6 +260,8 @@ def main():
             skin['title_color'],
             skin['label_color'],
             skin['line_color'],
+            skin['hi_color'],
+            skin['sh_color'],
             fonts
         )
         with open(skin['filename'], 'w', encoding='utf-8') as f:

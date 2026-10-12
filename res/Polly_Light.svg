@@ -1,21 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="71.12mm" height="128.5mm" viewBox="0 0 71.12 128.5">
   <defs>
-    <linearGradient id="div-fade-in-light" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#999999" stop-opacity="0"/>
-      <stop offset="1" stop-color="#999999" stop-opacity="1"/>
+    <!-- Faked transparency gradients between background color and highlight/shadow -->
+    <linearGradient id="div-fade-in-hi" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c6c6c6"/>
+      <stop offset="1" stop-color="#e4e4e4"/>
     </linearGradient>
-    <linearGradient id="div-fade-out-light" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#999999" stop-opacity="1"/>
-      <stop offset="1" stop-color="#999999" stop-opacity="0"/>
+    <linearGradient id="div-fade-out-hi" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e4e4e4"/>
+      <stop offset="1" stop-color="#c6c6c6"/>
     </linearGradient>
-    <linearGradient id="div-fade-in-dark" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#5e5e5e" stop-opacity="0"/>
-      <stop offset="1" stop-color="#5e5e5e" stop-opacity="1"/>
+    <linearGradient id="div-fade-in-sh" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c6c6c6"/>
+      <stop offset="1" stop-color="#a8a8a8"/>
     </linearGradient>
-    <linearGradient id="div-fade-out-dark" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#5e5e5e" stop-opacity="1"/>
-      <stop offset="1" stop-color="#5e5e5e" stop-opacity="0"/>
+    <linearGradient id="div-fade-out-sh" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a8a8a8"/>
+      <stop offset="1" stop-color="#c6c6c6"/>
     </linearGradient>
   </defs>
   <!-- Panel Background: 14 HP (Light Theme) -->
@@ -25,28 +26,28 @@
     <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>
   </g>
 
-  <!-- Section Divider at Center Y = 58.00mm (Width = 56.896mm) -->
+  <!-- Section Divider at Center Y = 58.00mm (Width = 56.896mm, Total Height = 0.600mm) -->
   <g>
-    <!-- Top Highlight Line (#999999) -->
-    <rect x="7.112" y="57.150" width="5.690" height="0.850" fill="url(#div-fade-in-light)"/>
-    <rect x="12.802" y="57.150" width="45.517" height="0.850" fill="#999999"/>
-    <rect x="58.318" y="57.150" width="5.690" height="0.850" fill="url(#div-fade-out-light)"/>
-    <!-- Bottom Shadow Line (#5e5e5e) -->
-    <rect x="7.112" y="58.000" width="5.690" height="0.850" fill="url(#div-fade-in-dark)"/>
-    <rect x="12.802" y="58.000" width="45.517" height="0.850" fill="#5e5e5e"/>
-    <rect x="58.318" y="58.000" width="5.690" height="0.850" fill="url(#div-fade-out-dark)"/>
+    <!-- Top Highlight Line (#e4e4e4) -->
+    <rect x="7.112" y="57.700" width="5.690" height="0.300" fill="url(#div-fade-in-hi)"/>
+    <rect x="12.802" y="57.700" width="45.517" height="0.300" fill="#e4e4e4"/>
+    <rect x="58.318" y="57.700" width="5.690" height="0.300" fill="url(#div-fade-out-hi)"/>
+    <!-- Bottom Shadow Line (#a8a8a8) -->
+    <rect x="7.112" y="58.000" width="5.690" height="0.300" fill="url(#div-fade-in-sh)"/>
+    <rect x="12.802" y="58.000" width="45.517" height="0.300" fill="#a8a8a8"/>
+    <rect x="58.318" y="58.000" width="5.690" height="0.300" fill="url(#div-fade-out-sh)"/>
   </g>
 
-  <!-- Section Divider at Center Y = 83.00mm (Width = 56.896mm) -->
+  <!-- Section Divider at Center Y = 83.00mm (Width = 56.896mm, Total Height = 0.600mm) -->
   <g>
-    <!-- Top Highlight Line (#999999) -->
-    <rect x="7.112" y="82.150" width="5.690" height="0.850" fill="url(#div-fade-in-light)"/>
-    <rect x="12.802" y="82.150" width="45.517" height="0.850" fill="#999999"/>
-    <rect x="58.318" y="82.150" width="5.690" height="0.850" fill="url(#div-fade-out-light)"/>
-    <!-- Bottom Shadow Line (#5e5e5e) -->
-    <rect x="7.112" y="83.000" width="5.690" height="0.850" fill="url(#div-fade-in-dark)"/>
-    <rect x="12.802" y="83.000" width="45.517" height="0.850" fill="#5e5e5e"/>
-    <rect x="58.318" y="83.000" width="5.690" height="0.850" fill="url(#div-fade-out-dark)"/>
+    <!-- Top Highlight Line (#e4e4e4) -->
+    <rect x="7.112" y="82.700" width="5.690" height="0.300" fill="url(#div-fade-in-hi)"/>
+    <rect x="12.802" y="82.700" width="45.517" height="0.300" fill="#e4e4e4"/>
+    <rect x="58.318" y="82.700" width="5.690" height="0.300" fill="url(#div-fade-out-hi)"/>
+    <!-- Bottom Shadow Line (#a8a8a8) -->
+    <rect x="7.112" y="83.000" width="5.690" height="0.300" fill="url(#div-fade-in-sh)"/>
+    <rect x="12.802" y="83.000" width="45.517" height="0.300" fill="#a8a8a8"/>
+    <rect x="58.318" y="83.000" width="5.690" height="0.300" fill="url(#div-fade-out-sh)"/>
   </g>
 
   <!-- Label: "POLLY" -->
