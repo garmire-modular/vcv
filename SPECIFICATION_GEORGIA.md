@@ -13,7 +13,7 @@
 - **Palette Badge**: Left-aligned $2.54\text{ mm} \times 88.90\text{ mm}$ rectangle with `#5d5d5d` initial placeholder.
 - **Polyphony**: 1 to 16 voices dynamically allocated based on connected inputs.
 - **Safety Standard**: Real-time safe DSP core (`src/core/GeorgiaCore.hpp`) with zero heap allocations in `process()`, zero system locks, zero file I/O, and no external dependencies.
-- **Module Version**: `v1.2.0`.
+- **Module Version**: `v1.2.1`.
 
 ---
 
@@ -21,7 +21,7 @@
 
 Following repository layout invariants:
 - **Module Title**: Baseline $Y = 7.620\text{ mm}$, centered at $X = 45.720\text{ mm}$ in lowercase `res/Node.otf` (scale 0.0048).
-- **Version Tag**: Baseline $Y = 10.414\text{ mm}$, centered at $X = 45.720\text{ mm}$ in `res/Quicksand-Regular.ttf` (`v1.2.0`, scale 0.0016).
+- **Version Tag**: Baseline $Y = 10.414\text{ mm}$, centered at $X = 45.720\text{ mm}$ in `res/Quicksand-Regular.ttf` (`v1.2.1`, scale 0.0016).
 - **5 Columns across 18 HP ($91.44\text{ mm}$)**:
   - Margins: $13.52\text{ mm}$ left and right.
   - Pitch: $\Delta X = 16.10\text{ mm}$ center-to-center.
@@ -73,9 +73,10 @@ Hard sync via `SYNC IN` resets carrier phase $\phi = 0$; `SYNC OUT` emits $+10\t
 The Shape knob features **4 discrete options** (0: Sphere/Toroid, 1: Cube/Cylinder, 2: Pyramid/Cone, 3: Catenoid/Funnel) with dedicated specialized DSP algorithms per shape and **zero interpolation between different shape families**. Within each family, the Morph control provides continuous smooth morphing between its two variations:
 
 1. **Family 0: Sphere $\leftrightarrow$ Toroid (Donut)**:
-   - Sphere: $x = \cos(u)\sin(v), y = \sin(u)\sin(v), z = \cos(v)$
+   - Sphere: $x = \cos(u)\sin(v), y = \sin(u)\sin(v), z = \cos(v)$ swept over latitude $v \in [0, \pi]$ with $K$ rings.
    - Toroid (Donut with hollow central hole): The major ring angle completes a full $2\pi$ revolution via $\varphi = 2v \in [0, 2\pi]$ (with major radius $R_1 = 0.65$, tube radius $R_2 = 0.30$, producing inner hole radius $0.35$ and outer radius $0.95$):
      $$x = (R_1 + R_2\cos(u))\cos(2v), \quad y = (R_1 + R_2\cos(u))\sin(2v), \quad z = R_2\sin(u)$$
+   - **Resolution Doubling Compensation**: Because the major ring revolution covers $2\pi$ radians (double the angular span of the sphere's $\pi$ latitude), tracing the same $K$ rings would halve spatial ring density. Georgia dynamically scales the effective ring frequency by $K_{\text{toroid}} = K \cdot (1 + m)$. At 100% Toroid ($m = 1$), the number of tube rings is doubled ($2\times K$), fully restoring spatial resolution.
    - Morph blends position and surface normals smoothly.
 
 2. **Family 1: Cube $\leftrightarrow$ Cylinder (Triple Orthogonal 3D Wireframe Grid)**:

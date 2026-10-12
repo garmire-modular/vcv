@@ -121,21 +121,28 @@ struct VoiceCore {
 
         if (shapeFamily == 0) {
             // ── Shape 0: Sphere (m=0) <-> Toroid (m=1) ──
-            // Sphere: Unit radius 1.0
+            // Sphere: Unit radius 1.0 (swept over latitude v in [0, pi] with K rings)
             Vec3 pSphere(cu * sv, su * sv, cv);
             Vec3 nSphere = pSphere.normalized();
 
             // Toroid (Donut with hollow central hole):
-            // phi = 2*v completes a full 360-degree closed revolution
-            // Major radius R1 = 0.65, tube radius R2 = 0.30 (inner hole = 0.35, outer = 0.95)
+            // phi = 2*v completes a full 360-degree closed revolution around the donut.
+            // Since the major loop covers 2*pi (double the angular span of the sphere's pi latitude),
+            // we dynamically scale the effective ring frequency by (1 + m) so that at 100% Toroid,
+            // the number of tube rings is doubled (2*K), fully restoring spatial resolution.
+            float kToroid = K * (1.0f + m);
+            float uToroid = 2.0f * (float)M_PI * std::fmod(phase * kToroid, 1.0f);
+            float cuTor = std::cos(uToroid);
+            float suTor = std::sin(uToroid);
+
             float phi = 2.0f * v;
             float cphi = std::cos(phi);
             float sphi = std::sin(phi);
             float R1 = 0.65f;
             float R2 = 0.30f;
 
-            Vec3 pToroid((R1 + R2 * cu) * cphi, (R1 + R2 * cu) * sphi, R2 * su);
-            Vec3 nToroid(cu * cphi, cu * sphi, su);
+            Vec3 pToroid((R1 + R2 * cuTor) * cphi, (R1 + R2 * cuTor) * sphi, R2 * suTor);
+            Vec3 nToroid(cuTor * cphi, cuTor * sphi, suTor);
 
             outP = pSphere * (1.0f - m) + pToroid * m;
             outN = (nSphere * (1.0f - m) + nToroid * m).normalized();

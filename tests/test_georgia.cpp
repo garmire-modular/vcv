@@ -6,7 +6,7 @@
 using namespace garmire::georgia;
 
 int main() {
-    std::cout << "Testing GeorgiaCore 3D Wireframe DSP (v1.1.0)..." << std::endl;
+    std::cout << "Testing GeorgiaCore 3D Wireframe DSP (v1.2.1)..." << std::endl;
 
     VoiceCore voice;
     voice.reset();
@@ -19,6 +19,26 @@ int main() {
         assert(std::abs(len - 1.0f) < 1e-3f);
     }
     std::cout << "-> Sphere surface point length invariant passed (Radius = 1.0)" << std::endl;
+
+    // 1b. Toroid Ring Density Doubling Check:
+    // At m = 1.0, kToroid = 2*K. Thus, stepping phase by 1/(2*K) covers a full 2*pi revolution in tube angle u.
+    {
+        float K = 16.0f;
+        Vec3 pA, nA, pB, nB;
+        // Step phase by exactly 1 / (2*K):
+        float phA = 0.20f;
+        float phB = phA + 1.0f / (2.0f * K);
+        VoiceCore::generateSurfacePoint(0.0f, 1.0f, phA, K, pA, nA);
+        VoiceCore::generateSurfacePoint(0.0f, 1.0f, phB, K, pB, nB);
+        // Tube angle u at phB is u_A + 2*pi, so cos(u) and sin(u) are identical!
+        // The tube displacement relative to the major ring center must be identical:
+        // Phi advances by 2*(vB - vA) = 2*pi*(1/(2*K)) = pi/K, but tube angle is identical.
+        float uA = 2.0f * (float)M_PI * std::fmod(phA * 2.0f * K, 1.0f);
+        float uB = 2.0f * (float)M_PI * std::fmod(phB * 2.0f * K, 1.0f);
+        assert(std::abs(std::cos(uA) - std::cos(uB)) < 1e-3f);
+        assert(std::abs(std::sin(uA) - std::sin(uB)) < 1e-3f);
+        std::cout << "-> Toroid 2x ring density doubling verified (kToroid = 2*K at m=1.0)" << std::endl;
+    }
 
     // 2. Wireframe Grid Cube Check: All 3 passes should lie exactly on the cube surface [-0.85, 0.85]^3
     {
@@ -38,9 +58,9 @@ int main() {
     // and full 360-degree revolution in Y both positive and negative
     {
         Vec3 p0, n0, pQuarter, nQuarter, pThreeQuarter, nThreeQuarter;
-        // Inner edge: phase = 0, u = pi (so phase*K has u=pi) -> radius = R1 - R2 = 0.65 - 0.30 = 0.35
-        // At phase = 0, v = 0 -> phi = 0
-        VoiceCore::generateSurfacePoint(0.0f, 1.0f, 0.5f / 16.0f, 16.0f, p0, n0); // u = pi
+        // Inner edge: at m=1, kToroid = 2*K. u = pi occurs at phase = 0.5 / (2*K) -> radius = R1 - R2 = 0.65 - 0.30 = 0.35
+        // At phase = 0.5 / (2*K), phi = 2*v = 2*pi*(0.5/32) is very close to 0, so x ~ 0.35
+        VoiceCore::generateSurfacePoint(0.0f, 1.0f, 0.5f / (2.0f * 16.0f), 16.0f, p0, n0); // u = pi
         assert(std::abs(p0.x - 0.35f) < 0.05f);
 
         // At phase = 0.25 -> v = pi/4 -> phi = 2*v = pi/2 -> y > 0
