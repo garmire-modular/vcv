@@ -37,12 +37,17 @@ def get_simplified_glyph_path(font, char):
     path_d = re.sub(r'\s+', ' ', path_d).strip()
     return path_d
 
-def render_text(font, text, center_x, baseline_y, scale, fill, comment=""):
+def render_text(font, text, x_pos, baseline_y, scale, fill, comment="", align="center"):
     cmap = font.getBestCmap()
     hmtx = font['hmtx']
     widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text]
     total_w = sum(widths)
-    start_x = center_x - total_w / 2.0
+    if align == "right":
+        start_x = x_pos - total_w
+    elif align == "left":
+        start_x = x_pos
+    else:
+        start_x = x_pos - total_w / 2.0
     res = []
     if comment:
         res.append(f'  <!-- Label: "{comment}" -->')
@@ -58,6 +63,31 @@ def get_text_width(font, text, scale):
     cmap = font.getBestCmap()
     hmtx = font['hmtx']
     return sum(hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text)
+
+def render_section_divider(center_y, panel_w):
+    # Stretched to 80% of module width:
+    # Width = 0.8 * 71.12 = 56.896 mm, centered with 7.112 mm margins
+    divider_w = panel_w * 0.80
+    x_start = (panel_w - divider_w) / 2.0  # 7.112 mm
+    fade_w = divider_w * 0.10             # 5.690 mm
+    mid_w = divider_w * 0.80              # 45.517 mm
+    x_mid1 = x_start + fade_w             # 12.802 mm
+    x_mid2 = x_mid1 + mid_w              # 58.318 mm
+
+    top_y = center_y - 0.850
+    bot_y = center_y
+
+    return f'''  <!-- Section Divider at Center Y = {center_y:.2f}mm (Width = {divider_w:.3f}mm) -->
+  <g>
+    <!-- Top Highlight Line (#999999) -->
+    <rect x="{x_start:.3f}" y="{top_y:.3f}" width="{fade_w:.3f}" height="0.850" fill="url(#div-fade-in-light)"/>
+    <rect x="{x_mid1:.3f}" y="{top_y:.3f}" width="{mid_w:.3f}" height="0.850" fill="#999999"/>
+    <rect x="{x_mid2:.3f}" y="{top_y:.3f}" width="{fade_w:.3f}" height="0.850" fill="url(#div-fade-out-light)"/>
+    <!-- Bottom Shadow Line (#5e5e5e) -->
+    <rect x="{x_start:.3f}" y="{bot_y:.3f}" width="{fade_w:.3f}" height="0.850" fill="url(#div-fade-in-dark)"/>
+    <rect x="{x_mid1:.3f}" y="{bot_y:.3f}" width="{mid_w:.3f}" height="0.850" fill="#5e5e5e"/>
+    <rect x="{x_mid2:.3f}" y="{bot_y:.3f}" width="{fade_w:.3f}" height="0.850" fill="url(#div-fade-out-dark)"/>
+  </g>'''
 
 def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, fonts):
     d_din_bold = fonts['d_din_bold']
@@ -75,32 +105,24 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     # Row 3 Jacks (4 Columns symmetrically spaced across 14 HP)
     jack3_x = [11.06, 27.39, 43.73, 60.06]
 
-    # Divider stretch calculations:
-    # 80% of module width = 0.8 * 71.12 = 56.896 mm
-    divider_w = 56.896
-    divider_x = (panel_w - divider_w) / 2.0  # 7.112 mm
-    orig_div_w = 92.16
-    div_scale_x = divider_w / orig_div_w     # 0.617361
-
-    # Divider 1: 8mm below Row 3 Knobs (50.00 mm) -> Y = 58.00 mm
-    # Divider 2: 5mm below Row 2 Attenuverters (78.00 mm) -> Y = 83.00 mm
-    div1_top_y = 58.00 - 0.85  # 57.150 mm
-    div2_top_y = 83.00 - 0.85  # 82.150 mm
-
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.1f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.1f}">',
         '  <defs>',
-        '    <linearGradient id="divider-grad-1" y1="0.43" x2="92.16" y2="0.43" gradientUnits="userSpaceOnUse">',
-        '      <stop offset="0" stop-color="#999" stop-opacity="0"/>',
-        '      <stop offset="0.1" stop-color="#999"/>',
-        '      <stop offset="0.9" stop-color="#999"/>',
-        '      <stop offset="1" stop-color="#999" stop-opacity="0"/>',
+        '    <linearGradient id="div-fade-in-light" x1="0" y1="0" x2="1" y2="0">',
+        '      <stop offset="0" stop-color="#999999" stop-opacity="0"/>',
+        '      <stop offset="1" stop-color="#999999" stop-opacity="1"/>',
         '    </linearGradient>',
-        '    <linearGradient id="divider-grad-2" y1="1.28" x2="92.16" y2="1.28" gradientUnits="userSpaceOnUse">',
+        '    <linearGradient id="div-fade-out-light" x1="0" y1="0" x2="1" y2="0">',
+        '      <stop offset="0" stop-color="#999999" stop-opacity="1"/>',
+        '      <stop offset="1" stop-color="#999999" stop-opacity="0"/>',
+        '    </linearGradient>',
+        '    <linearGradient id="div-fade-in-dark" x1="0" y1="0" x2="1" y2="0">',
         '      <stop offset="0" stop-color="#5e5e5e" stop-opacity="0"/>',
-        '      <stop offset="0.1" stop-color="#5e5e5e"/>',
-        '      <stop offset="0.9" stop-color="#5e5e5e"/>',
+        '      <stop offset="1" stop-color="#5e5e5e" stop-opacity="1"/>',
+        '    </linearGradient>',
+        '    <linearGradient id="div-fade-out-dark" x1="0" y1="0" x2="1" y2="0">',
+        '      <stop offset="0" stop-color="#5e5e5e" stop-opacity="1"/>',
         '      <stop offset="1" stop-color="#5e5e5e" stop-opacity="0"/>',
         '    </linearGradient>',
         '  </defs>',
@@ -111,26 +133,20 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
         '    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>',
         '  </g>',
         '',
-        '  <!-- Section Divider 1 (8mm below bottom knob row: Y = 58.00 mm, stretched to 80% width) -->',
-        f'  <g transform="translate({divider_x:.3f}, {div1_top_y:.3f}) scale({div_scale_x:.6f}, 1.0)">',
-        '    <rect width="92.16" height="0.85" fill="url(#divider-grad-1)"/>',
-        '    <rect y="0.85" width="92.16" height="0.85" fill="url(#divider-grad-2)"/>',
-        '  </g>',
+        render_section_divider(58.00, panel_w),
         '',
-        '  <!-- Section Divider 2 (5mm below bottom attenuverter row: Y = 83.00 mm, stretched to 80% width) -->',
-        f'  <g transform="translate({divider_x:.3f}, {div2_top_y:.3f}) scale({div_scale_x:.6f}, 1.0)">',
-        '    <rect width="92.16" height="0.85" fill="url(#divider-grad-1)"/>',
-        '    <rect y="0.85" width="92.16" height="0.85" fill="url(#divider-grad-2)"/>',
-        '  </g>',
+        render_section_divider(83.00, panel_w),
         ''
     ]
 
     # Module title "POLLY" in D-DIN Bold, 16pt (scale 0.005644), Y baseline 8mm, centered horizontally
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0  # 0.0056444
-    svg_parts.append(render_text(d_din_bold, "POLLY", panel_w / 2.0, 8.000, title_scale, title_color, "POLLY"))
+    svg_parts.append(render_text(d_din_bold, "POLLY", panel_w / 2.0, 8.000, title_scale, title_color, "POLLY", align="center"))
 
-    # Version number "v2.0.0" in Quicksand-Regular, scale 0.001600, Y baseline 10.414, centered at X = 38.5 mm
-    svg_parts.append(render_text(qs_reg_font, "v2.0.0", 38.500, 10.414, 0.001600, "#aaaaaa", "v2.0.0"))
+    # Version number "v2.0.0" in Quicksand-Regular, scale 0.001600, Y baseline 8mm (same as module name),
+    # right-aligned at X = (panel_w - 2.15 mm)
+    version_x = panel_w - 2.15
+    svg_parts.append(render_text(qs_reg_font, "v2.0.0", version_x, 8.000, 0.001600, "#aaaaaa", "v2.0.0", align="right"))
 
     # ── Zone 1 & 2: Knobs (D-DIN Condensed Bold, 10pt, baseline - 5.75mm) ──
     knob_label_scale = 10.0 * 25.4 / 72.0 / 1000.0  # 0.0035278
