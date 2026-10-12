@@ -97,13 +97,16 @@ struct VoiceCore {
     // 3D Geometric Surface Generator with Continuous Morphing
     // Returns 3D position P and 3D surface unit normal N
     static void generateSurfacePoint(float shapeParam, float morphParam,
-                                     float u, float v,
+                                     float phase, float K,
                                      Vec3& outP, Vec3& outN) {
         // Clamp parameters
         float s = clampf(shapeParam, 0.0f, 2.0f); // 0 = Sphere/Toroid, 1 = Cube/Cylinder, 2 = Pyramid/Cone
         float m = clampf(morphParam, 0.0f, 1.0f); // 0 = 1st variation, 1 = 2nd variation
 
-        // Precompute trigonometric functions
+        // Precompute standard spherical coordinates (u, v) for Family 1 & Family 3
+        float u = 2.0f * (float)M_PI * std::fmod(phase * K, 1.0f);
+        float v = (float)M_PI * phase;
+
         float cu = std::cos(u);
         float su = std::sin(u);
         float cv = std::cos(v);
@@ -132,28 +135,56 @@ struct VoiceCore {
             n = (nSphere * (1.0f - morph) + nToroid * morph).normalized();
         };
 
-        // ── Family 2: Cube (m=0) <-> Cylinder (m=1) with Sharp Corners ──
+        // ── Family 2: Cube (m=0) <-> Cylinder (m=1) True 3D Wireframe Grid ──
+        // Seamless 3-pass orthogonal grid tracing all 6 faces without concentric circles:
+        // Pass 0 (0 <= phase < 1/3): Z-axis loops (XY square cross-sections stepping along Z)
+        // Pass 1 (1/3 <= phase < 2/3): X-axis loops (YZ square cross-sections stepping along X)
+        // Pass 2 (2/3 <= phase < 1): Y-axis loops (XZ square cross-sections stepping along Y)
         auto evalCubeCylinder = [&](float morph, Vec3& p, Vec3& n) {
-            // Ray projection onto unit cube [-1, 1]^3: scale = 1 / max(|xs|, |ys|, |zs|)
-            float xs = cu * sv;
-            float ys = su * sv;
-            float zs = cv;
+            float ph3 = phase * 3.0f;
+            int sec = (int)ph3;
+            if (sec > 2) sec = 2;
+            float sub = ph3 - (float)sec;
 
-            float mCube = std::max(std::max(std::abs(xs), std::abs(ys)), std::abs(zs));
-            if (mCube < 1e-6f) mCube = 1e-6f;
-            Vec3 pCube(xs / mCube * 0.85f, ys / mCube * 0.85f, zs / mCube * 0.85f);
+            float kSec = std::max(2.0f, K * (1.0f / 3.0f));
+            float uSec = 2.0f * (float)M_PI * (sub * kSec);
+            float cuSec = std::cos(uSec);
+            float suSec = std::sin(uSec);
 
-            // Ray projection onto unit cylinder (circle in xy, flat caps in z): scale = 1 / max(sv, |cv|)
-            float mCyl = std::max(sv, std::abs(zs));
-            if (mCyl < 1e-6f) mCyl = 1e-6f;
-            Vec3 pCyl(xs / mCyl * 0.85f, ys / mCyl * 0.85f, zs / mCyl * 0.85f);
+            float denSq = std::max(std::abs(cuSec), std::abs(suSec));
+            if (denSq < 1e-6f) denSq = 1e-6f;
 
-            p = pCube * (1.0f - morph) + pCyl * morph;
-            
-            // Surface normal
-            Vec3 nCube(xs / mCube, ys / mCube, zs / mCube);
-            Vec3 nCyl(cu, su, (std::abs(zs) > sv) ? ((zs >= 0.0f) ? 1.0f : -1.0f) : 0.0f);
-            n = (nCube * (1.0f - morph) + nCyl * morph).normalized();
+            // Denominator blends from square (m=0) to circle (m=1)
+            float den = (1.0f - morph) * denSq + morph * 1.0f;
+
+            if (sec == 0) {
+                // Pass 0: XY squares descending along Z from +0.85 to -0.85
+                float z = 0.85f - sub * 1.70f;
+                float x = 0.85f * (cuSec / den);
+                float y = 0.85f * (suSec / den);
+                p = Vec3(x, y, z);
+                n = Vec3(cuSec / den, suSec / den, 0.0f).normalized();
+            } else if (sec == 1) {
+                // Pass 1: YZ squares sweeping along X from +0.85 to -0.85
+                float x = 0.85f - sub * 1.70f;
+                float rCyl = std::sqrt(std::max(0.0f, 0.85f * 0.85f - x * x));
+                float yCube = 0.85f * (cuSec / denSq);
+                float yCyl = (std::abs(cuSec) > 1e-5f) ? (rCyl * ((cuSec >= 0.0f) ? 1.0f : -1.0f)) : 0.0f;
+                float y = (1.0f - morph) * yCube + morph * yCyl;
+                float z = 0.85f * (suSec / denSq);
+                p = Vec3(x, y, z);
+                n = Vec3(0.0f, cuSec, suSec).normalized();
+            } else {
+                // Pass 2: XZ squares sweeping along Y from -0.85 to +0.85
+                float y = -0.85f + sub * 1.70f;
+                float rCyl = std::sqrt(std::max(0.0f, 0.85f * 0.85f - y * y));
+                float xCube = 0.85f * (cuSec / denSq);
+                float xCyl = (std::abs(cuSec) > 1e-5f) ? (rCyl * ((cuSec >= 0.0f) ? 1.0f : -1.0f)) : 0.0f;
+                float x = (1.0f - morph) * xCube + morph * xCyl;
+                float z = 0.85f * (suSec / denSq);
+                p = Vec3(x, y, z);
+                n = Vec3(cuSec, 0.0f, suSec).normalized();
+            }
         };
 
         // ── Family 3: Pyramid (m=0) <-> Cone (m=1) ──
@@ -252,13 +283,12 @@ struct VoiceCore {
         float frac = readIndex - (float)((size_t)readIndex);
         float waveDisp = ringBuffer[idx0] + frac * (ringBuffer[idx1] - ringBuffer[idx0]);
 
-        // 5. Wireframe Scanning Coordinates (u, v)
+        // 5. Wireframe Scanning Coordinates
         // Density K in [2.0, 64.0] (upper ceiling increased 2x)
         float density = clampf(densityParam + densityCV * 0.1f, 0.0f, 1.0f);
         float K = 2.0f + 62.0f * (density * density);
 
-        // Continuous parametric meridian ribbon
-        float u = 2.0f * (float)M_PI * std::fmod(phase * K, 1.0f);
+        // Latitude progression parameter v for spread belt modulation
         float v = (float)M_PI * phase;
 
         // 6. Generate 3D Surface Point & Normal
@@ -266,7 +296,7 @@ struct VoiceCore {
         float morphVal = clampf(morphParam + morphCV * 0.1f, 0.0f, 1.0f);
 
         Vec3 P, N;
-        generateSurfacePoint(shapeVal, morphVal, u, v, P, N);
+        generateSurfacePoint(shapeVal, morphVal, phase, K, P, N);
 
         // 7. 3D Twist Transformation
         float twistVal = clampf(twistParam + twistCV * 0.2f, -1.0f, 1.0f);

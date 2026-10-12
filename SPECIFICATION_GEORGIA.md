@@ -13,7 +13,7 @@
 - **Palette Badge**: Left-aligned $2.54\text{ mm} \times 88.90\text{ mm}$ rectangle with `#5d5d5d` initial placeholder.
 - **Polyphony**: 1 to 16 voices dynamically allocated based on connected inputs.
 - **Safety Standard**: Real-time safe DSP core (`src/core/GeorgiaCore.hpp`) with zero heap allocations in `process()`, zero system locks, zero file I/O, and no external dependencies.
-- **Module Version**: `v1.1.1`.
+- **Module Version**: `v1.1.2`.
 
 ---
 
@@ -21,7 +21,7 @@
 
 Following repository layout invariants:
 - **Module Title**: Baseline $Y = 7.620\text{ mm}$, centered at $X = 45.720\text{ mm}$ in lowercase `res/Node.otf` (scale 0.0048).
-- **Version Tag**: Baseline $Y = 10.414\text{ mm}$, centered at $X = 45.720\text{ mm}$ in `res/Quicksand-Regular.ttf` (`v1.1.1`, scale 0.0016).
+- **Version Tag**: Baseline $Y = 10.414\text{ mm}$, centered at $X = 45.720\text{ mm}$ in `res/Quicksand-Regular.ttf` (`v1.1.2`, scale 0.0016).
 - **5 Columns across 18 HP ($91.44\text{ mm}$)**:
   - Margins: $13.52\text{ mm}$ left and right.
   - Pitch: $\Delta X = 16.10\text{ mm}$ center-to-center.
@@ -80,12 +80,12 @@ For beam orbit phase $\phi \in [0, 1)$ and wireframe density $K = 2 + 62 \cdot \
      $$x = (R_1 + R_2\cos(u))\cos(2v), \quad y = (R_1 + R_2\cos(u))\sin(2v), \quad z = R_2\sin(u)$$
    - Morph blends position and surface normals smoothly.
 
-2. **Family 2: Cube $\leftrightarrow$ Cylinder (Exact Sharp Corners)**:
-   - Cube: Exact ray projection onto 3D unit cube $[-0.85, 0.85]^3$:
-     $$\vec{P}_{\text{cube}} = 0.85 \cdot \frac{(\cos(u)\sin(v), \sin(u)\sin(v), \cos(v))}{\max(|\cos(u)\sin(v)|, |\sin(u)\sin(v)|, |\cos(v)|)}$$
-     Produces razor-sharp corners and flat faces across all angles.
-   - Cylinder: Exact ray projection onto unit cylinder with flat endcaps:
-     $$\vec{P}_{\text{cyl}} = 0.85 \cdot \frac{(\cos(u)\sin(v), \sin(u)\sin(v), \cos(v))}{\max(\sin(v), |\cos(v)|)}$$
+2. **Family 2: Cube $\leftrightarrow$ Cylinder (Triple Orthogonal 3D Wireframe Grid)**:
+   - Cube: Traces an authentic 3D wireframe grid across all 6 faces using a seamless 3-pass orthogonal loop, eliminating spherical concentric rings at the top and bottom:
+     - **Pass 0** ($0 \le \phi < \frac{1}{3}$): $Z$-axis square hoops ($XY$ cross-sections stepping along $Z$ from $+0.85$ to $-0.85$).
+     - **Pass 1** ($\frac{1}{3} \le \phi < \frac{2}{3}$): $X$-axis square hoops ($YZ$ cross-sections stepping along $X$ from $+0.85$ to $-0.85$).
+     - **Pass 2** ($\frac{2}{3} \le \phi < 1$): $Y$-axis square hoops ($XZ$ cross-sections stepping along $Y$ from $-0.85$ to $+0.85$).
+   - Cylinder: Smoothly morphs the square cross-sections into circular hoops in Pass 0, while Passes 1 and 2 trace the longitudinal outer cage boundaries and flat endcaps.
    - Morph blends position and surface normals smoothly.
 
 3. **Family 3: Pyramid $\leftrightarrow$ Cone (Exact Sharp Corners)**:
