@@ -633,12 +633,12 @@ struct PollyCustomButton : app::SvgSwitch {
 };
 
 // ── Custom 3-Color Range Light Ring Widget (Concentric Ring around Range Button) ──
-// Center radius = 3.84 mm, Stroke width = 0.94 mm
-// Inner radius = 3.37 mm, Outer radius = 4.31 mm (Offset from 2.60 mm button rim = 0.77 mm)
+// Center radius = 4.12 mm, Stroke width = 1.40 mm (Exact 1:1 match with 9.64 mm regular knob skirt)
+// Inner radius = 3.42 mm, Outer radius = 4.82 mm (Offset from 2.60 mm button rim = 0.82 mm)
 struct PollyRangeLightRing : ModuleLightWidget {
 	PollyRangeLightRing() {
-		// Box size (10.5 mm x 10.5 mm) large enough to contain R=4.31 mm outer ring plus halo
-		box.size = mm2px(Vec(10.5f, 10.5f));
+		// Box size (11.0 mm x 11.0 mm) large enough to contain R=4.82 mm outer ring plus halo
+		box.size = mm2px(Vec(11.0f, 11.0f));
 		// Range 0: Very Slow = #e1be6a (Warm Gold)
 		this->addBaseColor(nvgRGBA(0xe1, 0xbe, 0x6a, 0xff));
 		// Range 1: LFO = #40b0a6 (Teal)
@@ -649,8 +649,8 @@ struct PollyRangeLightRing : ModuleLightWidget {
 
 	void drawBackground(const DrawArgs& args) override {
 		Vec c = box.size.div(2.f);
-		float r = mm2px(3.84f);
-		float w = mm2px(0.94f);
+		float r = mm2px(4.12f);
+		float w = mm2px(1.40f);
 		nvgBeginPath(args.vg);
 		nvgCircle(args.vg, c.x, c.y, r);
 		nvgStrokeColor(args.vg, nvgRGBA(0x22, 0x22, 0x22, 0x99));
@@ -661,8 +661,8 @@ struct PollyRangeLightRing : ModuleLightWidget {
 	void drawLight(const DrawArgs& args) override {
 		if (color.a <= 0.0f) return;
 		Vec c = box.size.div(2.f);
-		float r = mm2px(3.84f);
-		float w = mm2px(0.94f);
+		float r = mm2px(4.12f);
+		float w = mm2px(1.40f);
 
 		nvgBeginPath(args.vg);
 		nvgCircle(args.vg, c.x, c.y, r);
@@ -674,15 +674,15 @@ struct PollyRangeLightRing : ModuleLightWidget {
 	void drawHalo(const DrawArgs& args) override {
 		if (color.a <= 0.0f) return;
 		Vec c = box.size.div(2.f);
-		float r = mm2px(3.84f);
+		float r = mm2px(4.12f);
 		float haloW = mm2px(1.00f);
 		NVGcolor haloColor = color;
-		haloColor.a *= 0.35f;
+		haloColor.a *= 0.175f;
 
 		nvgBeginPath(args.vg);
 		nvgCircle(args.vg, c.x, c.y, r);
 		nvgStrokeColor(args.vg, haloColor);
-		nvgStrokeWidth(args.vg, mm2px(0.94f) + haloW);
+		nvgStrokeWidth(args.vg, mm2px(1.40f) + haloW);
 		nvgStroke(args.vg);
 	}
 };

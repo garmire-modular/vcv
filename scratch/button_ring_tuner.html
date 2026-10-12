@@ -29,12 +29,12 @@
         <div>
           <div class="flex justify-between items-center mb-1.5">
             <label for="input-dist" class="text-xs font-semibold uppercase tracking-wider text-[var(--foreground)]">Center Distance ($R_{center}$)</label>
-            <span id="label-dist" class="text-sm font-mono font-bold text-amber-500">3.84 mm</span>
+            <span id="label-dist" class="text-sm font-mono font-bold text-amber-500">4.12 mm</span>
           </div>
-          <input type="range" id="input-dist" min="2.65" max="5.00" step="0.01" value="3.84" class="w-full accent-amber-500 cursor-pointer">
+          <input type="range" id="input-dist" min="2.65" max="5.00" step="0.01" value="4.12" class="w-full accent-amber-500 cursor-pointer">
           <div class="flex justify-between text-[11px] text-[var(--muted-foreground)] mt-1 font-mono">
             <span>2.65 mm</span>
-            <span>3.84 mm (default)</span>
+            <span>4.12 mm (locked 1:1)</span>
             <span>5.00 mm</span>
           </div>
         </div>
@@ -43,12 +43,12 @@
         <div>
           <div class="flex justify-between items-center mb-1.5">
             <label for="input-width" class="text-xs font-semibold uppercase tracking-wider text-[var(--foreground)]">Ring Width ($W$)</label>
-            <span id="label-width" class="text-sm font-mono font-bold text-emerald-500">0.94 mm</span>
+            <span id="label-width" class="text-sm font-mono font-bold text-emerald-500">1.40 mm</span>
           </div>
-          <input type="range" id="input-width" min="0.10" max="3.00" step="0.01" value="0.94" class="w-full accent-emerald-500 cursor-pointer">
+          <input type="range" id="input-width" min="0.10" max="3.00" step="0.01" value="1.40" class="w-full accent-emerald-500 cursor-pointer">
           <div class="flex justify-between text-[11px] text-[var(--muted-foreground)] mt-1 font-mono">
             <span>0.10 mm (fine)</span>
-            <span>0.94 mm (default)</span>
+            <span>1.40 mm (locked 1:1)</span>
             <span>3.00 mm (wide)</span>
           </div>
         </div>
@@ -186,8 +186,8 @@ float w = mm2px(0.30f);  // Ring stroke width (mm)
   </div>
 
   <script>
-    let currentDist = 3.84;
-    let currentWidth = 0.94;
+    let currentDist = 4.12;
+    let currentWidth = 1.40;
     let currentColor = '#e1be6a';
     let currentTheme = 'Medium';
     let haloEnabled = true;
@@ -239,7 +239,7 @@ float w = mm2px(0.30f);  // Ring stroke width (mm)
       svgHalo.setAttribute('r', currentDist.toFixed(3));
       svgHalo.setAttribute('stroke-width', (currentWidth + 0.80).toFixed(3));
       svgHalo.setAttribute('stroke', currentColor);
-      svgHalo.setAttribute('opacity', haloEnabled && currentColor !== '#3a3a3a' ? '0.35' : '0');
+      svgHalo.setAttribute('opacity', haloEnabled && currentColor !== '#3a3a3a' ? '0.175' : '0');
 
       guideOuter.setAttribute('x1', (22.06 + outerR).toFixed(3));
       guideOuter.setAttribute('x2', (22.06 + outerR).toFixed(3));

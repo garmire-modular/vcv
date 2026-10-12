@@ -144,8 +144,8 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
         '',
         render_section_divider(85.00, panel_w, hi_color, sh_color),
         '',
-        '  <!-- Range Button Indicator Ring Track (R = 3.84mm, Stroke = 0.94mm) -->',
-        f'  <circle cx="{col_x[1]:.3f}" cy="20.000" r="3.840" fill="none" stroke="{ring_color}" stroke-width="0.940"/>',
+        '  <!-- Range Button Indicator Ring Track (R = 4.12mm, Stroke = 1.40mm) -->',
+        f'  <circle cx="{col_x[1]:.3f}" cy="20.000" r="4.120" fill="none" stroke="{ring_color}" stroke-width="1.400"/>',
         ''
     ]
 
@@ -153,10 +153,10 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0  # 0.0056444
     svg_parts.append(render_text(d_din_bold, "POLLY", panel_w / 2.0, 8.000, title_scale, title_color, "POLLY", align="center"))
 
-    # Version number "v2.0.7" in Quicksand-Regular, scale 0.001600, Y baseline 8mm (same as module name),
+    # Version number "v2.0.8" in Quicksand-Regular, scale 0.001600, Y baseline 8mm (same as module name),
     # right-aligned at X = (panel_w - 2.15 mm)
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v2.0.7", version_x, 8.000, 0.001600, "#aaaaaa", "v2.0.7", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v2.0.8", version_x, 8.000, 0.001600, "#aaaaaa", "v2.0.8", align="right"))
 
     # ── Zone 1 & 2: Knobs (D-DIN Condensed Bold, 10pt, baseline - 5.75mm) ──
     knob_label_scale = 10.0 * 25.4 / 72.0 / 1000.0  # 0.0035278
@@ -306,10 +306,10 @@ def main():
                 continue
             draw.ellipse([kx * r_px - kr, ky * r_px - kr, kx * r_px + kr, ky * r_px + kr], outline='#ffaa00', width=2)
 
-    # Range Button at col_x[1] (22.06 mm, 20.00 mm) with LED Ring (R = 3.84 mm, stroke = 0.94 mm)
+    # Range Button at col_x[1] (22.06 mm, 20.00 mm) with LED Ring (R = 4.12 mm, stroke = 1.40 mm)
     btn_r = 2.60 * r_px
     draw.ellipse([col_x[1] * r_px - btn_r, 20.00 * r_px - btn_r, col_x[1] * r_px + btn_r, 20.00 * r_px + btn_r], outline='#f0e442', width=2)
-    ring_r = 3.84 * r_px
+    ring_r = 4.12 * r_px
     draw.ellipse([col_x[1] * r_px - ring_r, 20.00 * r_px - ring_r, col_x[1] * r_px + ring_r, 20.00 * r_px + ring_r], outline='#d35fb7', width=2)
 
     # Trimpots: Y = 69.00 and 80.00 mm
