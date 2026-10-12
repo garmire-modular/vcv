@@ -707,7 +707,7 @@ struct PollyWidget : ModuleWidget {
 
 		// Row 1 Knobs: FREQ, RANGE, FINE, SIDES, ANGLE (Center Y = 20.00 mm)
 		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[0], 20.00)), module, Polly::FREQ_PARAM));
-		addChild(createLightCentered<PollyRangeLightWidget>(mm2px(Vec(col_x[1] + 4.50f, 16.00f)), module, Polly::RANGE_LIGHT_YELLOW));
+		addChild(createLightCentered<PollyRangeLightWidget>(mm2px(Vec(col_x[1] + 4.00f, 16.50f)), module, Polly::RANGE_LIGHT_YELLOW));
 		addParam(createParamCentered<PollyCustomButton>(mm2px(Vec(col_x[1], 20.00)), module, Polly::RANGE_PARAM));
 		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[2], 20.00)), module, Polly::FINE_PARAM));
 		addParam(createParamCentered<PollyCustomKnob>(mm2px(Vec(col_x[3], 20.00)), module, Polly::SIDES_PARAM));

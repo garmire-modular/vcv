@@ -150,10 +150,10 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0  # 0.0056444
     svg_parts.append(render_text(d_din_bold, "POLLY", panel_w / 2.0, 8.000, title_scale, title_color, "POLLY", align="center"))
 
-    # Version number "v2.0.4" in Quicksand-Regular, scale 0.001600, Y baseline 8mm (same as module name),
+    # Version number "v2.0.5" in Quicksand-Regular, scale 0.001600, Y baseline 8mm (same as module name),
     # right-aligned at X = (panel_w - 2.15 mm)
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v2.0.4", version_x, 8.000, 0.001600, "#aaaaaa", "v2.0.4", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v2.0.5", version_x, 8.000, 0.001600, "#aaaaaa", "v2.0.5", align="right"))
 
     # ── Zone 1 & 2: Knobs (D-DIN Condensed Bold, 10pt, baseline - 5.75mm) ──
     knob_label_scale = 10.0 * 25.4 / 72.0 / 1000.0  # 0.0035278
@@ -299,10 +299,10 @@ def main():
                 continue
             draw.ellipse([kx * r_px - kr, ky * r_px - kr, kx * r_px + kr, ky * r_px + kr], outline='#ffaa00', width=2)
 
-    # Range Button at col_x[1] (22.06 mm, 20.00 mm) and LED above & to right (26.56 mm, 16.00 mm)
+    # Range Button at col_x[1] (22.06 mm, 20.00 mm) and LED above & to right (26.06 mm, 16.50 mm)
     led_r = 1.35 * r_px
-    led_x = col_x[1] + 4.50
-    led_y = 16.00
+    led_x = col_x[1] + 4.00
+    led_y = 16.50
     draw.ellipse([led_x * r_px - led_r, led_y * r_px - led_r, led_x * r_px + led_r, led_y * r_px + led_r], outline='#d35fb7', width=2)
     btn_r = 2.60 * r_px
     draw.ellipse([col_x[1] * r_px - btn_r, 20.00 * r_px - btn_r, col_x[1] * r_px + btn_r, 20.00 * r_px + btn_r], outline='#f0e442', width=2)
