@@ -270,10 +270,22 @@ struct Pansyview : Module {
 		float rotX = normX * cosR - normY * sinR;
 		float rotY = normX * sinR + normY * cosR;
 
-		// Audio-rate single-pole IIR lowpass filter (Gen~ source codebox exact formula):
-		// smoo  = smoothing / samplerate;
-		// x_rot = x_rot * (1 - smoo) + x_sm * smoo;
-		// y_rot = y_rot * (1 - smoo) + y_sm * smoo;
+		// Audio-rate single-pole IIR lowpass filter with exact Max for Live parameter mapping:
+		// In Live's Surround Panner, Smooth dial [0..100] is mapped through:
+		// [scale 0. 1. 1000. 0.5 0.05 @classic 0] -> smoothing in Gen~.
+		// Higher Smooth dial -> lower smoothing value in Gen~ -> longer tau (sluggish movement).
+		// Dial 0%   -> smoothing = 1000.0 (tau ≈ 1.0 ms, instantaneous response)
+		// Dial 20%  -> smoothing = 77.8 (tau ≈ 13 ms, default setting)
+		// Dial 50%  -> smoothing = 34.5 (tau ≈ 29 ms)
+		// Dial 100% -> smoothing = 0.5 (tau ≈ 2000 ms = 2.0 s, very heavy/slow movement)
+		float u_sm = smoothDial / 100.0f;
+		float smoothingVal;
+		if (u_sm <= 0.0f) {
+			smoothingVal = 1000.0f;
+		} else {
+			smoothingVal = 1000.0f + (0.5f - 1000.0f) * std::pow(u_sm, 0.05f);
+		}
+
 		if (!smoothedInit) {
 			smoothedRotX = rotX;
 			smoothedRotY = rotY;
@@ -284,7 +296,7 @@ struct Pansyview : Module {
 				smoothedRotX = rotX;
 				smoothedRotY = rotY;
 			} else {
-				float smoo = clampf(smoothDial * args.sampleTime, 0.0f, 1.0f);
+				float smoo = clampf(smoothingVal * args.sampleTime, 0.0f, 1.0f);
 				smoothedRotX = smoothedRotX * (1.0f - smoo) + rotX * smoo;
 				smoothedRotY = smoothedRotY * (1.0f - smoo) + rotY * smoo;
 			}
@@ -292,22 +304,26 @@ struct Pansyview : Module {
 
 		int layout = (int)clampf(std::round(params[LAYOUT_PARAM].getValue()), 0.0f, 9.0f);
 
+		// Preset geometry scaling from Ableton Surround Panner presets:
+		// 2-CH: 4.0 | 4-Room, 4-Circle, 4-Center: 5.0 | 6-Room, 6-Circle, 6-Center: 7.0 | 8-Room, 8-Circle, 8-Center: 8.0
+		const float layoutScales[10] = { 4.0f, 5.0f, 5.0f, 5.0f, 7.0f, 7.0f, 7.0f, 8.0f, 8.0f, 8.0f };
+		float scale = layoutScales[layout];
+
 		// Focus & Center source-verified Gen~ formulas:
+		// focus is mapped from [0..100] via [scale 0. 1. 1. 4.] -> focus_gen in [1.0 .. 4.0]
+		// center is mapped from [0..100] via [scale 0. 1. 0. 1.] -> center_gen in [0.0 .. 1.0]
 		// centerx = sqrt(center * sqrt(focus) * clip(1 - (x_rot² + y_rot²), 0, 1));
 		// focusx  = (0.525 * (1 - centerx)) + centerx * 0.25;
 		// size    = focusx * scale;
 		// level   = dbtoa(-pow(distance * size, focus));
-		float focusNorm = focus / 100.0f;
-		float centerNorm = center / 100.0f;
+		float focus_gen = 1.0f + (focus / 100.0f) * 3.0f; // [1.0 .. 4.0]
+		float center_gen = center / 100.0f;               // [0.0 .. 1.0]
 		float distFromCenterSq = smoothedRotX * smoothedRotX + smoothedRotY * smoothedRotY;
 		float proximity = clampf(1.0f - distFromCenterSq, 0.0f, 1.0f);
-		float centerx = std::sqrt(centerNorm * std::sqrt(focusNorm) * proximity);
+		float centerx = std::sqrt(center_gen * std::sqrt(focus_gen) * proximity);
 		float focusx = 0.525f * (1.0f - centerx) + centerx * 0.25f;
 
-		// Layout scale geometry compensation
-		float scale = 2.2f;
 		float size = focusx * scale;
-		float focusExp = 0.8f + focusNorm * 2.2f;
 
 		std::vector<SpeakerDef> spkList;
 		getSpeakerPositions(layout, spkList);
@@ -320,7 +336,8 @@ struct Pansyview : Module {
 			float sy = spkList[i].y;
 			float dist = std::sqrt((smoothedRotX - sx) * (smoothedRotX - sx) + (smoothedRotY - sy) * (smoothedRotY - sy));
 			float term = dist * size;
-			float dbAtten = -std::pow(std::max(0.0f, term), focusExp) * 12.0f;
+			// Gen~ exact formula: level = dbtoa(-pow(distance * size, focus));
+			float dbAtten = -std::pow(std::max(0.0f, term), focus_gen);
 			float gain = std::pow(10.0f, dbAtten / 20.0f); // dbtoa
 
 			weights[i] = gain;
@@ -400,48 +417,33 @@ struct PansyviewDisplayWidget : TransparentWidget {
 		{0.302f, 0.372f, 0.457f, 0.567f, 0.730f}
 	};
 
-	float calcDispersionRadius(float focus, float center, float rotX, float rotY, float radiusPx) {
-		// Map parameters to grid coordinates [0, 4]
-		float rf = (focus / 100.0f) * 4.0f;
-		float rc = (center / 100.0f) * 4.0f;
+	float calcDispersionRadius(float focus, float center, float rotX, float rotY, int layoutIndex, float radiusPx) {
+		// Preset geometry scaling from Ableton Surround Panner presets:
+		// 2-CH: 4.0 | 4-Room, 4-Circle, 4-Center: 5.0 | 6-Room, 6-Circle, 6-Center: 7.0 | 8-Room, 8-Circle, 8-Center: 8.0
+		const float layoutScales[10] = { 4.0f, 5.0f, 5.0f, 5.0f, 7.0f, 7.0f, 7.0f, 8.0f, 8.0f, 8.0f };
+		int lIdx = (int)clampf((float)layoutIndex, 0.0f, 9.0f);
+		float scale = layoutScales[lIdx];
 
-		// Grid cell indices capped at 3
-		int i = (int)clampf(std::floor(rf), 0.0f, 3.0f);
-		int j = (int)clampf(std::floor(rc), 0.0f, 3.0f);
+		// Gen~ source codebox exact formulas:
+		// focus_gen: dial [0..100] mapped via [scale 0. 1. 1. 4.] -> [1.0 .. 4.0]
+		// center_gen: dial [0..100] mapped via [scale 0. 1. 0. 1.] -> [0.0 .. 1.0]
+		float focus_gen = 1.0f + (clampf(focus, 0.0f, 100.0f) / 100.0f) * 3.0f;
+		float center_gen = clampf(center, 0.0f, 100.0f) / 100.0f;
 
-		// Fractional position within cell
-		float df = rf - (float)i;
-		float dc = rc - (float)j;
-
-		// Independent cubic smoothstep S-curves: s(t) = 3t² - 2t³
-		float sf = df * df * (3.0f - 2.0f * df);
-		float sc = dc * dc * (3.0f - 2.0f * dc);
-
-		// 2D bilinear interpolation using smoothstep weights (ground truth measured at center)
-		float base_radius_frac =
-			(1.0f - sf) * (1.0f - sc) * G[i][j] +
-			(1.0f - sf) * sc          * G[i][j + 1] +
-			sf          * (1.0f - sc) * G[i + 1][j] +
-			sf          * sc          * G[i + 1][j + 1];
-
-		// Position-dependent proximity scaling from Gen~:
-		// At center, proximity = 1.0 (exact match to reference grid G).
-		// As puck moves away from origin, proximity shrinks, so the center boost falls off.
-		float distFromCenterSq = rotX * rotX + rotY * rotY;
+		// Position-dependent center boost:
+		float distFromCenterSq = clampf(rotX * rotX + rotY * rotY, 0.0f, 1.0f);
 		float proximity = clampf(1.0f - distFromCenterSq, 0.0f, 1.0f);
-
-		float focus_norm = clampf(focus / 100.0f, 0.0f, 1.0f);
-		float center_norm = clampf(center / 100.0f, 0.0f, 1.0f);
-
-		float centerx_0 = std::sqrt(center_norm * std::sqrt(focus_norm));
-		float focusx_0 = 0.525f * (1.0f - centerx_0) + centerx_0 * 0.25f;
-
-		float centerx = std::sqrt(center_norm * std::sqrt(focus_norm) * proximity);
+		float centerx = std::sqrt(center_gen * std::sqrt(focus_gen) * proximity);
 		float focusx = 0.525f * (1.0f - centerx) + centerx * 0.25f;
+		float size = focusx * scale;
 
-		float posScale = (focusx > 1e-4f) ? (focusx_0 / focusx) : 1.0f;
-		float finalRadius = base_radius_frac * posScale * radiusPx;
+		// Gen~ out11 formula: out11 = 400 / (size * focus);
+		// In Ableton Live (xypad.js), focus ring diameter = out11, drawn on a canvas where field circle radius = 61.0 px.
+		// Therefore, focus ring radius = out11 / 2.0 = 200.0 / (size * focus_gen).
+		// Relative fraction of field radius = (200.0 / (size * focus_gen)) / 61.0.
+		float frac = (200.0f / (size * focus_gen)) / 61.0f;
 
+		float finalRadius = frac * radiusPx;
 		return clampf(finalRadius, 0.0f, radiusPx);
 	}
 
@@ -579,7 +581,7 @@ struct PansyviewDisplayWidget : TransparentWidget {
 
 		// 4. Dispersion Disc around Puck
 		if (puckOpacity > 0.005f) {
-			float dispR = calcDispersionRadius(state.focus, state.center, state.rotX, state.rotY, radiusPx);
+			float dispR = calcDispersionRadius(state.focus, state.center, state.rotX, state.rotY, state.layoutIndex, radiusPx);
 
 			// Draw shaded dispersion disc
 			NVGcolor discInner = hsvToNvgColor(puckHue, 0.80f, 1.0f, 0.40f * puckOpacity);
@@ -596,7 +598,8 @@ struct PansyviewDisplayWidget : TransparentWidget {
 			nvgStrokeWidth(args.vg, 1.2f);
 			nvgStroke(args.vg);
 
-			// Stencil/Mask outer boundary: clear any disc bleed that extends outside the r = radiusPx field circle
+			// Strict Outer Boundary Mask:
+			// Mask off everything outside the field circle (r = radiusPx) so that the disc and its stroke NEVER leak beyond the perimeter.
 			nvgBeginPath(args.vg);
 			nvgRect(args.vg, 0.f, 0.f, w, h);
 			nvgCircle(args.vg, centerX_px, centerY_px, radiusPx);
@@ -604,7 +607,7 @@ struct PansyviewDisplayWidget : TransparentWidget {
 			nvgFillColor(args.vg, nvgRGBA(0x12, 0x12, 0x14, 0xff));
 			nvgFill(args.vg);
 
-			// Re-stroke field boundary line if field visible
+			// Crisp re-stroke of the outer boundary circle at r = radiusPx
 			if (fieldAlphaScale > 0.001f) {
 				nvgBeginPath(args.vg);
 				nvgCircle(args.vg, centerX_px, centerY_px, radiusPx);
