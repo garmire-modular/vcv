@@ -329,11 +329,11 @@ struct Pansyview : Module {
 	}
 };
 
-// ── Custom Hardware Widgets ──
+// ── Custom Hardware Widgets (All Attenuverter Sized) ──
 struct PansyviewLayoutKnob : RoundKnob {
 	PansyviewLayoutKnob() {
-		setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob.svg")));
-		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob_bg.svg")));
+		setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob.svg")));
+		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob_bg.svg")));
 		snap = true;
 	}
 };
@@ -718,30 +718,38 @@ struct PansyviewWidget : ModuleWidget {
 		displayWidget->box.size = mm2px(Vec(94.00f, 94.00f));
 		addChild(displayWidget);
 
-		// Right Control Section:
-		// Column A: X = 113.00 mm
-		// Column B: X = 124.50 mm
-		const float col_a = 113.00f;
-		const float col_b = 124.50f;
+		// Single Vertical Column for All 9 Knobs (Attenuverter sized):
+		// Centered at X = 119.00 mm
+		// Y positions: [19.00, 31.25, 43.50, 55.75, 68.00, 80.25, 92.50, 104.75, 117.00] mm (pitch = 12.25 mm)
+		const float ctrl_x = 119.00f;
+		const float knob_y[9] = { 19.00f, 31.25f, 43.50f, 55.75f, 68.00f, 80.25f, 92.50f, 104.75f, 117.00f };
 
-		// Row 0: 10-Position Layout Selector Knob at (col_a, 22.00 mm)
-		addParam(createParamCentered<PansyviewLayoutKnob>(mm2px(Vec(col_a, 22.00f)), module, Pansyview::LAYOUT_PARAM));
+		// Knob 1: Layout Selector (Stepped 0..9)
+		addParam(createParamCentered<PansyviewLayoutKnob>(mm2px(Vec(ctrl_x, knob_y[0])), module, Pansyview::LAYOUT_PARAM));
 
-		// Row 1: Puck Opacity (col_a) / Puck Hue (col_b) at Y = 36.00 mm
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_a, 36.00f)), module, Pansyview::PUCK_OPACITY_PARAM));
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_b, 36.00f)), module, Pansyview::PUCK_HUE_PARAM));
+		// Knob 2: Puck Opacity
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[1])), module, Pansyview::PUCK_OPACITY_PARAM));
 
-		// Row 2: Trail Length (col_a) / Glow Intensity (col_b) at Y = 51.00 mm
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_a, 51.00f)), module, Pansyview::TRAIL_LENGTH_PARAM));
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_b, 51.00f)), module, Pansyview::GLOW_INTENSITY_PARAM));
+		// Knob 3: Puck Hue
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[2])), module, Pansyview::PUCK_HUE_PARAM));
 
-		// Row 3: Glow Hue (col_a) / Speaker Opacity (col_b) at Y = 66.00 mm
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_a, 66.00f)), module, Pansyview::GLOW_HUE_PARAM));
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_b, 66.00f)), module, Pansyview::SPEAKER_OPACITY_PARAM));
+		// Knob 4: Trail Length
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[3])), module, Pansyview::TRAIL_LENGTH_PARAM));
 
-		// Row 4: dB Opacity (col_a) / Field Opacity (col_b) at Y = 81.00 mm
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_a, 81.00f)), module, Pansyview::DB_OPACITY_PARAM));
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_b, 81.00f)), module, Pansyview::FIELD_OPACITY_PARAM));
+		// Knob 5: Speaker Glow Intensity
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[4])), module, Pansyview::GLOW_INTENSITY_PARAM));
+
+		// Knob 6: Speaker Glow Hue
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[5])), module, Pansyview::GLOW_HUE_PARAM));
+
+		// Knob 7: Speaker Opacity
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[6])), module, Pansyview::SPEAKER_OPACITY_PARAM));
+
+		// Knob 8: dB Opacity
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[7])), module, Pansyview::DB_OPACITY_PARAM));
+
+		// Knob 9: Field Opacity
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[8])), module, Pansyview::FIELD_OPACITY_PARAM));
 
 		// Input Jacks Row: 6 inputs below the field visualizer at Y = 118.00 mm
 		const float jack_x[6] = { 15.00f, 30.00f, 45.00f, 60.00f, 75.00f, 90.00f };

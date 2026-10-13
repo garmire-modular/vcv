@@ -109,19 +109,12 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     disp_y = 15.00
     disp_size = 94.00
 
-    # Right section parameters:
-    # Column A: X = 113.00 mm
-    # Column B: X = 124.50 mm
-    col_a = 113.00
-    col_b = 124.50
+    # Controls Column: Single vertical column on the right at X = 119.00 mm
+    ctrl_x = 119.00
 
-    # Control Rows Y:
-    # Row 0: Layout at col_a (Y = 22.00)
-    # Row 1: Puck Opacity (col_a) / Puck Hue (col_b) at Y = 36.00
-    # Row 2: Trail Length (col_a) / Glow Intensity (col_b) at Y = 51.00
-    # Row 3: Glow Hue (col_a) / Speaker Opacity (col_b) at Y = 66.00
-    # Row 4: dB Opacity (col_a) / Field Opacity (col_b) at Y = 81.00
-    knob_y = [22.00, 36.00, 51.00, 66.00, 81.00]
+    # 9 Knobs uniformly spaced along the vertical column from Y = 19.00 mm to Y = 117.00 mm
+    # pitch = (117.00 - 19.00) / 8 = 12.25 mm
+    knob_y = [19.00 + i * 12.25 for i in range(9)]
 
     # Jacks Row: 6 inputs below display canvas at Y = 118.00 mm
     # Centered under canvas: [15.00, 30.00, 45.00, 60.00, 75.00, 90.00] mm
@@ -159,33 +152,31 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0
     svg_parts.append(render_text(d_din_bold, "PANSYVIEW", panel_w / 2.0, 8.000, title_scale, title_color, "PANSYVIEW", align="center"))
 
-    # Version tag "v1.1.0" in Quicksand-Regular, scale 0.001600, right-aligned at X = panel_w - 2.15 mm
+    # Version tag "v1.1.1" in Quicksand-Regular, scale 0.001600, right-aligned at X = panel_w - 2.15 mm
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v1.1.0", version_x, 8.000, 0.001600, "#aaaaaa", "v1.1.0", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v1.1.1", version_x, 8.000, 0.001600, "#aaaaaa", "v1.1.1", align="right"))
 
-    # ── Control Knobs Labels ──
-    knob_label_scale = 8.5 * 25.4 / 72.0 / 1000.0   # 0.0029986
+    # ── Control Knobs Labels (Single Vertical Row) ──
+    # For trimpots, standard label baseline is Center Y - 4.20 mm
     trim_label_scale = 7.5 * 25.4 / 72.0 / 1000.0   # 0.0026458
     jack_label_scale = 8.0 * 25.4 / 72.0 / 1000.0   # 0.0028222
 
-    # Row 0: Layout Selector at col_a (Center Y = 22.00 mm -> Label baseline Y = 16.20 mm)
-    svg_parts.append(render_text(d_din_cond_bold, "LAYOUT", col_a, 16.200, knob_label_scale, label_color, "LAYOUT Knob Label"))
+    knob_labels = [
+        ("LAYOUT", True),
+        ("PUCK OPAC", False),
+        ("PUCK HUE", False),
+        ("TRAIL", False),
+        ("GLOW INT", False),
+        ("GLOW HUE", False),
+        ("SPK OPAC", False),
+        ("DB OPAC", False),
+        ("FIELD OPAC", False)
+    ]
 
-    # Row 1: Puck Opacity (col_a) / Puck Hue (col_b) at Center Y = 36.00 mm -> Label Y = 31.50 mm
-    svg_parts.append(render_text(d_din_cond, "PUCK OPAC", col_a, 31.500, trim_label_scale, label_color, "PUCK OPAC Label"))
-    svg_parts.append(render_text(d_din_cond, "PUCK HUE", col_b, 31.500, trim_label_scale, label_color, "PUCK HUE Label"))
-
-    # Row 2: Trail Length (col_a) / Glow Intensity (col_b) at Center Y = 51.00 mm -> Label Y = 46.50 mm
-    svg_parts.append(render_text(d_din_cond, "TRAIL", col_a, 46.500, trim_label_scale, label_color, "TRAIL Label"))
-    svg_parts.append(render_text(d_din_cond, "GLOW INT", col_b, 46.500, trim_label_scale, label_color, "GLOW INT Label"))
-
-    # Row 3: Glow Hue (col_a) / Speaker Opacity (col_b) at Center Y = 66.00 mm -> Label Y = 61.50 mm
-    svg_parts.append(render_text(d_din_cond, "GLOW HUE", col_a, 61.500, trim_label_scale, label_color, "GLOW HUE Label"))
-    svg_parts.append(render_text(d_din_cond, "SPK OPAC", col_b, 61.500, trim_label_scale, label_color, "SPK OPAC Label"))
-
-    # Row 4: dB Opacity (col_a) / Field Opacity (col_b) at Center Y = 81.00 mm -> Label Y = 76.50 mm
-    svg_parts.append(render_text(d_din_cond, "DB OPAC", col_a, 76.500, trim_label_scale, label_color, "DB OPAC Label"))
-    svg_parts.append(render_text(d_din_cond, "FIELD OPAC", col_b, 76.500, trim_label_scale, label_color, "FIELD OPAC Label"))
+    for i, (lbl, is_bold) in enumerate(knob_labels):
+        font_to_use = d_din_cond_bold if is_bold else d_din_cond
+        label_y = knob_y[i] - 4.20
+        svg_parts.append(render_text(font_to_use, lbl, ctrl_x, label_y, trim_label_scale, label_color, f"Knob {i+1}: {lbl}"))
 
     # ── Input Jacks Row (below field visualizer, Y = 118.00 mm -> Label Y = 113.20 mm) ──
     jack_labels = ["X", "Y", "ROTATION", "FOCUS", "CENTER", "SMOOTH"]
