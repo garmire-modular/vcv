@@ -268,7 +268,6 @@ struct Engine {
         }
 
         // Active slew trajectory traversal
-        int previousStepIndex = currentStepIndex;
         bool stepCrossed = false;
 
         if (progress < 1.0f) {
