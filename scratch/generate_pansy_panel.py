@@ -144,9 +144,9 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0  # 0.0056444
     svg_parts.append(render_text(d_din_bold, "PANSY", panel_w / 2.0, 8.000, title_scale, title_color, "PANSY", align="center"))
 
-    # Version number "v1.0.0" in Quicksand-Regular, scale 0.001600, Y baseline 8mm, right-aligned
+    # Version number "v1.0.1" in Quicksand-Regular, scale 0.001600, Y baseline 8mm, right-aligned
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v1.0.0", version_x, 8.000, 0.001600, "#aaaaaa", "v1.0.0", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v1.0.1", version_x, 8.000, 0.001600, "#aaaaaa", "v1.0.1", align="right"))
 
     # ── Zone 1 & 2: Main Parameter Knobs (D-DIN Condensed Bold, 10pt, baseline - 5.75mm) ──
     knob_label_scale = 10.0 * 25.4 / 72.0 / 1000.0  # 0.0035278

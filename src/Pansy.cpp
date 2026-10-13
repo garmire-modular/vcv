@@ -127,10 +127,10 @@ struct Pansy : Module {
 		configParam<BipolarAxisParamQuantity>(Y_AXIS_PARAM, -1.0f, 1.0f, 0.0f, "Y-axis", "");
 		configParam<RotationParamQuantity>(ROTATION_PARAM, -180.0f, 180.0f, 0.0f, "Rotation", "°");
 
-		// Row 2 Knobs
-		configParam<PercentParamQuantity>(FOCUS_PARAM, 0.0f, 100.0f, 0.0f, "Focus", "");
-		configParam<PercentParamQuantity>(CENTER_PARAM, 0.0f, 100.0f, 0.0f, "Center", "");
-		configParam<SmoothParamQuantity>(SMOOTH_PARAM, 0.0f, 100.0f, 0.0f, "Smooth", "%");
+		// Row 2 Knobs (Ableton Live default values: Focus 50.0, Center 50.0, Smooth 20.0)
+		configParam<PercentParamQuantity>(FOCUS_PARAM, 0.0f, 100.0f, 50.0f, "Focus", "");
+		configParam<PercentParamQuantity>(CENTER_PARAM, 0.0f, 100.0f, 50.0f, "Center", "");
+		configParam<SmoothParamQuantity>(SMOOTH_PARAM, 0.0f, 100.0f, 20.0f, "Smooth", "%");
 
 		// Attenuverter Trimpots (Strict AGENTS.md rule: "<Parameter> CV depth", range -1.0 to 1.0)
 		configParam(X_AXIS_TRIM_PARAM, -1.0f, 1.0f, 0.0f, "X-axis CV depth", "");

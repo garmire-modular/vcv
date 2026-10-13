@@ -120,6 +120,11 @@ struct Pansyview : Module {
 
 	VisualState visualState;
 
+	// Audio-rate single-pole IIR smoothing filter state (from Gen~: x_rot * (1 - smoo) + x_sm * smoo)
+	float smoothedRotX = 0.0f;
+	float smoothedRotY = 0.0f;
+	bool smoothedInit = false;
+
 	Pansyview() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
@@ -242,12 +247,13 @@ struct Pansyview : Module {
 
 	void process(const ProcessArgs& args) override {
 		// Read inputs with defaults when unpatched:
-		// X = 0V, Y = 0V, Rotation = 0V, Focus = 5V (50), Center = 5V (50)
+		// X = 0V, Y = 0V, Rotation = 0V, Focus = 5V (50), Center = 5V (50), Smooth = 2V (20 default)
 		float xVolt = inputs[X_INPUT].isConnected() ? inputs[X_INPUT].getVoltage() : 0.0f;
 		float yVolt = inputs[Y_INPUT].isConnected() ? inputs[Y_INPUT].getVoltage() : 0.0f;
 		float rotVolt = inputs[ROTATION_INPUT].isConnected() ? inputs[ROTATION_INPUT].getVoltage() : 0.0f;
 		float focVolt = inputs[FOCUS_INPUT].isConnected() ? inputs[FOCUS_INPUT].getVoltage() : 5.0f;
 		float ctrVolt = inputs[CENTER_INPUT].isConnected() ? inputs[CENTER_INPUT].getVoltage() : 5.0f;
+		float smhVolt = inputs[SMOOTH_INPUT].isConnected() ? inputs[SMOOTH_INPUT].getVoltage() : 2.0f;
 
 		// Normalization per spec:
 		float normX = clampf(xVolt / 5.0f, -1.0f, 1.0f);
@@ -255,6 +261,7 @@ struct Pansyview : Module {
 		float rotationDeg = clampf(rotVolt / 5.0f * 180.0f, -180.0f, 180.0f);
 		float focus = clampf(focVolt / 10.0f * 100.0f, 0.0f, 100.0f);
 		float center = clampf(ctrVolt / 10.0f * 100.0f, 0.0f, 100.0f);
+		float smoothDial = clampf(smhVolt / 10.0f * 100.0f, 0.0f, 100.0f);
 
 		// Apply rotation to incoming X/Y before gain calc and display:
 		float radR = rotationDeg * (float)M_PI / 180.0f;
@@ -263,14 +270,44 @@ struct Pansyview : Module {
 		float rotX = normX * cosR - normY * sinR;
 		float rotY = normX * sinR + normY * cosR;
 
+		// Audio-rate single-pole IIR lowpass filter (Gen~ source codebox exact formula):
+		// smoo  = smoothing / samplerate;
+		// x_rot = x_rot * (1 - smoo) + x_sm * smoo;
+		// y_rot = y_rot * (1 - smoo) + y_sm * smoo;
+		if (!smoothedInit) {
+			smoothedRotX = rotX;
+			smoothedRotY = rotY;
+			smoothedInit = true;
+		} else {
+			if (smoothDial <= 0.001f) {
+				// Instant bypass when smooth dial is at 0
+				smoothedRotX = rotX;
+				smoothedRotY = rotY;
+			} else {
+				float smoo = clampf(smoothDial * args.sampleTime, 0.0f, 1.0f);
+				smoothedRotX = smoothedRotX * (1.0f - smoo) + rotX * smoo;
+				smoothedRotY = smoothedRotY * (1.0f - smoo) + rotY * smoo;
+			}
+		}
+
 		int layout = (int)clampf(std::round(params[LAYOUT_PARAM].getValue()), 0.0f, 9.0f);
 
-		// Gain calculation (constant-power inverse-distance per spec):
+		// Focus & Center source-verified Gen~ formulas:
+		// centerx = sqrt(center * sqrt(focus) * clip(1 - (x_rot² + y_rot²), 0, 1));
+		// focusx  = (0.525 * (1 - centerx)) + centerx * 0.25;
+		// size    = focusx * scale;
+		// level   = dbtoa(-pow(distance * size, focus));
 		float focusNorm = focus / 100.0f;
-		float powerExp = 0.6f + (focusNorm * focusNorm) * 4.4f; // [0.6, 5.0]
-		float diffuseFloor = (1.0f - focusNorm) * 0.35f;        // [0.35, 0.0]
 		float centerNorm = center / 100.0f;
-		float distFromCenter = std::sqrt(rotX * rotX + rotY * rotY);
+		float distFromCenterSq = smoothedRotX * smoothedRotX + smoothedRotY * smoothedRotY;
+		float proximity = clampf(1.0f - distFromCenterSq, 0.0f, 1.0f);
+		float centerx = std::sqrt(centerNorm * std::sqrt(focusNorm) * proximity);
+		float focusx = 0.525f * (1.0f - centerx) + centerx * 0.25f;
+
+		// Layout scale geometry compensation
+		float scale = 2.2f;
+		float size = focusx * scale;
+		float focusExp = 0.8f + focusNorm * 2.2f;
 
 		std::vector<SpeakerDef> spkList;
 		getSpeakerPositions(layout, spkList);
@@ -281,23 +318,20 @@ struct Pansyview : Module {
 		for (int i = 0; i < nSpeakers; i++) {
 			float sx = spkList[i].x;
 			float sy = spkList[i].y;
-			float dist = std::sqrt((rotX - sx) * (rotX - sx) + (rotY - sy) * (rotY - sy));
-			float w = 1.0f / std::pow(dist + 0.18f, powerExp);
-			w = (1.0f - diffuseFloor) * w + diffuseFloor;
+			float dist = std::sqrt((smoothedRotX - sx) * (smoothedRotX - sx) + (smoothedRotY - sy) * (smoothedRotY - sy));
+			float term = dist * size;
+			float dbAtten = -std::pow(std::max(0.0f, term), focusExp) * 12.0f;
+			float gain = std::pow(10.0f, dbAtten / 20.0f); // dbtoa
 
-			if (distFromCenter < 0.35f) {
-				float centerFactor = 1.0f - (distFromCenter / 0.35f);
-				w *= (0.5f + 0.5f * centerNorm * centerFactor);
-			}
-			weights[i] = w;
-			sumSq += w * w;
+			weights[i] = gain;
+			sumSq += gain * gain;
 		}
 
 		float normFactor = (sumSq > 1e-6f) ? std::sqrt(sumSq) : 1.0f;
 
 		// Buffer state for UI thread
-		visualState.rotX = rotX;
-		visualState.rotY = rotY;
+		visualState.rotX = smoothedRotX;
+		visualState.rotY = smoothedRotY;
 		visualState.focus = focus;
 		visualState.center = center;
 		visualState.layoutIndex = layout;
@@ -366,7 +400,7 @@ struct PansyviewDisplayWidget : TransparentWidget {
 		{0.302f, 0.372f, 0.457f, 0.567f, 0.730f}
 	};
 
-	float calcDispersionRadius(float focus, float center, float radiusPx) {
+	float calcDispersionRadius(float focus, float center, float rotX, float rotY, float radiusPx) {
 		// Map parameters to grid coordinates [0, 4]
 		float rf = (focus / 100.0f) * 4.0f;
 		float rc = (center / 100.0f) * 4.0f;
@@ -383,14 +417,32 @@ struct PansyviewDisplayWidget : TransparentWidget {
 		float sf = df * df * (3.0f - 2.0f * df);
 		float sc = dc * dc * (3.0f - 2.0f * dc);
 
-		// 2D bilinear interpolation using smoothstep weights
-		float radius_frac =
+		// 2D bilinear interpolation using smoothstep weights (ground truth measured at center)
+		float base_radius_frac =
 			(1.0f - sf) * (1.0f - sc) * G[i][j] +
 			(1.0f - sf) * sc          * G[i][j + 1] +
 			sf          * (1.0f - sc) * G[i + 1][j] +
 			sf          * sc          * G[i + 1][j + 1];
 
-		return radius_frac * radiusPx;
+		// Position-dependent proximity scaling from Gen~:
+		// At center, proximity = 1.0 (exact match to reference grid G).
+		// As puck moves away from origin, proximity shrinks, so the center boost falls off.
+		float distFromCenterSq = rotX * rotX + rotY * rotY;
+		float proximity = clampf(1.0f - distFromCenterSq, 0.0f, 1.0f);
+
+		float focus_norm = clampf(focus / 100.0f, 0.0f, 1.0f);
+		float center_norm = clampf(center / 100.0f, 0.0f, 1.0f);
+
+		float centerx_0 = std::sqrt(center_norm * std::sqrt(focus_norm));
+		float focusx_0 = 0.525f * (1.0f - centerx_0) + centerx_0 * 0.25f;
+
+		float centerx = std::sqrt(center_norm * std::sqrt(focus_norm) * proximity);
+		float focusx = 0.525f * (1.0f - centerx) + centerx * 0.25f;
+
+		float posScale = (focusx > 1e-4f) ? (focusx_0 / focusx) : 1.0f;
+		float finalRadius = base_radius_frac * posScale * radiusPx;
+
+		return clampf(finalRadius, 0.0f, radiusPx);
 	}
 
 	void draw(const DrawArgs& args) override {
@@ -527,7 +579,7 @@ struct PansyviewDisplayWidget : TransparentWidget {
 
 		// 4. Dispersion Disc around Puck
 		if (puckOpacity > 0.005f) {
-			float dispR = calcDispersionRadius(state.focus, state.center, radiusPx);
+			float dispR = calcDispersionRadius(state.focus, state.center, state.rotX, state.rotY, radiusPx);
 
 			// Draw shaded dispersion disc
 			NVGcolor discInner = hsvToNvgColor(puckHue, 0.80f, 1.0f, 0.40f * puckOpacity);
