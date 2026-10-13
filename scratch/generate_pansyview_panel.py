@@ -113,10 +113,6 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     # Remaining section width = 22.92 mm -> Center = 99.00 + 11.46 = 110.46 mm
     ctrl_x = 110.46
 
-    # 9 Knobs uniformly spaced along the vertical column from Y = 19.00 mm to Y = 117.00 mm
-    # pitch = (117.00 - 19.00) / 8 = 12.25 mm
-    knob_y = [19.00 + i * 12.25 for i in range(9)]
-
     # Jacks Row: 6 inputs centered beneath display canvas at Y = 118.00 mm
     # Canvas span: 7.00 to 99.00 mm (center = 53.00 mm). Pitch = 14.00 mm.
     # [18.00, 32.00, 46.00, 60.00, 74.00, 88.00] mm
@@ -139,29 +135,29 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0
     svg_parts.append(render_text(d_din_bold, "PANSYVIEW", panel_w / 2.0, 8.000, title_scale, title_color, "PANSYVIEW", align="center"))
 
-    # Version tag "v1.4.1" in Quicksand-Regular, scale 0.001600, right-aligned at X = panel_w - 2.15 mm
+    # Version tag "v1.5.0" in Quicksand-Regular, scale 0.001600, right-aligned at X = panel_w - 2.15 mm
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v1.4.1", version_x, 8.000, 0.001600, "#aaaaaa", "v1.4.1", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v1.5.0", version_x, 8.000, 0.001600, "#aaaaaa", "v1.5.0", align="right"))
 
-    # ── Control Knobs Labels (Single Vertical Row, All Consistent D-DIN Condensed Font) ──
-    trim_label_scale = 7.5 * 25.4 / 72.0 / 1000.0   # 0.0026458
+    # ── Control Knobs Labels (Single Vertical Row of 7 Full-Size Custom Knobs, Pitch = 16.00 mm) ──
+    # Labels: ARRANGEMENT, LOCATION, TRAIL, LENGTH, SPEAKERS, SPEAKER GLOW, FIELD
+    knob_y = [19.00 + i * 16.00 for i in range(7)]
+    knob_label_scale = 8.5 * 25.4 / 72.0 / 1000.0   # 0.0029986
     jack_label_scale = 8.0 * 25.4 / 72.0 / 1000.0   # 0.0028222
 
     knob_labels = [
         "ARRANGEMENT",
         "LOCATION",
-        "LOC. HUE",
         "TRAIL",
-        "TRAIL HUE",
-        "GLOW",
-        "GLOW HUE",
+        "LENGTH",
         "SPEAKERS",
+        "SPEAKER GLOW",
         "FIELD"
     ]
 
     for i, lbl in enumerate(knob_labels):
-        label_y = knob_y[i] - 4.20
-        svg_parts.append(render_text(d_din_cond, lbl, ctrl_x, label_y, trim_label_scale, label_color, f"Knob {i+1}: {lbl}"))
+        label_y = knob_y[i] - 6.20
+        svg_parts.append(render_text(d_din_cond, lbl, ctrl_x, label_y, knob_label_scale, label_color, f"Knob {i+1}: {lbl}"))
 
     # ── Input Jacks Row (below field visualizer, Y = 118.00 mm -> Label Y = 111.00 mm) ──
     jack_labels = ["X", "Y", "ROTATION", "FOCUS", "CENTER", "SMOOTH"]

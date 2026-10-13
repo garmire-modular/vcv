@@ -44,12 +44,10 @@ struct Pansyview : Module {
 
 		// Visual customization parameters
 		PUCK_OPACITY_PARAM,    // LOCATION
-		PUCK_HUE_PARAM,        // LOC. HUE
-		TRAIL_LENGTH_PARAM,    // TRAIL
-		TRAIL_HUE_PARAM,       // TRAIL HUE
-		GLOW_INTENSITY_PARAM,  // GLOW
-		GLOW_HUE_PARAM,        // GLOW HUE
+		TRAIL_OPACITY_PARAM,   // TRAIL
+		TRAIL_LENGTH_PARAM,    // LENGTH
 		SPEAKER_OPACITY_PARAM, // SPEAKERS
+		GLOW_INTENSITY_PARAM,  // SPEAKER GLOW
 		FIELD_OPACITY_PARAM,   // FIELD
 
 		PARAMS_LEN
@@ -106,6 +104,9 @@ struct Pansyview : Module {
 	};
 
 	SkinTheme skinTheme = THEME_MEDIUM;
+	float puckHue = 210.0f;  // Location Hue default 210°
+	float trailHue = 40.0f;  // Trail Hue default 40°
+	float glowHue = 270.0f;  // Glow Hue default 270°
 
 	// Thread-safe buffered visual state for the UI widget
 	struct VisualState {
@@ -144,12 +145,10 @@ struct Pansyview : Module {
 
 		// Visual customization parameters
 		configParam(PUCK_OPACITY_PARAM, 0.0f, 1.0f, 1.0f, "Location opacity", "%", 0.0f, 100.0f);
-		configParam(PUCK_HUE_PARAM, 0.0f, 360.0f, 210.0f, "Location hue", "°"); // Default 210°
-		configParam(TRAIL_LENGTH_PARAM, 0.0f, 1.0f, 0.5f, "Trail length", "%", 0.0f, 100.0f);
-		configParam(TRAIL_HUE_PARAM, 0.0f, 360.0f, 40.0f, "Trail hue", "°");    // Default 40° (warm amber/orange)
-		configParam(GLOW_INTENSITY_PARAM, 0.0f, 1.0f, 1.0f, "Speaker glow", "%", 0.0f, 100.0f);
-		configParam(GLOW_HUE_PARAM, 0.0f, 360.0f, 270.0f, "Glow hue", "°");    // Default 270° (violet/purple)
+		configParam(TRAIL_OPACITY_PARAM, 0.0f, 1.0f, 1.0f, "Trail opacity", "%", 0.0f, 100.0f);
+		configParam(TRAIL_LENGTH_PARAM, 0.0f, 1.0f, 0.5f, "Length", "%", 0.0f, 100.0f);
 		configParam(SPEAKER_OPACITY_PARAM, 0.0f, 1.0f, 1.0f, "Speakers opacity", "%", 0.0f, 100.0f);
+		configParam(GLOW_INTENSITY_PARAM, 0.0f, 1.0f, 1.0f, "Speaker glow", "%", 0.0f, 100.0f);
 		configParam(FIELD_OPACITY_PARAM, 0.0f, 1.0f, 0.8f, "Field opacity", "%", 0.0f, 100.0f);
 
 		// CV Inputs (strict sentence case, no "input" suffix per AGENTS.md rules)
@@ -369,6 +368,9 @@ struct Pansyview : Module {
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		json_object_set_new(rootJ, "puckHue", json_real(puckHue));
+		json_object_set_new(rootJ, "trailHue", json_real(trailHue));
+		json_object_set_new(rootJ, "glowHue", json_real(glowHue));
 		return rootJ;
 	}
 
@@ -377,22 +379,34 @@ struct Pansyview : Module {
 		if (stJ) {
 			skinTheme = (SkinTheme)json_integer_value(stJ);
 		}
+		json_t* phJ = json_object_get(rootJ, "puckHue");
+		if (phJ) {
+			puckHue = (float)json_number_value(phJ);
+		}
+		json_t* thJ = json_object_get(rootJ, "trailHue");
+		if (thJ) {
+			trailHue = (float)json_number_value(thJ);
+		}
+		json_t* ghJ = json_object_get(rootJ, "glowHue");
+		if (ghJ) {
+			glowHue = (float)json_number_value(ghJ);
+		}
 	}
 };
 
-// ── Custom Hardware Widgets (All Attenuverter Sized) ──
-struct PansyviewLayoutKnob : RoundKnob {
-	PansyviewLayoutKnob() {
-		setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob.svg")));
-		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob_bg.svg")));
+// ── Custom Hardware Widgets (Full-Size Custom Knobs) ──
+struct PansyviewCustomLayoutKnob : RoundKnob {
+	PansyviewCustomLayoutKnob() {
+		setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob.svg")));
+		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob_bg.svg")));
 		snap = true;
 	}
 };
 
-struct PansyviewTrimpot : RoundKnob {
-	PansyviewTrimpot() {
-		setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob.svg")));
-		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob_bg.svg")));
+struct PansyviewCustomKnob : RoundKnob {
+	PansyviewCustomKnob() {
+		setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob.svg")));
+		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob_bg.svg")));
 	}
 };
 
@@ -449,24 +463,26 @@ struct PansyviewDisplayWidget : TransparentWidget {
 	void draw(const DrawArgs& args) override {
 		Pansyview::VisualState state;
 		float puckOpacity = 1.0f;
-		float puckHue = 210.0f;
+		float trailOpacity = 1.0f;
 		float trailParam = 0.5f;
-		float trailHue = 40.0f;
 		float glowInt = 1.0f;
-		float glowHue = 270.0f;
 		float spkOpacity = 1.0f;
 		float fieldOpacityParam = 0.8f;
+		float puckHue = 210.0f;
+		float trailHue = 40.0f;
+		float glowHue = 270.0f;
 
 		if (module) {
 			state = module->visualState;
 			puckOpacity = module->params[Pansyview::PUCK_OPACITY_PARAM].getValue();
-			puckHue = module->params[Pansyview::PUCK_HUE_PARAM].getValue();
+			trailOpacity = module->params[Pansyview::TRAIL_OPACITY_PARAM].getValue();
 			trailParam = module->params[Pansyview::TRAIL_LENGTH_PARAM].getValue();
-			trailHue = module->params[Pansyview::TRAIL_HUE_PARAM].getValue();
-			glowInt = module->params[Pansyview::GLOW_INTENSITY_PARAM].getValue();
-			glowHue = module->params[Pansyview::GLOW_HUE_PARAM].getValue();
 			spkOpacity = module->params[Pansyview::SPEAKER_OPACITY_PARAM].getValue();
+			glowInt = module->params[Pansyview::GLOW_INTENSITY_PARAM].getValue();
 			fieldOpacityParam = module->params[Pansyview::FIELD_OPACITY_PARAM].getValue();
+			puckHue = module->puckHue;
+			trailHue = module->trailHue;
+			glowHue = module->glowHue;
 		}
 
 		float w = box.size.x;
@@ -553,13 +569,13 @@ struct PansyviewDisplayWidget : TransparentWidget {
 				trail.erase(trail.begin());
 			}
 
-			// Draw Trail polyline
-			if (trail.size() > 1 && puckOpacity > 0.005f) {
+			// Draw Trail polyline (visibility independent of puckOpacity, governed by trailOpacity)
+			if (trail.size() > 1 && trailOpacity > 0.005f) {
 				bool isInfinite = (trailParam >= 0.995f);
 				for (size_t t = 1; t < trail.size(); t++) {
 					float frac = (float)t / (float)trail.size();
 					// At 100% (isInfinite), no fade across the trail (uniform full opacity)
-					float tAlpha = isInfinite ? (0.75f * puckOpacity) : (frac * 0.75f * puckOpacity);
+					float tAlpha = isInfinite ? (0.75f * trailOpacity) : (frac * 0.75f * trailOpacity);
 					NVGcolor trailCol = hsvToNvgColor(trailHue, 0.75f, 1.0f, tAlpha);
 					nvgBeginPath(args.vg);
 					nvgMoveTo(args.vg, trail[t - 1].first, trail[t - 1].second);
@@ -732,38 +748,32 @@ struct PansyviewWidget : ModuleWidget {
 		displayWidget->box.size = mm2px(Vec(92.00f, 92.00f));
 		addChild(displayWidget);
 
-		// Single Vertical Column for All 9 Knobs (Attenuverter sized):
+		// Single Vertical Column for All 7 Knobs (Custom Full-Size Knobs):
 		// Centered between canvas right edge (99.00 mm) and panel right edge (121.92 mm) at X = 110.46 mm
-		// Y positions: [19.00, 31.25, 43.50, 55.75, 68.00, 80.25, 92.50, 104.75, 117.00] mm
+		// Y positions: [19.00, 35.00, 51.00, 67.00, 83.00, 99.00, 115.00] mm
 		const float ctrl_x = 110.46f;
-		const float knob_y[9] = { 19.00f, 31.25f, 43.50f, 55.75f, 68.00f, 80.25f, 92.50f, 104.75f, 117.00f };
+		const float knob_y[7] = { 19.00f, 35.00f, 51.00f, 67.00f, 83.00f, 99.00f, 115.00f };
 
 		// Knob 1: Arrangement (Stepped 0..9)
-		addParam(createParamCentered<PansyviewLayoutKnob>(mm2px(Vec(ctrl_x, knob_y[0])), module, Pansyview::LAYOUT_PARAM));
+		addParam(createParamCentered<PansyviewCustomLayoutKnob>(mm2px(Vec(ctrl_x, knob_y[0])), module, Pansyview::LAYOUT_PARAM));
 
 		// Knob 2: Location
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[1])), module, Pansyview::PUCK_OPACITY_PARAM));
+		addParam(createParamCentered<PansyviewCustomKnob>(mm2px(Vec(ctrl_x, knob_y[1])), module, Pansyview::PUCK_OPACITY_PARAM));
 
-		// Knob 3: Loc. Hue
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[2])), module, Pansyview::PUCK_HUE_PARAM));
+		// Knob 3: Trail
+		addParam(createParamCentered<PansyviewCustomKnob>(mm2px(Vec(ctrl_x, knob_y[2])), module, Pansyview::TRAIL_OPACITY_PARAM));
 
-		// Knob 4: Trail
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[3])), module, Pansyview::TRAIL_LENGTH_PARAM));
+		// Knob 4: Length
+		addParam(createParamCentered<PansyviewCustomKnob>(mm2px(Vec(ctrl_x, knob_y[3])), module, Pansyview::TRAIL_LENGTH_PARAM));
 
-		// Knob 5: Trail Hue
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[4])), module, Pansyview::TRAIL_HUE_PARAM));
+		// Knob 5: Speakers
+		addParam(createParamCentered<PansyviewCustomKnob>(mm2px(Vec(ctrl_x, knob_y[4])), module, Pansyview::SPEAKER_OPACITY_PARAM));
 
-		// Knob 6: Glow
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[5])), module, Pansyview::GLOW_INTENSITY_PARAM));
+		// Knob 6: Speaker Glow
+		addParam(createParamCentered<PansyviewCustomKnob>(mm2px(Vec(ctrl_x, knob_y[5])), module, Pansyview::GLOW_INTENSITY_PARAM));
 
-		// Knob 7: Glow Hue
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[6])), module, Pansyview::GLOW_HUE_PARAM));
-
-		// Knob 8: Speakers
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[7])), module, Pansyview::SPEAKER_OPACITY_PARAM));
-
-		// Knob 9: Field
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[8])), module, Pansyview::FIELD_OPACITY_PARAM));
+		// Knob 7: Field
+		addParam(createParamCentered<PansyviewCustomKnob>(mm2px(Vec(ctrl_x, knob_y[6])), module, Pansyview::FIELD_OPACITY_PARAM));
 
 		// Input Jacks Row: 6 inputs centered beneath display canvas at Y = 118.00 mm
 		// [18.00, 32.00, 46.00, 60.00, 74.00, 88.00] mm
@@ -799,6 +809,66 @@ struct PansyviewWidget : ModuleWidget {
 				}
 			));
 		}
+
+		struct HuePreset {
+			const char* label;
+			float hue;
+		};
+
+		static const HuePreset huePresets[] = {
+			{"Red (0°)", 0.0f},
+			{"Orange (30°)", 30.0f},
+			{"Warm Amber (40°)", 40.0f},
+			{"Gold (50°)", 50.0f},
+			{"Yellow (60°)", 60.0f},
+			{"Lime (90°)", 90.0f},
+			{"Green (120°)", 120.0f},
+			{"Emerald (150°)", 150.0f},
+			{"Teal (180°)", 180.0f},
+			{"Cyan (210°)", 210.0f},
+			{"Cobalt (230°)", 230.0f},
+			{"Blue (240°)", 240.0f},
+			{"Violet (270°)", 270.0f},
+			{"Purple (280°)", 280.0f},
+			{"Magenta (300°)", 300.0f},
+			{"Hot Pink (330°)", 330.0f}
+		};
+
+		menu->addChild(new MenuSeparator());
+		menu->addChild(createMenuLabel("Colors"));
+
+		menu->addChild(createSubmenuItem("Location Hue", "", [=](Menu* subMenu) {
+			for (const auto& opt : huePresets) {
+				std::string lbl = opt.label;
+				if (opt.hue == 210.0f) lbl += " (Default)";
+				subMenu->addChild(createCheckMenuItem(lbl, "",
+					[=]() { return std::abs(module->puckHue - opt.hue) < 1.0f; },
+					[=]() { module->puckHue = opt.hue; }
+				));
+			}
+		}));
+
+		menu->addChild(createSubmenuItem("Trail Hue", "", [=](Menu* subMenu) {
+			for (const auto& opt : huePresets) {
+				std::string lbl = opt.label;
+				if (opt.hue == 40.0f) lbl += " (Default)";
+				subMenu->addChild(createCheckMenuItem(lbl, "",
+					[=]() { return std::abs(module->trailHue - opt.hue) < 1.0f; },
+					[=]() { module->trailHue = opt.hue; }
+				));
+			}
+		}));
+
+		menu->addChild(createSubmenuItem("Speaker Glow Hue", "", [=](Menu* subMenu) {
+			for (const auto& opt : huePresets) {
+				std::string lbl = opt.label;
+				if (opt.hue == 270.0f) lbl += " (Default)";
+				subMenu->addChild(createCheckMenuItem(lbl, "",
+					[=]() { return std::abs(module->glowHue - opt.hue) < 1.0f; },
+					[=]() { module->glowHue = opt.hue; }
+				));
+			}
+		}));
 	}
 };
 
