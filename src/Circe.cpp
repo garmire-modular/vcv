@@ -521,19 +521,70 @@ struct Circe : Module {
 	}
 };
 
-// ── Custom 3-Color Range Light Widget (Palette: #e1be6a, #40b0a6, #d35fb7) ──
-template <typename TBase = GrayModuleLightWidget>
-struct TRangeLight : TBase {
-	TRangeLight() {
-		// Range 0: Very Slow = #e1be6a (Warm Gold)
-		this->addBaseColor(nvgRGBA(0xe1, 0xbe, 0x6a, 0xff));
-		// Range 1: LFO = #40b0a6 (Teal)
-		this->addBaseColor(nvgRGBA(0x40, 0xb0, 0xa6, 0xff));
-		// Range 2: VCO = #d35fb7 (Magenta)
-		this->addBaseColor(nvgRGBA(0xd3, 0x5f, 0xb7, 0xff));
+// ── Custom Hardware Tactile Button Widget (button_gray_0 / button_gray_1) ──
+struct CirceCustomButton : app::SvgSwitch {
+	CirceCustomButton() {
+		momentary = true;
+		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_0.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_1.svg")));
 	}
 };
-struct RangeLightWidget : SmallLight<TRangeLight<>> {};
+
+// ── Custom Illuminated Ring Widget (Concentric Ring around Tactile Button) ──
+// Center radius = 4.12 mm, Stroke width = 1.40 mm (Exact 1:1 match with 9.64 mm regular knob skirt)
+// Inner radius = 3.42 mm, Outer radius = 4.82 mm (Air gap from 2.60 mm button rim = 0.82 mm)
+struct CirceRangeLightRing : ModuleLightWidget {
+	CirceRangeLightRing() {
+		// Box size (11.0 mm x 11.0 mm) encompasses R=4.82 mm ring plus optical halo
+		box.size = mm2px(Vec(11.0f, 11.0f));
+
+		// Base colors for 3-Color Range Engine
+		this->addBaseColor(nvgRGBA(0xe1, 0xbe, 0x6a, 0xff)); // State 0: Warm Gold (Very Slow)
+		this->addBaseColor(nvgRGBA(0x40, 0xb0, 0xa6, 0xff)); // State 1: Teal (LFO)
+		this->addBaseColor(nvgRGBA(0xd3, 0x5f, 0xb7, 0xff)); // State 2: Magenta (VCO)
+	}
+
+	void drawBackground(const DrawArgs& args) override {
+		Vec c = box.size.div(2.f);
+		float r = mm2px(4.12f);
+		float w = mm2px(1.40f);
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, nvgRGBA(0x22, 0x22, 0x22, 0x99));
+		nvgStrokeWidth(args.vg, w);
+		nvgStroke(args.vg);
+	}
+
+	void drawLight(const DrawArgs& args) override {
+		if (color.a <= 0.0f) return;
+		Vec c = box.size.div(2.f);
+		float r = mm2px(4.12f);
+		float w = mm2px(1.40f);
+
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, color);
+		nvgStrokeWidth(args.vg, w);
+		nvgStroke(args.vg);
+	}
+
+	void drawHalo(const DrawArgs& args) override {
+		if (color.a <= 0.0f) return;
+		Vec c = box.size.div(2.f);
+		float r = mm2px(4.12f);
+		float haloW = mm2px(1.00f);
+		NVGcolor haloColor = color;
+
+		// 50% Visibility Rule: Nominal 0.35f alpha scaled down to 0.175f
+		haloColor.a *= 0.175f;
+
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, haloColor);
+		nvgStrokeWidth(args.vg, mm2px(1.40f) + haloW);
+		nvgStroke(args.vg);
+	}
+};
 
 struct CirceWidget : ModuleWidget {
 	CirceWidget(Circe* module) {
@@ -544,9 +595,11 @@ struct CirceWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 21.59)), module, Circe::FREQ_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 21.59)), module, Circe::FINE_PARAM));
 
-		// Row 1 Center: Range LED (15.50 mm) and Range Button (21.59 mm, horizontally aligned with knobs)
-		addChild(createLightCentered<RangeLightWidget>(mm2px(Vec(20.32, 15.50)), module, Circe::RANGE_LIGHT_YELLOW));
-		addParam(createParamCentered<TL1105>(mm2px(Vec(20.32, 21.59)), module, Circe::RANGE_PARAM));
+		// Concentric Illuminated Ring and Range Button at center X = 20.32 mm (21.59 mm)
+		// 1. Light ring added FIRST via addChild (renders in background under button cap)
+		addChild(createLightCentered<CirceRangeLightRing>(mm2px(Vec(20.32, 21.59)), module, Circe::RANGE_LIGHT_YELLOW));
+		// 2. Button added SECOND via addParam (renders on top, captures mouse events directly)
+		addParam(createParamCentered<CirceCustomButton>(mm2px(Vec(20.32, 21.59)), module, Circe::RANGE_PARAM));
 
 		// Row 2: CROP & ECLIPSE Knobs (Center Y = 37.00 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 37.00)), module, Circe::CROP_PARAM));
