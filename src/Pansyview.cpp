@@ -307,32 +307,40 @@ struct PansyviewDisplayWidget : TransparentWidget {
 	std::vector<std::pair<float, float>> trail;
 	const size_t maxTrail = 50;
 
-	// 5x5 Calibration Grid for Ableton Live Dispersion Disc Radius (field boundary = 61.0 px)
+	// 5x5 Reference Fraction Table for Ableton Live Dispersion Disc Radius (as fraction of field radius)
 	const float G[5][5] = {
-		{61.0f, 61.0f, 61.0f, 61.0f, 61.0f},
-		{37.7f, 43.7f, 50.3f, 57.5f, 61.0f},
-		{27.5f, 32.6f, 38.4f, 45.3f, 53.9f},
-		{22.0f, 26.6f, 32.0f, 38.8f, 47.8f},
-		{18.4f, 22.7f, 27.9f, 34.6f, 44.5f}
+		{1.000f, 1.000f, 1.000f, 1.000f, 1.000f},
+		{0.618f, 0.717f, 0.825f, 0.943f, 1.000f},
+		{0.451f, 0.534f, 0.630f, 0.743f, 0.884f},
+		{0.361f, 0.436f, 0.525f, 0.636f, 0.784f},
+		{0.302f, 0.372f, 0.457f, 0.567f, 0.730f}
 	};
 
 	float calcDispersionRadius(float focus, float center, float radiusPx) {
+		// Map parameters to grid coordinates [0, 4]
 		float rf = (focus / 100.0f) * 4.0f;
 		float rc = (center / 100.0f) * 4.0f;
+
+		// Grid cell indices capped at 3
 		int i = (int)clampf(std::floor(rf), 0.0f, 3.0f);
 		int j = (int)clampf(std::floor(rc), 0.0f, 3.0f);
-		float df = rf - i;
-		float dc = rc - j;
+
+		// Fractional position within cell
+		float df = rf - (float)i;
+		float dc = rc - (float)j;
+
+		// Independent cubic smoothstep S-curves: s(t) = 3t² - 2t³
 		float sf = df * df * (3.0f - 2.0f * df);
 		float sc = dc * dc * (3.0f - 2.0f * dc);
 
-		float radius_ableton =
+		// 2D bilinear interpolation using smoothstep weights
+		float radius_frac =
 			(1.0f - sf) * (1.0f - sc) * G[i][j] +
-			(1.0f - sf) * sc * G[i][j + 1] +
-			sf * (1.0f - sc) * G[i + 1][j] +
-			sf * sc * G[i + 1][j + 1];
+			(1.0f - sf) * sc          * G[i][j + 1] +
+			sf          * (1.0f - sc) * G[i + 1][j] +
+			sf          * sc          * G[i + 1][j + 1];
 
-		return radius_ableton * (radiusPx / 61.0f);
+		return radius_frac * radiusPx;
 	}
 
 	void draw(const DrawArgs& args) override {
@@ -425,12 +433,10 @@ struct PansyviewDisplayWidget : TransparentWidget {
 		}
 
 		// 4. Dispersion Disc around Puck
+		// Centered on puck (screenPuckX, screenPuckY), strictly masked/clipped to acoustic field boundary
 		float dispR = calcDispersionRadius(state.focus, state.center, radiusPx);
-		nvgSave(args.vg);
-		// Scissor to square display bounds
-		nvgScissor(args.vg, 0.f, 0.f, w, h);
 
-		// Shaded dispersion disc
+		// Draw shaded dispersion disc
 		NVGpaint discPaint = nvgRadialGradient(args.vg, screenPuckX, screenPuckY, 0.0f, dispR,
 			nvgRGBA(0x30, 0x90, 0xff, 0x66), nvgRGBA(0x10, 0x50, 0xcc, 0x08));
 		nvgBeginPath(args.vg);
@@ -443,8 +449,22 @@ struct PansyviewDisplayWidget : TransparentWidget {
 		nvgStrokeColor(args.vg, nvgRGBA(0x40, 0xa0, 0xff, 0x88));
 		nvgStrokeWidth(args.vg, 1.2f);
 		nvgStroke(args.vg);
-		nvgResetScissor(args.vg);
-		nvgRestore(args.vg);
+
+		// Stencil/Mask outer boundary: clear any disc bleed that extends outside the r = radiusPx field circle
+		// by drawing an inverted annular mask in the canvas background color (#121214) with CW inner and CCW outer
+		nvgBeginPath(args.vg);
+		nvgRect(args.vg, 0.f, 0.f, w, h);
+		nvgCircle(args.vg, centerX_px, centerY_px, radiusPx);
+		nvgPathWinding(args.vg, NVG_HOLE);
+		nvgFillColor(args.vg, nvgRGBA(0x12, 0x12, 0x14, 0xff));
+		nvgFill(args.vg);
+
+		// Re-stroke field boundary line so it stays sharp above mask
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, centerX_px, centerY_px, radiusPx);
+		nvgStrokeColor(args.vg, nvgRGBA(0x60, 0x60, 0x70, 0xcc));
+		nvgStrokeWidth(args.vg, 1.5f);
+		nvgStroke(args.vg);
 
 		// Core puck ring (filled circle r=7, surrounding stroke r=8)
 		nvgBeginPath(args.vg);
