@@ -43,14 +43,14 @@ struct Pansyview : Module {
 		LAYOUT_PARAM,
 
 		// Visual customization parameters
-		PUCK_OPACITY_PARAM,
-		PUCK_HUE_PARAM,
-		TRAIL_LENGTH_PARAM,
-		GLOW_INTENSITY_PARAM,
-		GLOW_HUE_PARAM,
-		SPEAKER_OPACITY_PARAM,
-		DB_OPACITY_PARAM,
-		FIELD_OPACITY_PARAM,
+		PUCK_OPACITY_PARAM,    // LOCATION
+		PUCK_HUE_PARAM,        // LOC. HUE
+		TRAIL_LENGTH_PARAM,    // TRAIL
+		TRAIL_HUE_PARAM,       // TRAIL HUE
+		GLOW_INTENSITY_PARAM,  // GLOW
+		GLOW_HUE_PARAM,        // GLOW HUE
+		SPEAKER_OPACITY_PARAM, // SPEAKERS
+		FIELD_OPACITY_PARAM,   // FIELD
 
 		PARAMS_LEN
 	};
@@ -124,7 +124,7 @@ struct Pansyview : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		// Layout selector knob: 10 discrete positions [0 to 9]
-		configSwitch(LAYOUT_PARAM, 0.0f, 9.0f, 1.0f, "Speaker layout", {
+		configSwitch(LAYOUT_PARAM, 0.0f, 9.0f, 1.0f, "Arrangement", {
 			"Stereo (2-CH)",
 			"4-CH Room",
 			"4-CH Circle",
@@ -138,13 +138,13 @@ struct Pansyview : Module {
 		});
 
 		// Visual customization parameters
-		configParam(PUCK_OPACITY_PARAM, 0.0f, 1.0f, 1.0f, "Puck opacity", "%", 0.0f, 100.0f);
-		configParam(PUCK_HUE_PARAM, 0.0f, 360.0f, 210.0f, "Puck hue", "°"); // Default cyan/blue ~210°
+		configParam(PUCK_OPACITY_PARAM, 0.0f, 1.0f, 1.0f, "Location opacity", "%", 0.0f, 100.0f);
+		configParam(PUCK_HUE_PARAM, 0.0f, 360.0f, 210.0f, "Location hue", "°"); // Default cyan/blue ~210°
 		configParam(TRAIL_LENGTH_PARAM, 0.0f, 1.0f, 0.5f, "Trail length", "%", 0.0f, 100.0f);
-		configParam(GLOW_INTENSITY_PARAM, 0.0f, 1.0f, 1.0f, "Speaker glow intensity", "%", 0.0f, 100.0f);
-		configParam(GLOW_HUE_PARAM, 0.0f, 360.0f, 135.0f, "Speaker glow hue", "°"); // Default green ~135°
-		configParam(SPEAKER_OPACITY_PARAM, 0.0f, 1.0f, 1.0f, "Speaker opacity", "%", 0.0f, 100.0f);
-		configParam(DB_OPACITY_PARAM, 0.0f, 1.0f, 1.0f, "dB badge opacity", "%", 0.0f, 100.0f);
+		configParam(TRAIL_HUE_PARAM, 0.0f, 360.0f, 210.0f, "Trail hue", "°");
+		configParam(GLOW_INTENSITY_PARAM, 0.0f, 1.0f, 1.0f, "Speaker glow", "%", 0.0f, 100.0f);
+		configParam(GLOW_HUE_PARAM, 0.0f, 360.0f, 135.0f, "Glow hue", "°"); // Default green ~135°
+		configParam(SPEAKER_OPACITY_PARAM, 0.0f, 1.0f, 1.0f, "Speakers opacity", "%", 0.0f, 100.0f);
 		configParam(FIELD_OPACITY_PARAM, 0.0f, 1.0f, 0.8f, "Field opacity", "%", 0.0f, 100.0f);
 
 		// CV Inputs (strict sentence case, no "input" suffix per AGENTS.md rules)
@@ -355,7 +355,7 @@ struct PansyviewPort : app::SvgPort {
 struct PansyviewDisplayWidget : TransparentWidget {
 	Pansyview* module = nullptr;
 	std::vector<std::pair<float, float>> trail;
-	const size_t maxTrail = 200; // Expanded to accommodate long trails
+	const size_t maxTrail = 2000; // Large buffer for persistent non-linear trail
 
 	// 5x5 Reference Fraction Table for Ableton Live Dispersion Disc Radius (as fraction of field radius)
 	const float G[5][5] = {
@@ -397,22 +397,22 @@ struct PansyviewDisplayWidget : TransparentWidget {
 		Pansyview::VisualState state;
 		float puckOpacity = 1.0f;
 		float puckHue = 210.0f;
-		float trailLen = 0.5f;
+		float trailParam = 0.5f;
+		float trailHue = 210.0f;
 		float glowInt = 1.0f;
 		float glowHue = 135.0f;
 		float spkOpacity = 1.0f;
-		float dbOpacity = 1.0f;
 		float fieldOpacityParam = 0.8f;
 
 		if (module) {
 			state = module->visualState;
 			puckOpacity = module->params[Pansyview::PUCK_OPACITY_PARAM].getValue();
 			puckHue = module->params[Pansyview::PUCK_HUE_PARAM].getValue();
-			trailLen = module->params[Pansyview::TRAIL_LENGTH_PARAM].getValue();
+			trailParam = module->params[Pansyview::TRAIL_LENGTH_PARAM].getValue();
+			trailHue = module->params[Pansyview::TRAIL_HUE_PARAM].getValue();
 			glowInt = module->params[Pansyview::GLOW_INTENSITY_PARAM].getValue();
 			glowHue = module->params[Pansyview::GLOW_HUE_PARAM].getValue();
 			spkOpacity = module->params[Pansyview::SPEAKER_OPACITY_PARAM].getValue();
-			dbOpacity = module->params[Pansyview::DB_OPACITY_PARAM].getValue();
 			fieldOpacityParam = module->params[Pansyview::FIELD_OPACITY_PARAM].getValue();
 		}
 
@@ -422,14 +422,13 @@ struct PansyviewDisplayWidget : TransparentWidget {
 		float centerX_px = w / 2.0f;
 		float centerY_px = h / 2.0f;
 
-		// 1. Dark background canvas
+		// 1. Dark background canvas (Strict crisp square corners, no rounded rect)
 		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0.f, 0.f, w, h, 6.0f);
+		nvgRect(args.vg, 0.f, 0.f, w, h);
 		nvgFillColor(args.vg, nvgRGBA(0x12, 0x12, 0x14, 0xff));
 		nvgFill(args.vg);
 
 		// 2. Field rings and radial axes (Field Opacity: 0% = invisible, 100% = 25% brighter than default)
-		// At 100% parameter (fieldOpacityParam = 1.0), scale factor is 1.25x (25% brighter).
 		float fieldAlphaScale = fieldOpacityParam * 1.25f;
 
 		if (fieldAlphaScale > 0.001f) {
@@ -486,25 +485,36 @@ struct PansyviewDisplayWidget : TransparentWidget {
 		float screenPuckX = centerX_px + state.rotX * radiusPx;
 		float screenPuckY = centerY_px - state.rotY * radiusPx;
 
-		// Trail handling based on trailLen parameter:
+		// Non-linear trail mapping:
 		// 0% = no trail (reset trail buffer)
-		// 100% = max length (up to 200 points, minimal fade)
-		if (trailLen <= 0.005f) {
+		// 75% = 200 points (matches previous 100% capacity)
+		// 100% = infinite persistence (up to 2000 points, zero fading)
+		if (trailParam <= 0.005f) {
 			trail.clear();
 		} else {
 			trail.push_back({screenPuckX, screenPuckY});
-			size_t dynamicMaxTrail = std::max((size_t)2, (size_t)(trailLen * (float)maxTrail));
-			while (trail.size() > dynamicMaxTrail) {
+
+			size_t targetCap;
+			if (trailParam < 0.75f) {
+				float u = trailParam / 0.75f;
+				targetCap = std::max((size_t)2, (size_t)(u * 200.0f));
+			} else {
+				float u = (trailParam - 0.75f) / 0.25f;
+				targetCap = (size_t)(200.0f + u * (2000.0f - 200.0f));
+			}
+
+			while (trail.size() > targetCap) {
 				trail.erase(trail.begin());
 			}
 
 			// Draw Trail polyline
 			if (trail.size() > 1 && puckOpacity > 0.005f) {
+				bool isInfinite = (trailParam >= 0.995f);
 				for (size_t t = 1; t < trail.size(); t++) {
 					float frac = (float)t / (float)trail.size();
-					// Trail fade: at 100% trailLen, stays near full opacity; at lower trailLen, fades faster
-					float tAlpha = (trailLen >= 0.99f) ? (0.7f * puckOpacity) : (frac * 0.7f * puckOpacity);
-					NVGcolor trailCol = hsvToNvgColor(puckHue, 0.75f, 1.0f, tAlpha);
+					// At 100% (isInfinite), no fade across the trail (uniform full opacity)
+					float tAlpha = isInfinite ? (0.75f * puckOpacity) : (frac * 0.75f * puckOpacity);
+					NVGcolor trailCol = hsvToNvgColor(trailHue, 0.75f, 1.0f, tAlpha);
 					nvgBeginPath(args.vg);
 					nvgMoveTo(args.vg, trail[t - 1].first, trail[t - 1].second);
 					nvgLineTo(args.vg, trail[t].first, trail[t].second);
@@ -574,12 +584,11 @@ struct PansyviewDisplayWidget : TransparentWidget {
 			nvgStroke(args.vg);
 		}
 
-		// 5. Speaker Icons
+		// 5. Speaker Icons (Speaker dB visualization removed entirely)
 		for (int i = 0; i < state.numSpeakers; i++) {
 			float spkScreenX = centerX_px + state.speakers[i].x * radiusPx;
 			float spkScreenY = centerY_px - state.speakers[i].y * radiusPx;
 			float gain = state.speakers[i].gain;
-			float db = state.speakers[i].dB;
 
 			// Gain halo glow: scales in size and opacity with glowInt
 			if (glowInt > 0.005f) {
@@ -622,36 +631,6 @@ struct PansyviewDisplayWidget : TransparentWidget {
 				nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 				nvgFillColor(args.vg, (gain > 0.35f) ? nvgRGBAf(0.06f, 0.12f, 0.06f, spkOpacity) : nvgRGBAf(1.f, 1.f, 1.f, 0.93f * spkOpacity));
 				nvgText(args.vg, spkScreenX, spkScreenY, numBuf, nullptr);
-			}
-
-			// dB Badge: inward toward field center (opacity controlled by dbOpacity)
-			if (gain >= 0.05f && dbOpacity > 0.005f) {
-				float dxToCenter = centerX_px - spkScreenX;
-				float dyToCenter = centerY_px - spkScreenY;
-				float len = std::sqrt(dxToCenter * dxToCenter + dyToCenter * dyToCenter);
-				float badgeX = spkScreenX;
-				float badgeY = spkScreenY;
-				if (len > 1e-4f) {
-					badgeX += (dxToCenter / len) * 22.0f;
-					badgeY += (dyToCenter / len) * 22.0f;
-				} else {
-					badgeY += 22.0f;
-				}
-
-				char dbBuf[16];
-				std::snprintf(dbBuf, sizeof(dbBuf), "%.1f dB", db);
-
-				nvgBeginPath(args.vg);
-				nvgRoundedRect(args.vg, badgeX - 19.0f, badgeY - 7.0f, 38.0f, 14.0f, 3.0f);
-				nvgFillColor(args.vg, nvgRGBAf(0.09f, 0.09f, 0.12f, 0.93f * dbOpacity));
-				nvgFill(args.vg);
-				nvgStrokeColor(args.vg, nvgRGBAf(0.22f, 0.47f, 0.25f, 0.66f * dbOpacity));
-				nvgStrokeWidth(args.vg, 1.0f);
-				nvgStroke(args.vg);
-
-				nvgFontSize(args.vg, 8.5f);
-				nvgFillColor(args.vg, hsvToNvgColor(glowHue, 0.65f, 0.95f, dbOpacity));
-				nvgText(args.vg, badgeX, badgeY + 0.5f, dbBuf, nullptr);
 			}
 		}
 	}
@@ -720,35 +699,35 @@ struct PansyviewWidget : ModuleWidget {
 
 		// Single Vertical Column for All 9 Knobs (Attenuverter sized):
 		// Centered at X = 119.00 mm
-		// Y positions: [19.00, 31.25, 43.50, 55.75, 68.00, 80.25, 92.50, 104.75, 117.00] mm (pitch = 12.25 mm)
+		// Y positions: [19.00, 31.25, 43.50, 55.75, 68.00, 80.25, 92.50, 104.75, 117.00] mm
 		const float ctrl_x = 119.00f;
 		const float knob_y[9] = { 19.00f, 31.25f, 43.50f, 55.75f, 68.00f, 80.25f, 92.50f, 104.75f, 117.00f };
 
-		// Knob 1: Layout Selector (Stepped 0..9)
+		// Knob 1: Arrangement (Stepped 0..9)
 		addParam(createParamCentered<PansyviewLayoutKnob>(mm2px(Vec(ctrl_x, knob_y[0])), module, Pansyview::LAYOUT_PARAM));
 
-		// Knob 2: Puck Opacity
+		// Knob 2: Location
 		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[1])), module, Pansyview::PUCK_OPACITY_PARAM));
 
-		// Knob 3: Puck Hue
+		// Knob 3: Loc. Hue
 		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[2])), module, Pansyview::PUCK_HUE_PARAM));
 
-		// Knob 4: Trail Length
+		// Knob 4: Trail
 		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[3])), module, Pansyview::TRAIL_LENGTH_PARAM));
 
-		// Knob 5: Speaker Glow Intensity
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[4])), module, Pansyview::GLOW_INTENSITY_PARAM));
+		// Knob 5: Trail Hue
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[4])), module, Pansyview::TRAIL_HUE_PARAM));
 
-		// Knob 6: Speaker Glow Hue
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[5])), module, Pansyview::GLOW_HUE_PARAM));
+		// Knob 6: Glow
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[5])), module, Pansyview::GLOW_INTENSITY_PARAM));
 
-		// Knob 7: Speaker Opacity
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[6])), module, Pansyview::SPEAKER_OPACITY_PARAM));
+		// Knob 7: Glow Hue
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[6])), module, Pansyview::GLOW_HUE_PARAM));
 
-		// Knob 8: dB Opacity
-		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[7])), module, Pansyview::DB_OPACITY_PARAM));
+		// Knob 8: Speakers
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[7])), module, Pansyview::SPEAKER_OPACITY_PARAM));
 
-		// Knob 9: Field Opacity
+		// Knob 9: Field
 		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[8])), module, Pansyview::FIELD_OPACITY_PARAM));
 
 		// Input Jacks Row: 6 inputs below the field visualizer at Y = 118.00 mm

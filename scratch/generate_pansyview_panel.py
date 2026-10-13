@@ -94,7 +94,6 @@ def get_palette_badge_svg(module_name="Pansyview"):
 
 def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, hi_color, sh_color, screen_bg, fonts):
     d_din_bold = fonts['d_din_bold']
-    d_din_cond_bold = fonts['d_din_cond_bold']
     d_din_cond = fonts['d_din_cond']
     qs_reg_font = fonts['qs_reg_font']
 
@@ -105,6 +104,7 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     badge_svg = get_palette_badge_svg("Pansyview")
 
     # Display Canvas Box (Left section): 94 mm x 94 mm at (10.00, 15.00) mm
+    # Clean, crisp sharp corners (rx=0, square bezel)
     disp_x = 10.00
     disp_y = 15.00
     disp_size = 94.00
@@ -128,8 +128,8 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
         f'  <rect width="{panel_w:.2f}" height="{panel_h:.1f}" fill="{bg_color}"/>',
         badge_svg,
         '',
-        '  <!-- Field Canvas Frame Bezel (94mm x 94mm) -->',
-        f'  <rect x="{disp_x:.3f}" y="{disp_y:.3f}" width="{disp_size:.3f}" height="{disp_size:.3f}" rx="3.000" fill="{screen_bg}" stroke="#181818" stroke-width="0.600"/>',
+        '  <!-- Field Canvas Frame Bezel (94mm x 94mm, Sharp Square Corners) -->',
+        f'  <rect x="{disp_x:.3f}" y="{disp_y:.3f}" width="{disp_size:.3f}" height="{disp_size:.3f}" fill="{screen_bg}" stroke="#181818" stroke-width="0.600"/>',
         ''
     ]
 
@@ -152,31 +152,29 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0
     svg_parts.append(render_text(d_din_bold, "PANSYVIEW", panel_w / 2.0, 8.000, title_scale, title_color, "PANSYVIEW", align="center"))
 
-    # Version tag "v1.1.1" in Quicksand-Regular, scale 0.001600, right-aligned at X = panel_w - 2.15 mm
+    # Version tag "v1.2.0" in Quicksand-Regular, scale 0.001600, right-aligned at X = panel_w - 2.15 mm
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v1.1.1", version_x, 8.000, 0.001600, "#aaaaaa", "v1.1.1", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v1.2.0", version_x, 8.000, 0.001600, "#aaaaaa", "v1.2.0", align="right"))
 
-    # ── Control Knobs Labels (Single Vertical Row) ──
-    # For trimpots, standard label baseline is Center Y - 4.20 mm
+    # ── Control Knobs Labels (Single Vertical Row, All Consistent D-DIN Condensed Font) ──
     trim_label_scale = 7.5 * 25.4 / 72.0 / 1000.0   # 0.0026458
     jack_label_scale = 8.0 * 25.4 / 72.0 / 1000.0   # 0.0028222
 
     knob_labels = [
-        ("LAYOUT", True),
-        ("PUCK OPAC", False),
-        ("PUCK HUE", False),
-        ("TRAIL", False),
-        ("GLOW INT", False),
-        ("GLOW HUE", False),
-        ("SPK OPAC", False),
-        ("DB OPAC", False),
-        ("FIELD OPAC", False)
+        "ARRANGEMENT",
+        "LOCATION",
+        "LOC. HUE",
+        "TRAIL",
+        "TRAIL HUE",
+        "GLOW",
+        "GLOW HUE",
+        "SPEAKERS",
+        "FIELD"
     ]
 
-    for i, (lbl, is_bold) in enumerate(knob_labels):
-        font_to_use = d_din_cond_bold if is_bold else d_din_cond
+    for i, lbl in enumerate(knob_labels):
         label_y = knob_y[i] - 4.20
-        svg_parts.append(render_text(font_to_use, lbl, ctrl_x, label_y, trim_label_scale, label_color, f"Knob {i+1}: {lbl}"))
+        svg_parts.append(render_text(d_din_cond, lbl, ctrl_x, label_y, trim_label_scale, label_color, f"Knob {i+1}: {lbl}"))
 
     # ── Input Jacks Row (below field visualizer, Y = 118.00 mm -> Label Y = 113.20 mm) ──
     jack_labels = ["X", "Y", "ROTATION", "FOCUS", "CENTER", "SMOOTH"]
@@ -189,7 +187,6 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
 def main():
     fonts = {
         'd_din_bold': TTFont('res/D-DIN-Bold.otf'),
-        'd_din_cond_bold': TTFont('res/D-DINCondensed-Bold.otf'),
         'd_din_cond': TTFont('res/D-DINCondensed.otf'),
         'qs_reg_font': TTFont('res/Quicksand-Regular.ttf')
     }
