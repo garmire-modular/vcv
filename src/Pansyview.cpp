@@ -144,11 +144,11 @@ struct Pansyview : Module {
 
 		// Visual customization parameters
 		configParam(PUCK_OPACITY_PARAM, 0.0f, 1.0f, 1.0f, "Location opacity", "%", 0.0f, 100.0f);
-		configParam(PUCK_HUE_PARAM, 0.0f, 360.0f, 210.0f, "Location hue", "°"); // Default cyan/blue ~210°
+		configParam(PUCK_HUE_PARAM, 0.0f, 360.0f, 210.0f, "Location hue", "°"); // Default 210°
 		configParam(TRAIL_LENGTH_PARAM, 0.0f, 1.0f, 0.5f, "Trail length", "%", 0.0f, 100.0f);
-		configParam(TRAIL_HUE_PARAM, 0.0f, 360.0f, 210.0f, "Trail hue", "°");
+		configParam(TRAIL_HUE_PARAM, 0.0f, 360.0f, 40.0f, "Trail hue", "°");    // Default 40° (warm amber/orange)
 		configParam(GLOW_INTENSITY_PARAM, 0.0f, 1.0f, 1.0f, "Speaker glow", "%", 0.0f, 100.0f);
-		configParam(GLOW_HUE_PARAM, 0.0f, 360.0f, 135.0f, "Glow hue", "°"); // Default green ~135°
+		configParam(GLOW_HUE_PARAM, 0.0f, 360.0f, 270.0f, "Glow hue", "°");    // Default 270° (violet/purple)
 		configParam(SPEAKER_OPACITY_PARAM, 0.0f, 1.0f, 1.0f, "Speakers opacity", "%", 0.0f, 100.0f);
 		configParam(FIELD_OPACITY_PARAM, 0.0f, 1.0f, 0.8f, "Field opacity", "%", 0.0f, 100.0f);
 
@@ -451,9 +451,9 @@ struct PansyviewDisplayWidget : TransparentWidget {
 		float puckOpacity = 1.0f;
 		float puckHue = 210.0f;
 		float trailParam = 0.5f;
-		float trailHue = 210.0f;
+		float trailHue = 40.0f;
 		float glowInt = 1.0f;
-		float glowHue = 135.0f;
+		float glowHue = 270.0f;
 		float spkOpacity = 1.0f;
 		float fieldOpacityParam = 0.8f;
 
@@ -724,17 +724,17 @@ struct PansyviewWidget : ModuleWidget {
 		panel->setBackground(Svg::load(initPath));
 		setPanel(panel);
 
-		// Display canvas widget: 94mm x 94mm frame at (10.00, 15.00) mm
+		// Display canvas widget: 78mm x 78mm frame at (6.00, 18.00) mm
 		displayWidget = new PansyviewDisplayWidget();
 		displayWidget->module = module;
-		displayWidget->box.pos = mm2px(Vec(10.00f, 15.00f));
-		displayWidget->box.size = mm2px(Vec(94.00f, 94.00f));
+		displayWidget->box.pos = mm2px(Vec(6.00f, 18.00f));
+		displayWidget->box.size = mm2px(Vec(78.00f, 78.00f));
 		addChild(displayWidget);
 
 		// Single Vertical Column for All 9 Knobs (Attenuverter sized):
-		// Centered at X = 119.00 mm
+		// Centered between canvas right edge (84.00 mm) and panel right edge (101.60 mm) at X = 92.80 mm
 		// Y positions: [19.00, 31.25, 43.50, 55.75, 68.00, 80.25, 92.50, 104.75, 117.00] mm
-		const float ctrl_x = 119.00f;
+		const float ctrl_x = 92.80f;
 		const float knob_y[9] = { 19.00f, 31.25f, 43.50f, 55.75f, 68.00f, 80.25f, 92.50f, 104.75f, 117.00f };
 
 		// Knob 1: Arrangement (Stepped 0..9)
@@ -764,8 +764,9 @@ struct PansyviewWidget : ModuleWidget {
 		// Knob 9: Field
 		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[8])), module, Pansyview::FIELD_OPACITY_PARAM));
 
-		// Input Jacks Row: 6 inputs below the field visualizer at Y = 118.00 mm
-		const float jack_x[6] = { 15.00f, 30.00f, 45.00f, 60.00f, 75.00f, 90.00f };
+		// Input Jacks Row: 6 inputs centered beneath display canvas at Y = 118.00 mm
+		// [14.00, 26.40, 38.80, 51.20, 63.60, 76.00] mm
+		const float jack_x[6] = { 14.00f, 26.40f, 38.80f, 51.20f, 63.60f, 76.00f };
 		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[0], 118.00f)), module, Pansyview::X_INPUT));
 		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[1], 118.00f)), module, Pansyview::Y_INPUT));
 		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[2], 118.00f)), module, Pansyview::ROTATION_INPUT));
