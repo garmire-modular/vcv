@@ -476,6 +476,10 @@ struct PansyviewDisplayWidget : TransparentWidget {
 		float centerX_px = w / 2.0f;
 		float centerY_px = h / 2.0f;
 
+		// Save graphics state and apply strict hardware scissor clipping to the exact square boundary [0, 0, w, h]
+		nvgSave(args.vg);
+		nvgScissor(args.vg, 0.f, 0.f, w, h);
+
 		// 1. Dark background canvas (Strict crisp square corners, no rounded rect)
 		nvgBeginPath(args.vg);
 		nvgRect(args.vg, 0.f, 0.f, w, h);
@@ -592,29 +596,12 @@ struct PansyviewDisplayWidget : TransparentWidget {
 			nvgFillPaint(args.vg, discPaint);
 			nvgFill(args.vg);
 
+			// Draw subtle boundary stroke of the dispersion disc
 			nvgBeginPath(args.vg);
 			nvgCircle(args.vg, screenPuckX, screenPuckY, dispR);
 			nvgStrokeColor(args.vg, hsvToNvgColor(puckHue, 0.75f, 1.0f, 0.53f * puckOpacity));
 			nvgStrokeWidth(args.vg, 1.2f);
 			nvgStroke(args.vg);
-
-			// Strict Outer Boundary Mask:
-			// Mask off everything outside the field circle (r = radiusPx) so that the disc and its stroke NEVER leak beyond the perimeter.
-			nvgBeginPath(args.vg);
-			nvgRect(args.vg, 0.f, 0.f, w, h);
-			nvgCircle(args.vg, centerX_px, centerY_px, radiusPx);
-			nvgPathWinding(args.vg, NVG_HOLE);
-			nvgFillColor(args.vg, nvgRGBA(0x12, 0x12, 0x14, 0xff));
-			nvgFill(args.vg);
-
-			// Crisp re-stroke of the outer boundary circle at r = radiusPx
-			if (fieldAlphaScale > 0.001f) {
-				nvgBeginPath(args.vg);
-				nvgCircle(args.vg, centerX_px, centerY_px, radiusPx);
-				nvgStrokeColor(args.vg, nvgRGBAf(0.38f, 0.38f, 0.44f, clampf(0.80f * fieldAlphaScale, 0.f, 1.f)));
-				nvgStrokeWidth(args.vg, 1.5f);
-				nvgStroke(args.vg);
-			}
 
 			// Core puck ring (filled circle r=7, surrounding stroke r=8.5)
 			nvgBeginPath(args.vg);
@@ -688,6 +675,10 @@ struct PansyviewDisplayWidget : TransparentWidget {
 				nvgText(args.vg, spkScreenX, spkScreenY, numBuf, nullptr);
 			}
 		}
+
+		// Restore hardware scissor clipping and graphics state
+		nvgResetScissor(args.vg);
+		nvgRestore(args.vg);
 	}
 };
 
