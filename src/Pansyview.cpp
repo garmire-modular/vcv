@@ -14,11 +14,44 @@ namespace {
 inline float clampf(float v, float lo, float hi) {
 	return std::max(lo, std::min(v, hi));
 }
+
+// Convert Hue (0..360), Saturation (0..1), Value (0..1) to NVGcolor with alpha
+inline NVGcolor hsvToNvgColor(float h, float s, float v, float a) {
+	float c = v * s;
+	float x = c * (1.0f - std::abs(std::fmod(h / 60.0f, 2.0f) - 1.0f));
+	float m = v - c;
+	float r = 0.f, g = 0.f, b = 0.f;
+	if (h >= 0.f && h < 60.f) {
+		r = c; g = x; b = 0.f;
+	} else if (h >= 60.f && h < 120.f) {
+		r = x; g = c; b = 0.f;
+	} else if (h >= 120.f && h < 180.f) {
+		r = 0.f; g = c; b = x;
+	} else if (h >= 180.f && h < 240.f) {
+		r = 0.f; g = x; b = c;
+	} else if (h >= 240.f && h < 300.f) {
+		r = x; g = 0.f; b = c;
+	} else {
+		r = c; g = 0.f; b = x;
+	}
+	return nvgRGBAf(r + m, g + m, b + m, a);
+}
 } // namespace
 
 struct Pansyview : Module {
 	enum ParamIds {
 		LAYOUT_PARAM,
+
+		// Visual customization parameters
+		PUCK_OPACITY_PARAM,
+		PUCK_HUE_PARAM,
+		TRAIL_LENGTH_PARAM,
+		GLOW_INTENSITY_PARAM,
+		GLOW_HUE_PARAM,
+		SPEAKER_OPACITY_PARAM,
+		DB_OPACITY_PARAM,
+		FIELD_OPACITY_PARAM,
+
 		PARAMS_LEN
 	};
 
@@ -103,6 +136,16 @@ struct Pansyview : Module {
 			"8-CH Circle",
 			"8-CH Center"
 		});
+
+		// Visual customization parameters
+		configParam(PUCK_OPACITY_PARAM, 0.0f, 1.0f, 1.0f, "Puck opacity", "%", 0.0f, 100.0f);
+		configParam(PUCK_HUE_PARAM, 0.0f, 360.0f, 210.0f, "Puck hue", "°"); // Default cyan/blue ~210°
+		configParam(TRAIL_LENGTH_PARAM, 0.0f, 1.0f, 0.5f, "Trail length", "%", 0.0f, 100.0f);
+		configParam(GLOW_INTENSITY_PARAM, 0.0f, 1.0f, 1.0f, "Speaker glow intensity", "%", 0.0f, 100.0f);
+		configParam(GLOW_HUE_PARAM, 0.0f, 360.0f, 135.0f, "Speaker glow hue", "°"); // Default green ~135°
+		configParam(SPEAKER_OPACITY_PARAM, 0.0f, 1.0f, 1.0f, "Speaker opacity", "%", 0.0f, 100.0f);
+		configParam(DB_OPACITY_PARAM, 0.0f, 1.0f, 1.0f, "dB badge opacity", "%", 0.0f, 100.0f);
+		configParam(FIELD_OPACITY_PARAM, 0.0f, 1.0f, 0.8f, "Field opacity", "%", 0.0f, 100.0f);
 
 		// CV Inputs (strict sentence case, no "input" suffix per AGENTS.md rules)
 		configInput(X_INPUT, "X");
@@ -295,6 +338,13 @@ struct PansyviewLayoutKnob : RoundKnob {
 	}
 };
 
+struct PansyviewTrimpot : RoundKnob {
+	PansyviewTrimpot() {
+		setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob.svg")));
+		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob_bg.svg")));
+	}
+};
+
 struct PansyviewPort : app::SvgPort {
 	PansyviewPort() {
 		setSvg(Svg::load(asset::plugin(pluginInstance, "res/3_5mm_jacks.svg")));
@@ -305,7 +355,7 @@ struct PansyviewPort : app::SvgPort {
 struct PansyviewDisplayWidget : TransparentWidget {
 	Pansyview* module = nullptr;
 	std::vector<std::pair<float, float>> trail;
-	const size_t maxTrail = 50;
+	const size_t maxTrail = 200; // Expanded to accommodate long trails
 
 	// 5x5 Reference Fraction Table for Ableton Live Dispersion Disc Radius (as fraction of field radius)
 	const float G[5][5] = {
@@ -345,8 +395,25 @@ struct PansyviewDisplayWidget : TransparentWidget {
 
 	void draw(const DrawArgs& args) override {
 		Pansyview::VisualState state;
+		float puckOpacity = 1.0f;
+		float puckHue = 210.0f;
+		float trailLen = 0.5f;
+		float glowInt = 1.0f;
+		float glowHue = 135.0f;
+		float spkOpacity = 1.0f;
+		float dbOpacity = 1.0f;
+		float fieldOpacityParam = 0.8f;
+
 		if (module) {
 			state = module->visualState;
+			puckOpacity = module->params[Pansyview::PUCK_OPACITY_PARAM].getValue();
+			puckHue = module->params[Pansyview::PUCK_HUE_PARAM].getValue();
+			trailLen = module->params[Pansyview::TRAIL_LENGTH_PARAM].getValue();
+			glowInt = module->params[Pansyview::GLOW_INTENSITY_PARAM].getValue();
+			glowHue = module->params[Pansyview::GLOW_HUE_PARAM].getValue();
+			spkOpacity = module->params[Pansyview::SPEAKER_OPACITY_PARAM].getValue();
+			dbOpacity = module->params[Pansyview::DB_OPACITY_PARAM].getValue();
+			fieldOpacityParam = module->params[Pansyview::FIELD_OPACITY_PARAM].getValue();
 		}
 
 		float w = box.size.x;
@@ -361,132 +428,151 @@ struct PansyviewDisplayWidget : TransparentWidget {
 		nvgFillColor(args.vg, nvgRGBA(0x12, 0x12, 0x14, 0xff));
 		nvgFill(args.vg);
 
-		// 2. Concentric rings and grid
-		// Rings at r = 0.25, 0.50, 0.75
-		const float ringFracs[] = {0.25f, 0.50f, 0.75f};
-		for (float f : ringFracs) {
+		// 2. Field rings and radial axes (Field Opacity: 0% = invisible, 100% = 25% brighter than default)
+		// At 100% parameter (fieldOpacityParam = 1.0), scale factor is 1.25x (25% brighter).
+		float fieldAlphaScale = fieldOpacityParam * 1.25f;
+
+		if (fieldAlphaScale > 0.001f) {
+			// Rings at r = 0.25, 0.50, 0.75
+			const float ringFracs[] = {0.25f, 0.50f, 0.75f};
+			for (float f : ringFracs) {
+				nvgBeginPath(args.vg);
+				nvgCircle(args.vg, centerX_px, centerY_px, radiusPx * f);
+				nvgStrokeColor(args.vg, nvgRGBAf(0.21f, 0.21f, 0.24f, clampf(0.53f * fieldAlphaScale, 0.f, 1.f)));
+				nvgStrokeWidth(args.vg, 1.0f);
+				nvgStroke(args.vg);
+			}
+
+			// Outer boundary circle at r = 1.0
 			nvgBeginPath(args.vg);
-			nvgCircle(args.vg, centerX_px, centerY_px, radiusPx * f);
-			nvgStrokeColor(args.vg, nvgRGBA(0x35, 0x35, 0x3c, 0x88));
+			nvgCircle(args.vg, centerX_px, centerY_px, radiusPx);
+			nvgStrokeColor(args.vg, nvgRGBAf(0.38f, 0.38f, 0.44f, clampf(0.80f * fieldAlphaScale, 0.f, 1.f)));
+			nvgStrokeWidth(args.vg, 1.5f);
+			nvgStroke(args.vg);
+
+			// X and Y Axes
+			nvgBeginPath(args.vg);
+			nvgMoveTo(args.vg, centerX_px - radiusPx, centerY_px);
+			nvgLineTo(args.vg, centerX_px + radiusPx, centerY_px);
+			nvgMoveTo(args.vg, centerX_px, centerY_px - radiusPx);
+			nvgLineTo(args.vg, centerX_px, centerY_px + radiusPx);
+			nvgStrokeColor(args.vg, nvgRGBAf(0.25f, 0.25f, 0.29f, clampf(0.53f * fieldAlphaScale, 0.f, 1.f)));
 			nvgStrokeWidth(args.vg, 1.0f);
 			nvgStroke(args.vg);
+
+			// Center crosshair (7px arms)
+			nvgBeginPath(args.vg);
+			nvgMoveTo(args.vg, centerX_px - 7.0f, centerY_px);
+			nvgLineTo(args.vg, centerX_px + 7.0f, centerY_px);
+			nvgMoveTo(args.vg, centerX_px, centerY_px - 7.0f);
+			nvgLineTo(args.vg, centerX_px, centerY_px + 7.0f);
+			nvgStrokeColor(args.vg, nvgRGBAf(0.53f, 0.53f, 0.60f, clampf(0.66f * fieldAlphaScale, 0.f, 1.f)));
+			nvgStrokeWidth(args.vg, 1.2f);
+			nvgStroke(args.vg);
+
+			// Cardinal labels
+			nvgFontSize(args.vg, 10.0f);
+			nvgFontFaceId(args.vg, 0); // standard font
+			nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+			nvgFillColor(args.vg, nvgRGBAf(0.50f, 0.50f, 0.56f, clampf(0.93f * fieldAlphaScale, 0.f, 1.f)));
+
+			nvgText(args.vg, centerX_px, centerY_px - radiusPx - 9.0f, "FRONT", nullptr);
+			nvgText(args.vg, centerX_px, centerY_px + radiusPx + 9.0f, "REAR", nullptr);
+			nvgText(args.vg, centerX_px - radiusPx - 16.0f, centerY_px, "LEFT", nullptr);
+			nvgText(args.vg, centerX_px + radiusPx + 18.0f, centerY_px, "RIGHT", nullptr);
 		}
-
-		// Outer boundary circle at r = 1.0
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, centerX_px, centerY_px, radiusPx);
-		nvgStrokeColor(args.vg, nvgRGBA(0x60, 0x60, 0x70, 0xcc));
-		nvgStrokeWidth(args.vg, 1.5f);
-		nvgStroke(args.vg);
-
-		// X and Y Axes (dashed or faint solid line)
-		nvgBeginPath(args.vg);
-		nvgMoveTo(args.vg, centerX_px - radiusPx, centerY_px);
-		nvgLineTo(args.vg, centerX_px + radiusPx, centerY_px);
-		nvgMoveTo(args.vg, centerX_px, centerY_px - radiusPx);
-		nvgLineTo(args.vg, centerX_px, centerY_px + radiusPx);
-		nvgStrokeColor(args.vg, nvgRGBA(0x40, 0x40, 0x4a, 0x88));
-		nvgStrokeWidth(args.vg, 1.0f);
-		nvgStroke(args.vg);
-
-		// Center crosshair (7px arms)
-		nvgBeginPath(args.vg);
-		nvgMoveTo(args.vg, centerX_px - 7.0f, centerY_px);
-		nvgLineTo(args.vg, centerX_px + 7.0f, centerY_px);
-		nvgMoveTo(args.vg, centerX_px, centerY_px - 7.0f);
-		nvgLineTo(args.vg, centerX_px, centerY_px + 7.0f);
-		nvgStrokeColor(args.vg, nvgRGBA(0x88, 0x88, 0x99, 0xaa));
-		nvgStrokeWidth(args.vg, 1.2f);
-		nvgStroke(args.vg);
-
-		// Cardinal labels
-		nvgFontSize(args.vg, 10.0f);
-		nvgFontFaceId(args.vg, 0); // standard font
-		nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-		nvgFillColor(args.vg, nvgRGBA(0x80, 0x80, 0x90, 0xee));
-
-		nvgText(args.vg, centerX_px, centerY_px - radiusPx - 9.0f, "FRONT", nullptr);
-		nvgText(args.vg, centerX_px, centerY_px + radiusPx + 9.0f, "REAR", nullptr);
-		nvgText(args.vg, centerX_px - radiusPx - 16.0f, centerY_px, "LEFT", nullptr);
-		nvgText(args.vg, centerX_px + radiusPx + 18.0f, centerY_px, "RIGHT", nullptr);
 
 		// 3. Puck Position & Trail
 		float screenPuckX = centerX_px + state.rotX * radiusPx;
 		float screenPuckY = centerY_px - state.rotY * radiusPx;
 
-		trail.push_back({screenPuckX, screenPuckY});
-		if (trail.size() > maxTrail) {
-			trail.erase(trail.begin());
-		}
+		// Trail handling based on trailLen parameter:
+		// 0% = no trail (reset trail buffer)
+		// 100% = max length (up to 200 points, minimal fade)
+		if (trailLen <= 0.005f) {
+			trail.clear();
+		} else {
+			trail.push_back({screenPuckX, screenPuckY});
+			size_t dynamicMaxTrail = std::max((size_t)2, (size_t)(trailLen * (float)maxTrail));
+			while (trail.size() > dynamicMaxTrail) {
+				trail.erase(trail.begin());
+			}
 
-		// Draw Trail polyline
-		if (trail.size() > 1) {
-			for (size_t t = 1; t < trail.size(); t++) {
-				float frac = (float)t / (float)trail.size();
-				nvgBeginPath(args.vg);
-				nvgMoveTo(args.vg, trail[t - 1].first, trail[t - 1].second);
-				nvgLineTo(args.vg, trail[t].first, trail[t].second);
-				nvgStrokeColor(args.vg, nvgRGBAf(0.25f, 0.70f, 1.0f, frac * 0.7f));
-				nvgStrokeWidth(args.vg, 1.0f + frac * 2.5f);
-				nvgStroke(args.vg);
+			// Draw Trail polyline
+			if (trail.size() > 1 && puckOpacity > 0.005f) {
+				for (size_t t = 1; t < trail.size(); t++) {
+					float frac = (float)t / (float)trail.size();
+					// Trail fade: at 100% trailLen, stays near full opacity; at lower trailLen, fades faster
+					float tAlpha = (trailLen >= 0.99f) ? (0.7f * puckOpacity) : (frac * 0.7f * puckOpacity);
+					NVGcolor trailCol = hsvToNvgColor(puckHue, 0.75f, 1.0f, tAlpha);
+					nvgBeginPath(args.vg);
+					nvgMoveTo(args.vg, trail[t - 1].first, trail[t - 1].second);
+					nvgLineTo(args.vg, trail[t].first, trail[t].second);
+					nvgStrokeColor(args.vg, trailCol);
+					nvgStrokeWidth(args.vg, 1.0f + frac * 2.5f);
+					nvgStroke(args.vg);
+				}
 			}
 		}
 
 		// 4. Dispersion Disc around Puck
-		// Centered on puck (screenPuckX, screenPuckY), strictly masked/clipped to acoustic field boundary
-		float dispR = calcDispersionRadius(state.focus, state.center, radiusPx);
+		if (puckOpacity > 0.005f) {
+			float dispR = calcDispersionRadius(state.focus, state.center, radiusPx);
 
-		// Draw shaded dispersion disc
-		NVGpaint discPaint = nvgRadialGradient(args.vg, screenPuckX, screenPuckY, 0.0f, dispR,
-			nvgRGBA(0x30, 0x90, 0xff, 0x66), nvgRGBA(0x10, 0x50, 0xcc, 0x08));
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, screenPuckX, screenPuckY, dispR);
-		nvgFillPaint(args.vg, discPaint);
-		nvgFill(args.vg);
+			// Draw shaded dispersion disc
+			NVGcolor discInner = hsvToNvgColor(puckHue, 0.80f, 1.0f, 0.40f * puckOpacity);
+			NVGcolor discOuter = hsvToNvgColor(puckHue, 0.90f, 0.8f, 0.03f * puckOpacity);
+			NVGpaint discPaint = nvgRadialGradient(args.vg, screenPuckX, screenPuckY, 0.0f, dispR, discInner, discOuter);
+			nvgBeginPath(args.vg);
+			nvgCircle(args.vg, screenPuckX, screenPuckY, dispR);
+			nvgFillPaint(args.vg, discPaint);
+			nvgFill(args.vg);
 
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, screenPuckX, screenPuckY, dispR);
-		nvgStrokeColor(args.vg, nvgRGBA(0x40, 0xa0, 0xff, 0x88));
-		nvgStrokeWidth(args.vg, 1.2f);
-		nvgStroke(args.vg);
+			nvgBeginPath(args.vg);
+			nvgCircle(args.vg, screenPuckX, screenPuckY, dispR);
+			nvgStrokeColor(args.vg, hsvToNvgColor(puckHue, 0.75f, 1.0f, 0.53f * puckOpacity));
+			nvgStrokeWidth(args.vg, 1.2f);
+			nvgStroke(args.vg);
 
-		// Stencil/Mask outer boundary: clear any disc bleed that extends outside the r = radiusPx field circle
-		// by drawing an inverted annular mask in the canvas background color (#121214) with CW inner and CCW outer
-		nvgBeginPath(args.vg);
-		nvgRect(args.vg, 0.f, 0.f, w, h);
-		nvgCircle(args.vg, centerX_px, centerY_px, radiusPx);
-		nvgPathWinding(args.vg, NVG_HOLE);
-		nvgFillColor(args.vg, nvgRGBA(0x12, 0x12, 0x14, 0xff));
-		nvgFill(args.vg);
+			// Stencil/Mask outer boundary: clear any disc bleed that extends outside the r = radiusPx field circle
+			nvgBeginPath(args.vg);
+			nvgRect(args.vg, 0.f, 0.f, w, h);
+			nvgCircle(args.vg, centerX_px, centerY_px, radiusPx);
+			nvgPathWinding(args.vg, NVG_HOLE);
+			nvgFillColor(args.vg, nvgRGBA(0x12, 0x12, 0x14, 0xff));
+			nvgFill(args.vg);
 
-		// Re-stroke field boundary line so it stays sharp above mask
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, centerX_px, centerY_px, radiusPx);
-		nvgStrokeColor(args.vg, nvgRGBA(0x60, 0x60, 0x70, 0xcc));
-		nvgStrokeWidth(args.vg, 1.5f);
-		nvgStroke(args.vg);
+			// Re-stroke field boundary line if field visible
+			if (fieldAlphaScale > 0.001f) {
+				nvgBeginPath(args.vg);
+				nvgCircle(args.vg, centerX_px, centerY_px, radiusPx);
+				nvgStrokeColor(args.vg, nvgRGBAf(0.38f, 0.38f, 0.44f, clampf(0.80f * fieldAlphaScale, 0.f, 1.f)));
+				nvgStrokeWidth(args.vg, 1.5f);
+				nvgStroke(args.vg);
+			}
 
-		// Core puck ring (filled circle r=7, surrounding stroke r=8)
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, screenPuckX, screenPuckY, 7.0f);
-		nvgFillColor(args.vg, nvgRGBA(0xe0, 0xf0, 0xff, 0xff));
-		nvgFill(args.vg);
+			// Core puck ring (filled circle r=7, surrounding stroke r=8.5)
+			nvgBeginPath(args.vg);
+			nvgCircle(args.vg, screenPuckX, screenPuckY, 7.0f);
+			nvgFillColor(args.vg, hsvToNvgColor(puckHue, 0.15f, 1.0f, puckOpacity));
+			nvgFill(args.vg);
 
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, screenPuckX, screenPuckY, 8.5f);
-		nvgStrokeColor(args.vg, nvgRGBA(0x10, 0x60, 0xd0, 0xff));
-		nvgStrokeWidth(args.vg, 1.5f);
-		nvgStroke(args.vg);
+			nvgBeginPath(args.vg);
+			nvgCircle(args.vg, screenPuckX, screenPuckY, 8.5f);
+			nvgStrokeColor(args.vg, hsvToNvgColor(puckHue, 0.90f, 0.8f, puckOpacity));
+			nvgStrokeWidth(args.vg, 1.5f);
+			nvgStroke(args.vg);
 
-		// Puck center crosshair (4px arms)
-		nvgBeginPath(args.vg);
-		nvgMoveTo(args.vg, screenPuckX - 4.0f, screenPuckY);
-		nvgLineTo(args.vg, screenPuckX + 4.0f, screenPuckY);
-		nvgMoveTo(args.vg, screenPuckX, screenPuckY - 4.0f);
-		nvgLineTo(args.vg, screenPuckX, screenPuckY + 4.0f);
-		nvgStrokeColor(args.vg, nvgRGBA(0x15, 0x20, 0x35, 0xff));
-		nvgStrokeWidth(args.vg, 1.0f);
-		nvgStroke(args.vg);
+			// Puck center crosshair (4px arms)
+			nvgBeginPath(args.vg);
+			nvgMoveTo(args.vg, screenPuckX - 4.0f, screenPuckY);
+			nvgLineTo(args.vg, screenPuckX + 4.0f, screenPuckY);
+			nvgMoveTo(args.vg, screenPuckX, screenPuckY - 4.0f);
+			nvgLineTo(args.vg, screenPuckX, screenPuckY + 4.0f);
+			nvgStrokeColor(args.vg, nvgRGBAf(0.08f, 0.12f, 0.20f, puckOpacity));
+			nvgStrokeWidth(args.vg, 1.0f);
+			nvgStroke(args.vg);
+		}
 
 		// 5. Speaker Icons
 		for (int i = 0; i < state.numSpeakers; i++) {
@@ -495,46 +581,51 @@ struct PansyviewDisplayWidget : TransparentWidget {
 			float gain = state.speakers[i].gain;
 			float db = state.speakers[i].dB;
 
-			// Gain halo glow: radial gradient glow, radius = 16 + gain * 36 px
-			float haloR = 16.0f + gain * 36.0f;
-			float haloAlpha = clampf(gain * 0.85f, 0.0f, 0.85f);
-			NVGpaint haloPaint = nvgRadialGradient(args.vg, spkScreenX, spkScreenY, 8.0f, haloR,
-				nvgRGBAf(0.2f, 0.85f, 0.4f, haloAlpha), nvgRGBAf(0.1f, 0.8f, 0.3f, 0.0f));
-			nvgBeginPath(args.vg);
-			nvgCircle(args.vg, spkScreenX, spkScreenY, haloR);
-			nvgFillPaint(args.vg, haloPaint);
-			nvgFill(args.vg);
-
-			// Speaker body: filled circle r = 13 px
-			nvgBeginPath(args.vg);
-			nvgCircle(args.vg, spkScreenX, spkScreenY, 13.0f);
-			nvgFillColor(args.vg, nvgRGBA(0x24, 0x24, 0x28, 0xff));
-			nvgFill(args.vg);
-			nvgStrokeColor(args.vg, nvgRGBA(0x4a, 0x4a, 0x55, 0xff));
-			nvgStrokeWidth(args.vg, 1.5f);
-			nvgStroke(args.vg);
-
-			// Cone accent: inner circle r = 7 px, brighter when gain > 0.1
-			nvgBeginPath(args.vg);
-			nvgCircle(args.vg, spkScreenX, spkScreenY, 7.0f);
-			if (gain > 0.10f) {
-				float cBri = clampf(gain, 0.2f, 1.0f);
-				nvgFillColor(args.vg, nvgRGBAf(0.2f * cBri, 0.9f * cBri, 0.4f * cBri, 0.95f));
-			} else {
-				nvgFillColor(args.vg, nvgRGBA(0x38, 0x38, 0x40, 0xff));
+			// Gain halo glow: scales in size and opacity with glowInt
+			if (glowInt > 0.005f) {
+				float haloR = 16.0f + (gain * 36.0f * glowInt);
+				float haloAlpha = clampf(gain * 0.85f * glowInt, 0.0f, 0.85f);
+				NVGcolor glowInner = hsvToNvgColor(glowHue, 0.75f, 0.95f, haloAlpha);
+				NVGcolor glowOuter = hsvToNvgColor(glowHue, 0.85f, 0.80f, 0.0f);
+				NVGpaint haloPaint = nvgRadialGradient(args.vg, spkScreenX, spkScreenY, 8.0f, haloR, glowInner, glowOuter);
+				nvgBeginPath(args.vg);
+				nvgCircle(args.vg, spkScreenX, spkScreenY, haloR);
+				nvgFillPaint(args.vg, haloPaint);
+				nvgFill(args.vg);
 			}
-			nvgFill(args.vg);
 
-			// Speaker badge number (1, 2, 3...)
-			char numBuf[8];
-			std::snprintf(numBuf, sizeof(numBuf), "%d", i + 1);
-			nvgFontSize(args.vg, 10.0f);
-			nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-			nvgFillColor(args.vg, (gain > 0.35f) ? nvgRGBA(0x10, 0x20, 0x10, 0xff) : nvgRGBA(0xff, 0xff, 0xff, 0xee));
-			nvgText(args.vg, spkScreenX, spkScreenY, numBuf, nullptr);
+			// Speaker body (opacity controlled by spkOpacity)
+			if (spkOpacity > 0.005f) {
+				nvgBeginPath(args.vg);
+				nvgCircle(args.vg, spkScreenX, spkScreenY, 13.0f);
+				nvgFillColor(args.vg, nvgRGBAf(0.14f, 0.14f, 0.16f, spkOpacity));
+				nvgFill(args.vg);
+				nvgStrokeColor(args.vg, nvgRGBAf(0.29f, 0.29f, 0.33f, spkOpacity));
+				nvgStrokeWidth(args.vg, 1.5f);
+				nvgStroke(args.vg);
 
-			// dB Badge: inward toward field center (offset ≈ 22 px from speaker center)
-			if (gain >= 0.05f) {
+				// Cone accent: inner circle r = 7 px, brighter when gain > 0.1
+				nvgBeginPath(args.vg);
+				nvgCircle(args.vg, spkScreenX, spkScreenY, 7.0f);
+				if (gain > 0.10f) {
+					float cBri = clampf(gain, 0.2f, 1.0f);
+					nvgFillColor(args.vg, hsvToNvgColor(glowHue, 0.70f, cBri, 0.95f * spkOpacity));
+				} else {
+					nvgFillColor(args.vg, nvgRGBAf(0.22f, 0.22f, 0.25f, spkOpacity));
+				}
+				nvgFill(args.vg);
+
+				// Speaker badge number (1, 2, 3...)
+				char numBuf[8];
+				std::snprintf(numBuf, sizeof(numBuf), "%d", i + 1);
+				nvgFontSize(args.vg, 10.0f);
+				nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+				nvgFillColor(args.vg, (gain > 0.35f) ? nvgRGBAf(0.06f, 0.12f, 0.06f, spkOpacity) : nvgRGBAf(1.f, 1.f, 1.f, 0.93f * spkOpacity));
+				nvgText(args.vg, spkScreenX, spkScreenY, numBuf, nullptr);
+			}
+
+			// dB Badge: inward toward field center (opacity controlled by dbOpacity)
+			if (gain >= 0.05f && dbOpacity > 0.005f) {
 				float dxToCenter = centerX_px - spkScreenX;
 				float dyToCenter = centerY_px - spkScreenY;
 				float len = std::sqrt(dxToCenter * dxToCenter + dyToCenter * dyToCenter);
@@ -552,14 +643,14 @@ struct PansyviewDisplayWidget : TransparentWidget {
 
 				nvgBeginPath(args.vg);
 				nvgRoundedRect(args.vg, badgeX - 19.0f, badgeY - 7.0f, 38.0f, 14.0f, 3.0f);
-				nvgFillColor(args.vg, nvgRGBA(0x18, 0x18, 0x1e, 0xee));
+				nvgFillColor(args.vg, nvgRGBAf(0.09f, 0.09f, 0.12f, 0.93f * dbOpacity));
 				nvgFill(args.vg);
-				nvgStrokeColor(args.vg, nvgRGBA(0x38, 0x78, 0x40, 0xaa));
+				nvgStrokeColor(args.vg, nvgRGBAf(0.22f, 0.47f, 0.25f, 0.66f * dbOpacity));
 				nvgStrokeWidth(args.vg, 1.0f);
 				nvgStroke(args.vg);
 
 				nvgFontSize(args.vg, 8.5f);
-				nvgFillColor(args.vg, nvgRGBA(0x50, 0xf0, 0x70, 0xff));
+				nvgFillColor(args.vg, hsvToNvgColor(glowHue, 0.65f, 0.95f, dbOpacity));
 				nvgText(args.vg, badgeX, badgeY + 0.5f, dbBuf, nullptr);
 			}
 		}
@@ -620,37 +711,46 @@ struct PansyviewWidget : ModuleWidget {
 		panel->setBackground(Svg::load(initPath));
 		setPanel(panel);
 
-		// Display canvas widget: 98mm x 98mm frame at (10.00, 15.00) mm
+		// Display canvas widget: 94mm x 94mm frame at (10.00, 15.00) mm
 		displayWidget = new PansyviewDisplayWidget();
 		displayWidget->module = module;
 		displayWidget->box.pos = mm2px(Vec(10.00f, 15.00f));
-		displayWidget->box.size = mm2px(Vec(98.00f, 98.00f));
+		displayWidget->box.size = mm2px(Vec(94.00f, 94.00f));
 		addChild(displayWidget);
 
-		// Control Column: X = 119.00 mm
-		const float ctrl_x = 119.00f;
+		// Right Control Section:
+		// Column A: X = 113.00 mm
+		// Column B: X = 124.50 mm
+		const float col_a = 113.00f;
+		const float col_b = 124.50f;
 
-		// 10-Position Layout Selector Knob at Y = 23.00 mm
-		addParam(createParamCentered<PansyviewLayoutKnob>(mm2px(Vec(ctrl_x, 23.00f)), module, Pansyview::LAYOUT_PARAM));
+		// Row 0: 10-Position Layout Selector Knob at (col_a, 22.00 mm)
+		addParam(createParamCentered<PansyviewLayoutKnob>(mm2px(Vec(col_a, 22.00f)), module, Pansyview::LAYOUT_PARAM));
 
-		// CV Inputs (stacked vertically):
-		// Jack 1: X (Center Y = 46.00 mm)
-		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(ctrl_x, 46.00f)), module, Pansyview::X_INPUT));
+		// Row 1: Puck Opacity (col_a) / Puck Hue (col_b) at Y = 36.00 mm
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_a, 36.00f)), module, Pansyview::PUCK_OPACITY_PARAM));
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_b, 36.00f)), module, Pansyview::PUCK_HUE_PARAM));
 
-		// Jack 2: Y (Center Y = 60.50 mm)
-		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(ctrl_x, 60.50f)), module, Pansyview::Y_INPUT));
+		// Row 2: Trail Length (col_a) / Glow Intensity (col_b) at Y = 51.00 mm
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_a, 51.00f)), module, Pansyview::TRAIL_LENGTH_PARAM));
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_b, 51.00f)), module, Pansyview::GLOW_INTENSITY_PARAM));
 
-		// Jack 3: Rotation (Center Y = 75.00 mm)
-		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(ctrl_x, 75.00f)), module, Pansyview::ROTATION_INPUT));
+		// Row 3: Glow Hue (col_a) / Speaker Opacity (col_b) at Y = 66.00 mm
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_a, 66.00f)), module, Pansyview::GLOW_HUE_PARAM));
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_b, 66.00f)), module, Pansyview::SPEAKER_OPACITY_PARAM));
 
-		// Jack 4: Focus (Center Y = 89.50 mm)
-		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(ctrl_x, 89.50f)), module, Pansyview::FOCUS_INPUT));
+		// Row 4: dB Opacity (col_a) / Field Opacity (col_b) at Y = 81.00 mm
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_a, 81.00f)), module, Pansyview::DB_OPACITY_PARAM));
+		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(col_b, 81.00f)), module, Pansyview::FIELD_OPACITY_PARAM));
 
-		// Jack 5: Center (Center Y = 104.00 mm)
-		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(ctrl_x, 104.00f)), module, Pansyview::CENTER_INPUT));
-
-		// Jack 6: Smooth (Center Y = 118.00 mm)
-		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(ctrl_x, 118.00f)), module, Pansyview::SMOOTH_INPUT));
+		// Input Jacks Row: 6 inputs below the field visualizer at Y = 118.00 mm
+		const float jack_x[6] = { 15.00f, 30.00f, 45.00f, 60.00f, 75.00f, 90.00f };
+		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[0], 118.00f)), module, Pansyview::X_INPUT));
+		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[1], 118.00f)), module, Pansyview::Y_INPUT));
+		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[2], 118.00f)), module, Pansyview::ROTATION_INPUT));
+		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[3], 118.00f)), module, Pansyview::FOCUS_INPUT));
+		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[4], 118.00f)), module, Pansyview::CENTER_INPUT));
+		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[5], 118.00f)), module, Pansyview::SMOOTH_INPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
