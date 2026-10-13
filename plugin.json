@@ -617,6 +617,16 @@
         "Polyphonic",
         "Waveshaper"
       ]
+    },
+    {
+      "slug": "Pansy",
+      "name": "Pansy",
+      "description": "Surround panner controller with dual 3-channel rows, attenuverted CV modulation, and configurable voltage range",
+      "tags": [
+        "Control",
+        "Controller",
+        "Polyphonic"
+      ]
     }
   ]
 }
