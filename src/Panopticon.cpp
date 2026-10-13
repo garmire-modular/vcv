@@ -38,7 +38,7 @@ inline NVGcolor hsvToNvgColor(float h, float s, float v, float a) {
 }
 } // namespace
 
-struct Pansyview : Module {
+struct Panopticon : Module {
 	enum ParamIds {
 		LAYOUT_PARAM,
 
@@ -126,7 +126,7 @@ struct Pansyview : Module {
 	float smoothedRotY = 0.0f;
 	bool smoothedInit = false;
 
-	Pansyview() {
+	Panopticon() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		// Layout selector knob: 10 discrete positions [0 to 9]
@@ -395,30 +395,30 @@ struct Pansyview : Module {
 };
 
 // ── Custom Hardware Widgets (Full-Size Custom Knobs) ──
-struct PansyviewCustomLayoutKnob : RoundKnob {
-	PansyviewCustomLayoutKnob() {
+struct PanopticonCustomLayoutKnob : RoundKnob {
+	PanopticonCustomLayoutKnob() {
 		setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob.svg")));
 		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob_bg.svg")));
 		snap = true;
 	}
 };
 
-struct PansyviewCustomKnob : RoundKnob {
-	PansyviewCustomKnob() {
+struct PanopticonCustomKnob : RoundKnob {
+	PanopticonCustomKnob() {
 		setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob.svg")));
 		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob_bg.svg")));
 	}
 };
 
-struct PansyviewPort : app::SvgPort {
-	PansyviewPort() {
+struct PanopticonPort : app::SvgPort {
+	PanopticonPort() {
 		setSvg(Svg::load(asset::plugin(pluginInstance, "res/3_5mm_jacks.svg")));
 	}
 };
 
 // ── Square Field Canvas Display Widget ──
-struct PansyviewDisplayWidget : TransparentWidget {
-	Pansyview* module = nullptr;
+struct PanopticonDisplayWidget : TransparentWidget {
+	Panopticon* module = nullptr;
 	std::vector<std::pair<float, float>> trail;
 	const size_t maxTrail = 2000; // Large buffer for persistent non-linear trail
 
@@ -461,7 +461,7 @@ struct PansyviewDisplayWidget : TransparentWidget {
 	}
 
 	void draw(const DrawArgs& args) override {
-		Pansyview::VisualState state;
+		Panopticon::VisualState state;
 		float puckOpacity = 1.0f;
 		float trailOpacity = 1.0f;
 		float trailParam = 0.5f;
@@ -474,12 +474,12 @@ struct PansyviewDisplayWidget : TransparentWidget {
 
 		if (module) {
 			state = module->visualState;
-			puckOpacity = module->params[Pansyview::PUCK_OPACITY_PARAM].getValue();
-			trailOpacity = module->params[Pansyview::TRAIL_OPACITY_PARAM].getValue();
-			trailParam = module->params[Pansyview::TRAIL_LENGTH_PARAM].getValue();
-			spkOpacity = module->params[Pansyview::SPEAKER_OPACITY_PARAM].getValue();
-			glowInt = module->params[Pansyview::GLOW_INTENSITY_PARAM].getValue();
-			fieldOpacityParam = module->params[Pansyview::FIELD_OPACITY_PARAM].getValue();
+			puckOpacity = module->params[Panopticon::PUCK_OPACITY_PARAM].getValue();
+			trailOpacity = module->params[Panopticon::TRAIL_OPACITY_PARAM].getValue();
+			trailParam = module->params[Panopticon::TRAIL_LENGTH_PARAM].getValue();
+			spkOpacity = module->params[Panopticon::SPEAKER_OPACITY_PARAM].getValue();
+			glowInt = module->params[Panopticon::GLOW_INTENSITY_PARAM].getValue();
+			fieldOpacityParam = module->params[Panopticon::FIELD_OPACITY_PARAM].getValue();
 			puckHue = module->puckHue;
 			trailHue = module->trailHue;
 			glowHue = module->glowHue;
@@ -686,25 +686,25 @@ struct PansyviewDisplayWidget : TransparentWidget {
 	}
 };
 
-struct PansyviewWidget : ModuleWidget {
+struct PanopticonWidget : ModuleWidget {
 	SvgPanel* panel = nullptr;
-	Pansyview::SkinTheme currentTheme = Pansyview::THEME_MEDIUM;
-	PansyviewDisplayWidget* displayWidget = nullptr;
+	Panopticon::SkinTheme currentTheme = Panopticon::THEME_MEDIUM;
+	PanopticonDisplayWidget* displayWidget = nullptr;
 
-	void setTheme(Pansyview::SkinTheme theme) {
+	void setTheme(Panopticon::SkinTheme theme) {
 		currentTheme = theme;
 		if (panel) {
 			std::string path;
 			switch (theme) {
-				case Pansyview::THEME_LIGHT:
-					path = asset::plugin(pluginInstance, "res/Pansyview_Light.svg");
+				case Panopticon::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Panopticon_Light.svg");
 					break;
-				case Pansyview::THEME_DARK:
-					path = asset::plugin(pluginInstance, "res/Pansyview_Dark.svg");
+				case Panopticon::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Panopticon_Dark.svg");
 					break;
-				case Pansyview::THEME_MEDIUM:
+				case Panopticon::THEME_MEDIUM:
 				default:
-					path = asset::plugin(pluginInstance, "res/Pansyview.svg");
+					path = asset::plugin(pluginInstance, "res/Panopticon.svg");
 					break;
 			}
 			panel->setBackground(Svg::load(path));
@@ -713,28 +713,28 @@ struct PansyviewWidget : ModuleWidget {
 
 	void step() override {
 		ModuleWidget::step();
-		Pansyview* module = dynamic_cast<Pansyview*>(this->module);
+		Panopticon* module = dynamic_cast<Panopticon*>(this->module);
 		if (module && module->skinTheme != currentTheme) {
 			setTheme(module->skinTheme);
 		}
 	}
 
-	PansyviewWidget(Pansyview* module) {
+	PanopticonWidget(Panopticon* module) {
 		setModule(module);
 		panel = new SvgPanel();
-		Pansyview::SkinTheme initTheme = module ? module->skinTheme : Pansyview::THEME_MEDIUM;
+		Panopticon::SkinTheme initTheme = module ? module->skinTheme : Panopticon::THEME_MEDIUM;
 		currentTheme = initTheme;
 		std::string initPath;
 		switch (initTheme) {
-			case Pansyview::THEME_LIGHT:
-				initPath = asset::plugin(pluginInstance, "res/Pansyview_Light.svg");
+			case Panopticon::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Panopticon_Light.svg");
 				break;
-			case Pansyview::THEME_DARK:
-				initPath = asset::plugin(pluginInstance, "res/Pansyview_Dark.svg");
+			case Panopticon::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Panopticon_Dark.svg");
 				break;
-			case Pansyview::THEME_MEDIUM:
+			case Panopticon::THEME_MEDIUM:
 			default:
-				initPath = asset::plugin(pluginInstance, "res/Pansyview.svg");
+				initPath = asset::plugin(pluginInstance, "res/Panopticon.svg");
 				break;
 		}
 		panel->setBackground(Svg::load(initPath));
@@ -742,7 +742,7 @@ struct PansyviewWidget : ModuleWidget {
 
 		// Display canvas widget: 92mm x 92mm frame at (7.00, 15.50) mm
 		// Top reaches Y = 15.50 mm (top red line), bottom reaches Y = 107.50 mm (bottom red line)
-		displayWidget = new PansyviewDisplayWidget();
+		displayWidget = new PanopticonDisplayWidget();
 		displayWidget->module = module;
 		displayWidget->box.pos = mm2px(Vec(7.00f, 15.50f));
 		displayWidget->box.size = mm2px(Vec(92.00f, 92.00f));
@@ -755,39 +755,39 @@ struct PansyviewWidget : ModuleWidget {
 		const float knob_y[7] = { 19.00f, 35.00f, 51.00f, 67.00f, 83.00f, 99.00f, 115.00f };
 
 		// Knob 1: Arrangement (Stepped 0..9)
-		addParam(createParamCentered<PansyviewCustomLayoutKnob>(mm2px(Vec(ctrl_x, knob_y[0])), module, Pansyview::LAYOUT_PARAM));
+		addParam(createParamCentered<PanopticonCustomLayoutKnob>(mm2px(Vec(ctrl_x, knob_y[0])), module, Panopticon::LAYOUT_PARAM));
 
 		// Knob 2: Location
-		addParam(createParamCentered<PansyviewCustomKnob>(mm2px(Vec(ctrl_x, knob_y[1])), module, Pansyview::PUCK_OPACITY_PARAM));
+		addParam(createParamCentered<PanopticonCustomKnob>(mm2px(Vec(ctrl_x, knob_y[1])), module, Panopticon::PUCK_OPACITY_PARAM));
 
 		// Knob 3: Trail
-		addParam(createParamCentered<PansyviewCustomKnob>(mm2px(Vec(ctrl_x, knob_y[2])), module, Pansyview::TRAIL_OPACITY_PARAM));
+		addParam(createParamCentered<PanopticonCustomKnob>(mm2px(Vec(ctrl_x, knob_y[2])), module, Panopticon::TRAIL_OPACITY_PARAM));
 
 		// Knob 4: Length
-		addParam(createParamCentered<PansyviewCustomKnob>(mm2px(Vec(ctrl_x, knob_y[3])), module, Pansyview::TRAIL_LENGTH_PARAM));
+		addParam(createParamCentered<PanopticonCustomKnob>(mm2px(Vec(ctrl_x, knob_y[3])), module, Panopticon::TRAIL_LENGTH_PARAM));
 
 		// Knob 5: Speakers
-		addParam(createParamCentered<PansyviewCustomKnob>(mm2px(Vec(ctrl_x, knob_y[4])), module, Pansyview::SPEAKER_OPACITY_PARAM));
+		addParam(createParamCentered<PanopticonCustomKnob>(mm2px(Vec(ctrl_x, knob_y[4])), module, Panopticon::SPEAKER_OPACITY_PARAM));
 
 		// Knob 6: Speaker Glow
-		addParam(createParamCentered<PansyviewCustomKnob>(mm2px(Vec(ctrl_x, knob_y[5])), module, Pansyview::GLOW_INTENSITY_PARAM));
+		addParam(createParamCentered<PanopticonCustomKnob>(mm2px(Vec(ctrl_x, knob_y[5])), module, Panopticon::GLOW_INTENSITY_PARAM));
 
 		// Knob 7: Field
-		addParam(createParamCentered<PansyviewCustomKnob>(mm2px(Vec(ctrl_x, knob_y[6])), module, Pansyview::FIELD_OPACITY_PARAM));
+		addParam(createParamCentered<PanopticonCustomKnob>(mm2px(Vec(ctrl_x, knob_y[6])), module, Panopticon::FIELD_OPACITY_PARAM));
 
 		// Input Jacks Row: 6 inputs centered beneath display canvas at Y = 118.00 mm
 		// [18.00, 32.00, 46.00, 60.00, 74.00, 88.00] mm
 		const float jack_x[6] = { 18.00f, 32.00f, 46.00f, 60.00f, 74.00f, 88.00f };
-		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[0], 118.00f)), module, Pansyview::X_INPUT));
-		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[1], 118.00f)), module, Pansyview::Y_INPUT));
-		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[2], 118.00f)), module, Pansyview::ROTATION_INPUT));
-		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[3], 118.00f)), module, Pansyview::FOCUS_INPUT));
-		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[4], 118.00f)), module, Pansyview::CENTER_INPUT));
-		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[5], 118.00f)), module, Pansyview::SMOOTH_INPUT));
+		addInput(createInputCentered<PanopticonPort>(mm2px(Vec(jack_x[0], 118.00f)), module, Panopticon::X_INPUT));
+		addInput(createInputCentered<PanopticonPort>(mm2px(Vec(jack_x[1], 118.00f)), module, Panopticon::Y_INPUT));
+		addInput(createInputCentered<PanopticonPort>(mm2px(Vec(jack_x[2], 118.00f)), module, Panopticon::ROTATION_INPUT));
+		addInput(createInputCentered<PanopticonPort>(mm2px(Vec(jack_x[3], 118.00f)), module, Panopticon::FOCUS_INPUT));
+		addInput(createInputCentered<PanopticonPort>(mm2px(Vec(jack_x[4], 118.00f)), module, Panopticon::CENTER_INPUT));
+		addInput(createInputCentered<PanopticonPort>(mm2px(Vec(jack_x[5], 118.00f)), module, Panopticon::SMOOTH_INPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
-		Pansyview* module = dynamic_cast<Pansyview*>(this->module);
+		Panopticon* module = dynamic_cast<Panopticon*>(this->module);
 		if (!module) return;
 
 		menu->addChild(new MenuSeparator());
@@ -800,7 +800,7 @@ struct PansyviewWidget : ModuleWidget {
 		};
 
 		for (int i = 0; i < 3; i++) {
-			Pansyview::SkinTheme theme = (Pansyview::SkinTheme)i;
+			Panopticon::SkinTheme theme = (Panopticon::SkinTheme)i;
 			menu->addChild(createCheckMenuItem(skinLabels[i], "",
 				[=]() { return module->skinTheme == theme; },
 				[=]() {
@@ -872,4 +872,4 @@ struct PansyviewWidget : ModuleWidget {
 	}
 };
 
-Model* modelPansyview = createModel<Pansyview, PansyviewWidget>("Pansyview");
+Model* modelPanopticon = createModel<Panopticon, PanopticonWidget>("Panopticon");

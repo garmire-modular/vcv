@@ -62,5 +62,5 @@ extern Model* modelBitomata;
 extern Model* modelBitHamming;
 extern Model* modelAmpara;
 extern Model* modelGeorgia;
-extern Model* modelPansy;
-extern Model* modelPansyview;
+extern Model* modelPanopia;
+extern Model* modelPanopticon;

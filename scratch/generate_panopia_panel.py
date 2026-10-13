@@ -61,7 +61,7 @@ def render_text(font, text, x_pos, baseline_y, scale, fill, comment="", align="c
         curr += w
     return "\n".join(res)
 
-def get_palette_badge_svg(module_name="Pansy"):
+def get_palette_badge_svg(module_name="Panopia"):
     palette_path = Path("scratch/palette/palette.json")
     if palette_path.exists():
         try:
@@ -122,7 +122,7 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     # 3 Primary Columns across 60.96 mm: pitch = 18.48 mm, margin = 12.00 mm
     col_x = [12.00, 30.48, 48.96]
 
-    badge_svg = get_palette_badge_svg("Pansy")
+    badge_svg = get_palette_badge_svg("Panopia")
 
     # Section Dividers
     # Divider 1 between Knobs (Row 2 Y=41.50) and Attenuverters (Row 1 Y=63.00): Center Y = 53.00 mm
@@ -140,13 +140,13 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
         ''
     ]
 
-    # Module title "PANSY" in D-DIN Bold, 16pt (scale 0.005644), Y baseline 8mm, centered horizontally
+    # Module title "PANOPIA" in D-DIN Bold, 16pt (scale 0.005644), Y baseline 8mm, centered horizontally
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0  # 0.0056444
-    svg_parts.append(render_text(d_din_bold, "PANSY", panel_w / 2.0, 8.000, title_scale, title_color, "PANSY", align="center"))
+    svg_parts.append(render_text(d_din_bold, "PANOPIA", panel_w / 2.0, 8.000, title_scale, title_color, "PANOPIA", align="center"))
 
-    # Version number "v1.0.1" in Quicksand-Regular, scale 0.001600, Y baseline 8mm, right-aligned
+    # Version number "v1.0.0" in Quicksand-Regular, scale 0.001600, Y baseline 8mm, right-aligned
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v1.0.1", version_x, 8.000, 0.001600, "#aaaaaa", "v1.0.1", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v1.0.0", version_x, 8.000, 0.001600, "#aaaaaa", "v1.0.0", align="right"))
 
     # ── Zone 1 & 2: Main Parameter Knobs (D-DIN Condensed Bold, 10pt, baseline - 5.75mm) ──
     knob_label_scale = 10.0 * 25.4 / 72.0 / 1000.0  # 0.0035278
@@ -209,7 +209,7 @@ def main():
     skins = [
         {
             'name': 'Medium',
-            'filename': 'res/Pansy.svg',
+            'filename': 'res/Panopia.svg',
             'bg_color': '#6e6e6e',
             'title_color': '#ffffff',
             'label_color': '#222222',
@@ -219,7 +219,7 @@ def main():
         },
         {
             'name': 'Light',
-            'filename': 'res/Pansy_Light.svg',
+            'filename': 'res/Panopia_Light.svg',
             'bg_color': '#c6c6c6',
             'title_color': '#333333',
             'label_color': '#222222',
@@ -229,7 +229,7 @@ def main():
         },
         {
             'name': 'Dark',
-            'filename': 'res/Pansy_Dark.svg',
+            'filename': 'res/Panopia_Dark.svg',
             'bg_color': '#333333',
             'title_color': '#c6c6c6',
             'label_color': '#ffffff',
@@ -258,12 +258,12 @@ def main():
     # 12 HP pixel width for MetaModule: 12 * 9.5 = 114 px, Height = 240 px
     # High-res verification PNG: 114 * 4 = 456 px, 240 * 4 = 960 px
     os.makedirs('scratch', exist_ok=True)
-    verify_png = 'scratch/pansy_verify.png'
-    cairosvg.svg2png(url='res/Pansy.svg', write_to=verify_png, output_width=114 * 4, output_height=240 * 4)
+    verify_png = 'scratch/panopia_verify.png'
+    cairosvg.svg2png(url='res/Panopia.svg', write_to=verify_png, output_width=114 * 4, output_height=240 * 4)
 
     os.makedirs('metamodule/assets', exist_ok=True)
-    cairosvg.svg2png(url='res/Pansy.svg', write_to='metamodule/assets/Pansy.png', output_width=114, output_height=240)
-    print("Rendered metamodule/assets/Pansy.png successfully.")
+    cairosvg.svg2png(url='res/Panopia.svg', write_to='metamodule/assets/Panopia.png', output_width=114, output_height=240)
+    print("Rendered metamodule/assets/Panopia.png successfully.")
 
 if __name__ == '__main__':
     main()

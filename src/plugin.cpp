@@ -61,7 +61,7 @@ void init(Plugin* p) {
 	p->addModel(modelBitHamming);
 	p->addModel(modelAmpara);
 	p->addModel(modelGeorgia);
-	p->addModel(modelPansy);
-	p->addModel(modelPansyview);
+	p->addModel(modelPanopia);
+	p->addModel(modelPanopticon);
 }
 

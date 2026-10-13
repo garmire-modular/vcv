@@ -61,7 +61,7 @@ def render_text(font, text, x_pos, baseline_y, scale, fill, comment="", align="c
         curr += w
     return "\n".join(res)
 
-def get_palette_badge_svg(module_name="Pansyview"):
+def get_palette_badge_svg(module_name="Panopticon"):
     palette_path = Path("scratch/palette/palette.json")
     if palette_path.exists():
         try:
@@ -101,7 +101,7 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     panel_w = 121.92
     panel_h = 128.50
 
-    badge_svg = get_palette_badge_svg("Pansyview")
+    badge_svg = get_palette_badge_svg("Panopticon")
 
     # Display Canvas Box (Left section): 92 mm x 92 mm at (7.00, 15.50) mm
     # Reaches top red line (Y = 15.50 mm) and bottom red line (Y = 107.50 mm)
@@ -131,13 +131,13 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
         ''
     ]
 
-    # Module title "PANSYVIEW" in D-DIN Bold, 16pt (scale 0.005644), baseline 8mm
+    # Module title "PANOPTICON" in D-DIN Bold, 16pt (scale 0.005644), baseline 8mm
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0
-    svg_parts.append(render_text(d_din_bold, "PANSYVIEW", panel_w / 2.0, 8.000, title_scale, title_color, "PANSYVIEW", align="center"))
+    svg_parts.append(render_text(d_din_bold, "PANOPTICON", panel_w / 2.0, 8.000, title_scale, title_color, "PANOPTICON", align="center"))
 
-    # Version tag "v1.5.0" in Quicksand-Regular, scale 0.001600, right-aligned at X = panel_w - 2.15 mm
+    # Version tag "v1.0.0" in Quicksand-Regular, scale 0.001600, right-aligned at X = panel_w - 2.15 mm
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v1.5.0", version_x, 8.000, 0.001600, "#aaaaaa", "v1.5.0", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v1.0.0", version_x, 8.000, 0.001600, "#aaaaaa", "v1.0.0", align="right"))
 
     # ── Control Knobs Labels (Single Vertical Row of 7 Full-Size Custom Knobs, Pitch = 16.00 mm) ──
     # Labels: ARRANGEMENT, LOCATION, TRAIL, LENGTH, SPEAKERS, SPEAKER GLOW, FIELD
@@ -177,7 +177,7 @@ def main():
     skins = [
         {
             'name': 'Medium',
-            'filename': 'res/Pansyview.svg',
+            'filename': 'res/Panopticon.svg',
             'bg_color': '#6e6e6e',
             'title_color': '#ffffff',
             'label_color': '#222222',
@@ -188,7 +188,7 @@ def main():
         },
         {
             'name': 'Light',
-            'filename': 'res/Pansyview_Light.svg',
+            'filename': 'res/Panopticon_Light.svg',
             'bg_color': '#c6c6c6',
             'title_color': '#333333',
             'label_color': '#222222',
@@ -199,7 +199,7 @@ def main():
         },
         {
             'name': 'Dark',
-            'filename': 'res/Pansyview_Dark.svg',
+            'filename': 'res/Panopticon_Dark.svg',
             'bg_color': '#333333',
             'title_color': '#c6c6c6',
             'label_color': '#ffffff',
@@ -228,12 +228,12 @@ def main():
         print(f"Generated {skin['filename']} ({skin['name']} skin) successfully.")
 
     os.makedirs('scratch', exist_ok=True)
-    verify_png = 'scratch/pansyview_verify.png'
-    cairosvg.svg2png(url='res/Pansyview.svg', write_to=verify_png, output_width=247 * 4, output_height=240 * 4)
+    verify_png = 'scratch/panopticon_verify.png'
+    cairosvg.svg2png(url='res/Panopticon.svg', write_to=verify_png, output_width=247 * 4, output_height=240 * 4)
 
     os.makedirs('metamodule/assets', exist_ok=True)
-    cairosvg.svg2png(url='res/Pansyview.svg', write_to='metamodule/assets/Pansyview.png', output_width=247, output_height=240)
-    print("Rendered metamodule/assets/Pansyview.png successfully.")
+    cairosvg.svg2png(url='res/Panopticon.svg', write_to='metamodule/assets/Panopticon.png', output_width=247, output_height=240)
+    print("Rendered metamodule/assets/Panopticon.png successfully.")
 
 if __name__ == '__main__':
     main()

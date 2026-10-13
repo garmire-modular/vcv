@@ -11,7 +11,7 @@ inline float clampf(float v, float lo, float hi) {
 }
 } // namespace
 
-struct Pansy : Module {
+struct Panopia : Module {
 	enum ParamIds {
 		// Row 1 Knobs: X-Axis, Y-Axis, Rotation
 		X_AXIS_PARAM,
@@ -119,7 +119,7 @@ struct Pansy : Module {
 		}
 	};
 
-	Pansy() {
+	Panopia() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		// Row 1 Knobs
@@ -270,46 +270,46 @@ struct Pansy : Module {
 };
 
 // ── Custom Hardware Knob Widget (Matching Polly Look & Feel) ──
-struct PansyCustomKnob : RoundKnob {
-	PansyCustomKnob() {
+struct PanopiaCustomKnob : RoundKnob {
+	PanopiaCustomKnob() {
 		setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob.svg")));
 		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob_bg.svg")));
 	}
 };
 
 // ── Custom Hardware Attenuverter Widget (Matching Polly Look & Feel) ──
-struct PansyCustomTrimpot : RoundKnob {
-	PansyCustomTrimpot() {
+struct PanopiaCustomTrimpot : RoundKnob {
+	PanopiaCustomTrimpot() {
 		setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob.svg")));
 		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob_bg.svg")));
 	}
 };
 
 // ── Custom Hardware Jack Port Widget (3.5mm Eurorack Jack) ──
-struct PansyCustomPort : app::SvgPort {
-	PansyCustomPort() {
+struct PanopiaCustomPort : app::SvgPort {
+	PanopiaCustomPort() {
 		setSvg(Svg::load(asset::plugin(pluginInstance, "res/3_5mm_jacks.svg")));
 	}
 };
 
-struct PansyWidget : ModuleWidget {
+struct PanopiaWidget : ModuleWidget {
 	SvgPanel* panel = nullptr;
-	Pansy::SkinTheme currentTheme = Pansy::THEME_MEDIUM;
+	Panopia::SkinTheme currentTheme = Panopia::THEME_MEDIUM;
 
-	void setTheme(Pansy::SkinTheme theme) {
+	void setTheme(Panopia::SkinTheme theme) {
 		currentTheme = theme;
 		if (panel) {
 			std::string path;
 			switch (theme) {
-				case Pansy::THEME_LIGHT:
-					path = asset::plugin(pluginInstance, "res/Pansy_Light.svg");
+				case Panopia::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Panopia_Light.svg");
 					break;
-				case Pansy::THEME_DARK:
-					path = asset::plugin(pluginInstance, "res/Pansy_Dark.svg");
+				case Panopia::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Panopia_Dark.svg");
 					break;
-				case Pansy::THEME_MEDIUM:
+				case Panopia::THEME_MEDIUM:
 				default:
-					path = asset::plugin(pluginInstance, "res/Pansy.svg");
+					path = asset::plugin(pluginInstance, "res/Panopia.svg");
 					break;
 			}
 			panel->setBackground(Svg::load(path));
@@ -318,28 +318,28 @@ struct PansyWidget : ModuleWidget {
 
 	void step() override {
 		ModuleWidget::step();
-		Pansy* module = dynamic_cast<Pansy*>(this->module);
+		Panopia* module = dynamic_cast<Panopia*>(this->module);
 		if (module && module->skinTheme != currentTheme) {
 			setTheme(module->skinTheme);
 		}
 	}
 
-	PansyWidget(Pansy* module) {
+	PanopiaWidget(Panopia* module) {
 		setModule(module);
 		panel = new SvgPanel();
-		Pansy::SkinTheme initTheme = module ? module->skinTheme : Pansy::THEME_MEDIUM;
+		Panopia::SkinTheme initTheme = module ? module->skinTheme : Panopia::THEME_MEDIUM;
 		currentTheme = initTheme;
 		std::string initPath;
 		switch (initTheme) {
-			case Pansy::THEME_LIGHT:
-				initPath = asset::plugin(pluginInstance, "res/Pansy_Light.svg");
+			case Panopia::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Panopia_Light.svg");
 				break;
-			case Pansy::THEME_DARK:
-				initPath = asset::plugin(pluginInstance, "res/Pansy_Dark.svg");
+			case Panopia::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Panopia_Dark.svg");
 				break;
-			case Pansy::THEME_MEDIUM:
+			case Panopia::THEME_MEDIUM:
 			default:
-				initPath = asset::plugin(pluginInstance, "res/Pansy.svg");
+				initPath = asset::plugin(pluginInstance, "res/Panopia.svg");
 				break;
 		}
 		panel->setBackground(Svg::load(initPath));
@@ -350,48 +350,48 @@ struct PansyWidget : ModuleWidget {
 		const float col_x[3] = { 12.00f, 30.48f, 48.96f };
 
 		// Row 1 Knobs: X-Axis, Y-Axis, Rotation (Center Y = 21.50 mm)
-		addParam(createParamCentered<PansyCustomKnob>(mm2px(Vec(col_x[0], 21.50f)), module, Pansy::X_AXIS_PARAM));
-		addParam(createParamCentered<PansyCustomKnob>(mm2px(Vec(col_x[1], 21.50f)), module, Pansy::Y_AXIS_PARAM));
-		addParam(createParamCentered<PansyCustomKnob>(mm2px(Vec(col_x[2], 21.50f)), module, Pansy::ROTATION_PARAM));
+		addParam(createParamCentered<PanopiaCustomKnob>(mm2px(Vec(col_x[0], 21.50f)), module, Panopia::X_AXIS_PARAM));
+		addParam(createParamCentered<PanopiaCustomKnob>(mm2px(Vec(col_x[1], 21.50f)), module, Panopia::Y_AXIS_PARAM));
+		addParam(createParamCentered<PanopiaCustomKnob>(mm2px(Vec(col_x[2], 21.50f)), module, Panopia::ROTATION_PARAM));
 
 		// Row 2 Knobs: Focus, Center, Smooth (Center Y = 41.50 mm)
-		addParam(createParamCentered<PansyCustomKnob>(mm2px(Vec(col_x[0], 41.50f)), module, Pansy::FOCUS_PARAM));
-		addParam(createParamCentered<PansyCustomKnob>(mm2px(Vec(col_x[1], 41.50f)), module, Pansy::CENTER_PARAM));
-		addParam(createParamCentered<PansyCustomKnob>(mm2px(Vec(col_x[2], 41.50f)), module, Pansy::SMOOTH_PARAM));
+		addParam(createParamCentered<PanopiaCustomKnob>(mm2px(Vec(col_x[0], 41.50f)), module, Panopia::FOCUS_PARAM));
+		addParam(createParamCentered<PanopiaCustomKnob>(mm2px(Vec(col_x[1], 41.50f)), module, Panopia::CENTER_PARAM));
+		addParam(createParamCentered<PanopiaCustomKnob>(mm2px(Vec(col_x[2], 41.50f)), module, Panopia::SMOOTH_PARAM));
 
 		// Attenuverter Row 1: X, Y, Rotation (Center Y = 63.00 mm)
-		addParam(createParamCentered<PansyCustomTrimpot>(mm2px(Vec(col_x[0], 63.00f)), module, Pansy::X_AXIS_TRIM_PARAM));
-		addParam(createParamCentered<PansyCustomTrimpot>(mm2px(Vec(col_x[1], 63.00f)), module, Pansy::Y_AXIS_TRIM_PARAM));
-		addParam(createParamCentered<PansyCustomTrimpot>(mm2px(Vec(col_x[2], 63.00f)), module, Pansy::ROTATION_TRIM_PARAM));
+		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[0], 63.00f)), module, Panopia::X_AXIS_TRIM_PARAM));
+		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[1], 63.00f)), module, Panopia::Y_AXIS_TRIM_PARAM));
+		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[2], 63.00f)), module, Panopia::ROTATION_TRIM_PARAM));
 
 		// Attenuverter Row 2: Focus, Center, Smooth (Center Y = 74.00 mm)
-		addParam(createParamCentered<PansyCustomTrimpot>(mm2px(Vec(col_x[0], 74.00f)), module, Pansy::FOCUS_TRIM_PARAM));
-		addParam(createParamCentered<PansyCustomTrimpot>(mm2px(Vec(col_x[1], 74.00f)), module, Pansy::CENTER_TRIM_PARAM));
-		addParam(createParamCentered<PansyCustomTrimpot>(mm2px(Vec(col_x[2], 74.00f)), module, Pansy::SMOOTH_TRIM_PARAM));
+		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[0], 74.00f)), module, Panopia::FOCUS_TRIM_PARAM));
+		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[1], 74.00f)), module, Panopia::CENTER_TRIM_PARAM));
+		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[2], 74.00f)), module, Panopia::SMOOTH_TRIM_PARAM));
 
 		// Jack Row 1 (Inputs 1-3): X, Y, Rotation (Center Y = 89.50 mm)
-		addInput(createInputCentered<PansyCustomPort>(mm2px(Vec(col_x[0], 89.50f)), module, Pansy::X_AXIS_CV_INPUT));
-		addInput(createInputCentered<PansyCustomPort>(mm2px(Vec(col_x[1], 89.50f)), module, Pansy::Y_AXIS_CV_INPUT));
-		addInput(createInputCentered<PansyCustomPort>(mm2px(Vec(col_x[2], 89.50f)), module, Pansy::ROTATION_CV_INPUT));
+		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[0], 89.50f)), module, Panopia::X_AXIS_CV_INPUT));
+		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[1], 89.50f)), module, Panopia::Y_AXIS_CV_INPUT));
+		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[2], 89.50f)), module, Panopia::ROTATION_CV_INPUT));
 
 		// Jack Row 2 (Inputs 4-6): Focus, Center, Smooth (Center Y = 99.00 mm)
-		addInput(createInputCentered<PansyCustomPort>(mm2px(Vec(col_x[0], 99.00f)), module, Pansy::FOCUS_CV_INPUT));
-		addInput(createInputCentered<PansyCustomPort>(mm2px(Vec(col_x[1], 99.00f)), module, Pansy::CENTER_CV_INPUT));
-		addInput(createInputCentered<PansyCustomPort>(mm2px(Vec(col_x[2], 99.00f)), module, Pansy::SMOOTH_CV_INPUT));
+		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[0], 99.00f)), module, Panopia::FOCUS_CV_INPUT));
+		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[1], 99.00f)), module, Panopia::CENTER_CV_INPUT));
+		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[2], 99.00f)), module, Panopia::SMOOTH_CV_INPUT));
 
 		// Jack Row 3 (Outputs 1-3): X, Y, Rotation (Center Y = 108.50 mm)
-		addOutput(createOutputCentered<PansyCustomPort>(mm2px(Vec(col_x[0], 108.50f)), module, Pansy::X_AXIS_OUTPUT));
-		addOutput(createOutputCentered<PansyCustomPort>(mm2px(Vec(col_x[1], 108.50f)), module, Pansy::Y_AXIS_OUTPUT));
-		addOutput(createOutputCentered<PansyCustomPort>(mm2px(Vec(col_x[2], 108.50f)), module, Pansy::ROTATION_OUTPUT));
+		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[0], 108.50f)), module, Panopia::X_AXIS_OUTPUT));
+		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[1], 108.50f)), module, Panopia::Y_AXIS_OUTPUT));
+		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[2], 108.50f)), module, Panopia::ROTATION_OUTPUT));
 
 		// Jack Row 4 (Outputs 4-6): Focus, Center, Smooth (Center Y = 118.00 mm)
-		addOutput(createOutputCentered<PansyCustomPort>(mm2px(Vec(col_x[0], 118.00f)), module, Pansy::FOCUS_OUTPUT));
-		addOutput(createOutputCentered<PansyCustomPort>(mm2px(Vec(col_x[1], 118.00f)), module, Pansy::CENTER_OUTPUT));
-		addOutput(createOutputCentered<PansyCustomPort>(mm2px(Vec(col_x[2], 118.00f)), module, Pansy::SMOOTH_OUTPUT));
+		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[0], 118.00f)), module, Panopia::FOCUS_OUTPUT));
+		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[1], 118.00f)), module, Panopia::CENTER_OUTPUT));
+		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[2], 118.00f)), module, Panopia::SMOOTH_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
-		Pansy* module = dynamic_cast<Pansy*>(this->module);
+		Panopia* module = dynamic_cast<Panopia*>(this->module);
 		if (!module) return;
 
 		menu->addChild(new MenuSeparator());
@@ -404,7 +404,7 @@ struct PansyWidget : ModuleWidget {
 		};
 
 		for (int i = 0; i < 3; i++) {
-			Pansy::VoltageRange r = (Pansy::VoltageRange)i;
+			Panopia::VoltageRange r = (Panopia::VoltageRange)i;
 			menu->addChild(createCheckMenuItem(rangeLabels[i], "",
 				[=]() { return module->voltageRange == r; },
 				[=]() { module->voltageRange = r; }
@@ -421,7 +421,7 @@ struct PansyWidget : ModuleWidget {
 		};
 
 		for (int i = 0; i < 3; i++) {
-			Pansy::SkinTheme theme = (Pansy::SkinTheme)i;
+			Panopia::SkinTheme theme = (Panopia::SkinTheme)i;
 			menu->addChild(createCheckMenuItem(skinLabels[i], "",
 				[=]() { return module->skinTheme == theme; },
 				[=]() {
@@ -433,4 +433,4 @@ struct PansyWidget : ModuleWidget {
 	}
 };
 
-Model* modelPansy = createModel<Pansy, PansyWidget>("Pansy");
+Model* modelPanopia = createModel<Panopia, PanopiaWidget>("Panopia");
