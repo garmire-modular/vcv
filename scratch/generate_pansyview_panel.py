@@ -97,40 +97,40 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     d_din_cond = fonts['d_din_cond']
     qs_reg_font = fonts['qs_reg_font']
 
-    # Panel dimensions: 20 HP (101.60 mm x 128.50 mm)
-    panel_w = 101.60
+    # Panel dimensions: 24 HP (121.92 mm x 128.50 mm)
+    panel_w = 121.92
     panel_h = 128.50
 
     badge_svg = get_palette_badge_svg("Pansyview")
 
-    # Display Canvas Box (Left section): 78 mm x 78 mm at (6.00, 18.00) mm
-    # Clean, crisp sharp corners (rx=0, square bezel)
-    disp_x = 6.00
-    disp_y = 18.00
-    disp_size = 78.00
+    # Display Canvas Box (Left section): 92 mm x 92 mm at (7.00, 15.50) mm
+    # Reaches top red line (Y = 15.50 mm) and bottom red line (Y = 107.50 mm)
+    disp_x = 7.00
+    disp_y = 15.50
+    disp_size = 92.00
 
-    # Controls Column: Centered between canvas right edge (X = 84.00 mm) and panel right edge (X = 101.60 mm)
-    # Width of column section = 17.60 mm -> Center = 84.00 + 8.80 = 92.80 mm
-    ctrl_x = 92.80
+    # Controls Column: Centered between canvas right edge (X = 99.00 mm) and panel right edge (X = 121.92 mm)
+    # Remaining section width = 22.92 mm -> Center = 99.00 + 11.46 = 110.46 mm
+    ctrl_x = 110.46
 
     # 9 Knobs uniformly spaced along the vertical column from Y = 19.00 mm to Y = 117.00 mm
     # pitch = (117.00 - 19.00) / 8 = 12.25 mm
     knob_y = [19.00 + i * 12.25 for i in range(9)]
 
     # Jacks Row: 6 inputs centered beneath display canvas at Y = 118.00 mm
-    # Canvas span: 6.00 to 84.00 mm (center = 45.00 mm). Pitch = 12.40 mm.
-    # [14.00, 26.40, 38.80, 51.20, 63.60, 76.00] mm
-    jack_x = [14.00, 26.40, 38.80, 51.20, 63.60, 76.00]
+    # Canvas span: 7.00 to 99.00 mm (center = 53.00 mm). Pitch = 14.00 mm.
+    # [18.00, 32.00, 46.00, 60.00, 74.00, 88.00] mm
+    jack_x = [18.00, 32.00, 46.00, 60.00, 74.00, 88.00]
     jack_y = 118.00
 
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.1f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.1f}">',
-        f'  <!-- Panel Background: 20 HP ({theme_name} Theme) -->',
+        f'  <!-- Panel Background: 24 HP ({theme_name} Theme) -->',
         f'  <rect width="{panel_w:.2f}" height="{panel_h:.1f}" fill="{bg_color}"/>',
         badge_svg,
         '',
-        '  <!-- Field Canvas Frame Bezel (78mm x 78mm, Sharp Square Corners) -->',
+        '  <!-- Field Canvas Frame Bezel (92mm x 92mm, Sharp Square Corners) -->',
         f'  <rect x="{disp_x:.3f}" y="{disp_y:.3f}" width="{disp_size:.3f}" height="{disp_size:.3f}" fill="{screen_bg}" stroke="#181818" stroke-width="0.600"/>',
         ''
     ]
@@ -139,9 +139,9 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0
     svg_parts.append(render_text(d_din_bold, "PANSYVIEW", panel_w / 2.0, 8.000, title_scale, title_color, "PANSYVIEW", align="center"))
 
-    # Version tag "v1.4.0" in Quicksand-Regular, scale 0.001600, right-aligned at X = panel_w - 2.15 mm
+    # Version tag "v1.4.1" in Quicksand-Regular, scale 0.001600, right-aligned at X = panel_w - 2.15 mm
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v1.4.0", version_x, 8.000, 0.001600, "#aaaaaa", "v1.4.0", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v1.4.1", version_x, 8.000, 0.001600, "#aaaaaa", "v1.4.1", align="right"))
 
     # ── Control Knobs Labels (Single Vertical Row, All Consistent D-DIN Condensed Font) ──
     trim_label_scale = 7.5 * 25.4 / 72.0 / 1000.0   # 0.0026458

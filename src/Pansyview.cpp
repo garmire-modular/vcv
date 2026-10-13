@@ -724,17 +724,18 @@ struct PansyviewWidget : ModuleWidget {
 		panel->setBackground(Svg::load(initPath));
 		setPanel(panel);
 
-		// Display canvas widget: 78mm x 78mm frame at (6.00, 18.00) mm
+		// Display canvas widget: 92mm x 92mm frame at (7.00, 15.50) mm
+		// Top reaches Y = 15.50 mm (top red line), bottom reaches Y = 107.50 mm (bottom red line)
 		displayWidget = new PansyviewDisplayWidget();
 		displayWidget->module = module;
-		displayWidget->box.pos = mm2px(Vec(6.00f, 18.00f));
-		displayWidget->box.size = mm2px(Vec(78.00f, 78.00f));
+		displayWidget->box.pos = mm2px(Vec(7.00f, 15.50f));
+		displayWidget->box.size = mm2px(Vec(92.00f, 92.00f));
 		addChild(displayWidget);
 
 		// Single Vertical Column for All 9 Knobs (Attenuverter sized):
-		// Centered between canvas right edge (84.00 mm) and panel right edge (101.60 mm) at X = 92.80 mm
+		// Centered between canvas right edge (99.00 mm) and panel right edge (121.92 mm) at X = 110.46 mm
 		// Y positions: [19.00, 31.25, 43.50, 55.75, 68.00, 80.25, 92.50, 104.75, 117.00] mm
-		const float ctrl_x = 92.80f;
+		const float ctrl_x = 110.46f;
 		const float knob_y[9] = { 19.00f, 31.25f, 43.50f, 55.75f, 68.00f, 80.25f, 92.50f, 104.75f, 117.00f };
 
 		// Knob 1: Arrangement (Stepped 0..9)
@@ -765,8 +766,8 @@ struct PansyviewWidget : ModuleWidget {
 		addParam(createParamCentered<PansyviewTrimpot>(mm2px(Vec(ctrl_x, knob_y[8])), module, Pansyview::FIELD_OPACITY_PARAM));
 
 		// Input Jacks Row: 6 inputs centered beneath display canvas at Y = 118.00 mm
-		// [14.00, 26.40, 38.80, 51.20, 63.60, 76.00] mm
-		const float jack_x[6] = { 14.00f, 26.40f, 38.80f, 51.20f, 63.60f, 76.00f };
+		// [18.00, 32.00, 46.00, 60.00, 74.00, 88.00] mm
+		const float jack_x[6] = { 18.00f, 32.00f, 46.00f, 60.00f, 74.00f, 88.00f };
 		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[0], 118.00f)), module, Pansyview::X_INPUT));
 		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[1], 118.00f)), module, Pansyview::Y_INPUT));
 		addInput(createInputCentered<PansyviewPort>(mm2px(Vec(jack_x[2], 118.00f)), module, Pansyview::ROTATION_INPUT));
