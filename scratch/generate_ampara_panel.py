@@ -81,11 +81,15 @@ def main():
             ampara_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version tag "v2.0.0"
+    # Version tag "v2.0.1"
     version_block = [
-        '  <!-- Label: "v2.0.0" -->',
-        render_qs_text(qs_reg_font, "v2.0.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
+        '  <!-- Label: "v2.0.1" -->',
+        render_qs_text(qs_reg_font, "v2.0.1", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v2.0.1")
     ]
+
+    # 6 Columns across 101.60 mm
+    # cols = [12.00, 27.52, 43.04, 58.56, 74.08, 89.60] mm
+    cols = [12.00 + i * 15.52 for i in range(6)]
 
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -102,14 +106,13 @@ def main():
         '',
         '  <!-- Delineator Line 2 (Attenuverters / I/O Jacks at Y = 84.50mm) -->',
         f'  <line x1="2.54" y1="84.50" x2="{panel_w - 2.54:.2f}" y2="84.50" stroke="#999999" stroke-width="0.176"/>',
+        '',
+        '  <!-- Range Button Indicator Ring Track (R = 4.12mm, Stroke = 1.40mm) -->',
+        f'  <circle cx="{cols[1]:.3f}" cy="21.590" r="4.120" fill="none" stroke="#3a3a3a" stroke-width="1.400"/>',
         ''
     ]
     svg_parts.extend(ampara_title_block)
     svg_parts.extend(version_block)
-
-    # 6 Columns across 101.60 mm
-    # cols = [12.00, 27.52, 43.04, 58.56, 74.08, 89.60] mm
-    cols = [12.00 + i * 15.52 for i in range(6)]
 
     # UNIFORM FONT SIZE for all control and port labels
     L_SCALE = 0.002200
@@ -211,11 +214,15 @@ def main():
     for kx in cols[2:]:
         draw.ellipse([kx * r_px - kr, 21.59 * r_px - kr, kx * r_px + kr, 21.59 * r_px + kr], outline='#ffaa00', width=2)
 
-    # Range Button and LED centered at cols[1] (directly above AMP)
-    led_r = 1.5 * r_px
-    draw.ellipse([cols[1] * r_px - led_r, 15.50 * r_px - led_r, cols[1] * r_px + led_r, 15.50 * r_px + led_r], outline='#d35fb7', width=2)
-    btn_r = 2.0 * r_px
-    draw.ellipse([cols[1] * r_px - btn_r, 21.59 * r_px - btn_r, cols[1] * r_px + btn_r, 21.59 * r_px + btn_r], outline='#f0e442', width=2)
+    # Range Button at cols[1] with illuminated ring (R = 4.12 mm, W = 1.40 mm)
+    btn_r = 2.60 * r_px
+    draw.ellipse([cols[1] * r_px - btn_r, 21.59 * r_px - btn_r,
+                  cols[1] * r_px + btn_r, 21.59 * r_px + btn_r],
+                 outline='#f0e442', width=2)
+    ring_r = 4.12 * r_px
+    draw.ellipse([cols[1] * r_px - ring_r, 21.59 * r_px - ring_r,
+                  cols[1] * r_px + ring_r, 21.59 * r_px + ring_r],
+                 outline='#d35fb7', width=2)
 
     # Row 2 Knobs: all 6 cols at Y = 43.00 mm
     for kx in cols:
