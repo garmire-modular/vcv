@@ -83,10 +83,10 @@ def main():
             maude_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version tag "v2.0.0"
+    # Version tag "v2.0.1"
     version_block = [
-        '  <!-- Label: "v2.0.0" -->',
-        render_qs_text(qs_reg_font, "v2.0.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
+        '  <!-- Label: "v2.0.1" -->',
+        render_qs_text(qs_reg_font, "v2.0.1", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v2.0.1")
     ]
 
     svg_parts = [
@@ -104,6 +104,9 @@ def main():
         '',
         '  <!-- Delineator Line 2 (Attenuverters / Jacks at Y = 77.50mm) -->',
         f'  <line x1="2.54" y1="77.50" x2="{panel_w - 2.54:.2f}" y2="77.50" stroke="#999999" stroke-width="0.176"/>',
+        '',
+        '  <!-- Range Button Indicator Ring Track (R = 4.12mm, Stroke = 1.40mm) -->',
+        f'  <circle cx="{col_x[1]:.3f}" cy="18.500" r="4.120" fill="none" stroke="#3a3a3a" stroke-width="1.400"/>',
         ''
     ]
     svg_parts.extend(maude_title_block)
@@ -195,11 +198,15 @@ def main():
     for i, ky in enumerate([18.50, 32.00, 45.50]):
         for j, kx in enumerate(col_x):
             if i == 0 and j == 1:
-                # Range Button + LED
-                btn_r = 3.0 * r_px
-                led_r = 1.2 * r_px
-                draw.ellipse([kx * r_px - led_r, 13.50 * r_px - led_r, kx * r_px + led_r, 13.50 * r_px + led_r], outline='#d35fb7', width=2)
-                draw.ellipse([kx * r_px - btn_r, 18.50 * r_px - btn_r, kx * r_px + btn_r, 18.50 * r_px + btn_r], outline='#f0e442', width=2)
+                # Range Button with illuminated ring (R = 4.12 mm, W = 1.40 mm)
+                btn_r = 2.60 * r_px
+                draw.ellipse([kx * r_px - btn_r, ky * r_px - btn_r,
+                              kx * r_px + btn_r, ky * r_px + btn_r],
+                             outline='#f0e442', width=2)
+                ring_r = 4.12 * r_px
+                draw.ellipse([kx * r_px - ring_r, ky * r_px - ring_r,
+                              kx * r_px + ring_r, ky * r_px + ring_r],
+                             outline='#d35fb7', width=2)
             else:
                 draw.ellipse([kx * r_px - kr, ky * r_px - kr, kx * r_px + kr, ky * r_px + kr], outline='#ffaa00', width=2)
 
