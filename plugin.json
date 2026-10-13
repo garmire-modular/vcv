@@ -627,6 +627,15 @@
         "Controller",
         "Polyphonic"
       ]
+    },
+    {
+      "slug": "Pansyview",
+      "name": "Pansyview",
+      "description": "Acoustic surround speaker field visualizer for Ableton Live Surround Panner with multi-speaker layout selection, gain halo, and dispersion calibration",
+      "tags": [
+        "Visual",
+        "Utility"
+      ]
     }
   ]
 }

@@ -51,6 +51,7 @@ SOURCES += src/Matrix3x3.cpp
 SOURCES += src/Ampara.cpp
 SOURCES += src/Georgia.cpp
 SOURCES += src/Pansy.cpp
+SOURCES += src/Pansyview.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res

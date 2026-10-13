@@ -62,5 +62,6 @@ void init(Plugin* p) {
 	p->addModel(modelAmpara);
 	p->addModel(modelGeorgia);
 	p->addModel(modelPansy);
+	p->addModel(modelPansyview);
 }
 
