@@ -417,12 +417,12 @@ struct PansyviewDisplayWidget : TransparentWidget {
 		{0.302f, 0.372f, 0.457f, 0.567f, 0.730f}
 	};
 
-	float calcDispersionRadius(float focus, float center, float rotX, float rotY, int layoutIndex, float radiusPx) {
-		// Preset geometry scaling from Ableton Surround Panner presets:
-		// 2-CH: 4.0 | 4-Room, 4-Circle, 4-Center: 5.0 | 6-Room, 6-Circle, 6-Center: 7.0 | 8-Room, 8-Circle, 8-Center: 8.0
-		const float layoutScales[10] = { 4.0f, 5.0f, 5.0f, 5.0f, 7.0f, 7.0f, 7.0f, 8.0f, 8.0f, 8.0f };
-		int lIdx = (int)clampf((float)layoutIndex, 0.0f, 9.0f);
-		float scale = layoutScales[lIdx];
+	float calcDispersionRadius(float focus, float center, float rotX, float rotY, float radiusPx) {
+		// Calibrated against ground-truth Max for Live Surround Panner display:
+		// At default Focus 50.00 / Center 50.00: disc radius = 51.3% of field circle radius.
+		// At Focus 100.00 / Center 0.00: disc radius = 17.2% of field circle radius (compact circle around puck).
+		// At Focus 0.00 / Center 100.00: disc expands across the field.
+		const float scale = 9.1f;
 
 		// Gen~ source codebox exact formulas:
 		// focus_gen: dial [0..100] mapped via [scale 0. 1. 1. 4.] -> [1.0 .. 4.0]
@@ -443,8 +443,7 @@ struct PansyviewDisplayWidget : TransparentWidget {
 		// Relative fraction of field radius = (200.0 / (size * focus_gen)) / 61.0.
 		float frac = (200.0f / (size * focus_gen)) / 61.0f;
 
-		float finalRadius = frac * radiusPx;
-		return clampf(finalRadius, 0.0f, radiusPx);
+		return frac * radiusPx;
 	}
 
 	void draw(const DrawArgs& args) override {
@@ -526,17 +525,6 @@ struct PansyviewDisplayWidget : TransparentWidget {
 			nvgStrokeColor(args.vg, nvgRGBAf(0.53f, 0.53f, 0.60f, clampf(0.66f * fieldAlphaScale, 0.f, 1.f)));
 			nvgStrokeWidth(args.vg, 1.2f);
 			nvgStroke(args.vg);
-
-			// Cardinal labels
-			nvgFontSize(args.vg, 10.0f);
-			nvgFontFaceId(args.vg, 0); // standard font
-			nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-			nvgFillColor(args.vg, nvgRGBAf(0.50f, 0.50f, 0.56f, clampf(0.93f * fieldAlphaScale, 0.f, 1.f)));
-
-			nvgText(args.vg, centerX_px, centerY_px - radiusPx - 9.0f, "FRONT", nullptr);
-			nvgText(args.vg, centerX_px, centerY_px + radiusPx + 9.0f, "REAR", nullptr);
-			nvgText(args.vg, centerX_px - radiusPx - 16.0f, centerY_px, "LEFT", nullptr);
-			nvgText(args.vg, centerX_px + radiusPx + 18.0f, centerY_px, "RIGHT", nullptr);
 		}
 
 		// 3. Puck Position & Trail
@@ -585,7 +573,7 @@ struct PansyviewDisplayWidget : TransparentWidget {
 
 		// 4. Dispersion Disc around Puck
 		if (puckOpacity > 0.005f) {
-			float dispR = calcDispersionRadius(state.focus, state.center, state.rotX, state.rotY, state.layoutIndex, radiusPx);
+			float dispR = calcDispersionRadius(state.focus, state.center, state.rotX, state.rotY, radiusPx);
 
 			// Draw shaded dispersion disc
 			NVGcolor discInner = hsvToNvgColor(puckHue, 0.80f, 1.0f, 0.40f * puckOpacity);
