@@ -600,16 +600,70 @@ struct Georgia : Module {
 	}
 };
 
-// ── Custom 3-Color Range Light Widget (Palette: #e1be6a, #40b0a6, #d35fb7) ──
-template <typename TBase = GrayModuleLightWidget>
-struct TGeorgiaRangeLight : TBase {
-	TGeorgiaRangeLight() {
-		this->addBaseColor(nvgRGBA(0xe1, 0xbe, 0x6a, 0xff)); // Very Slow (Warm Gold)
-		this->addBaseColor(nvgRGBA(0x40, 0xb0, 0xa6, 0xff)); // LFO (Teal)
-		this->addBaseColor(nvgRGBA(0xd3, 0x5f, 0xb7, 0xff)); // VCO (Magenta)
+// ── Custom Hardware Tactile Button Widget (button_gray_0 / button_gray_1) ──
+struct GeorgiaCustomButton : app::SvgSwitch {
+	GeorgiaCustomButton() {
+		momentary = true;
+		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_0.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_1.svg")));
 	}
 };
-struct GeorgiaRangeLightWidget : SmallLight<TGeorgiaRangeLight<>> {};
+
+// ── Custom Illuminated Ring Widget (Concentric Ring around Tactile Button) ──
+// Center radius = 4.12 mm, Stroke width = 1.40 mm (Exact 1:1 match with 9.64 mm regular knob skirt)
+// Inner radius = 3.42 mm, Outer radius = 4.82 mm (Air gap from 2.60 mm button rim = 0.82 mm)
+struct GeorgiaRangeLightRing : ModuleLightWidget {
+	GeorgiaRangeLightRing() {
+		// Box size (11.0 mm x 11.0 mm) encompasses R=4.82 mm ring plus optical halo
+		box.size = mm2px(Vec(11.0f, 11.0f));
+
+		// Base colors for 3-Color Range Engine
+		this->addBaseColor(nvgRGBA(0xe1, 0xbe, 0x6a, 0xff)); // State 0: Warm Gold (Very Slow)
+		this->addBaseColor(nvgRGBA(0x40, 0xb0, 0xa6, 0xff)); // State 1: Teal (LFO)
+		this->addBaseColor(nvgRGBA(0xd3, 0x5f, 0xb7, 0xff)); // State 2: Magenta (VCO)
+	}
+
+	void drawBackground(const DrawArgs& args) override {
+		Vec c = box.size.div(2.f);
+		float r = mm2px(4.12f);
+		float w = mm2px(1.40f);
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, nvgRGBA(0x22, 0x22, 0x22, 0x99));
+		nvgStrokeWidth(args.vg, w);
+		nvgStroke(args.vg);
+	}
+
+	void drawLight(const DrawArgs& args) override {
+		if (color.a <= 0.0f) return;
+		Vec c = box.size.div(2.f);
+		float r = mm2px(4.12f);
+		float w = mm2px(1.40f);
+
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, color);
+		nvgStrokeWidth(args.vg, w);
+		nvgStroke(args.vg);
+	}
+
+	void drawHalo(const DrawArgs& args) override {
+		if (color.a <= 0.0f) return;
+		Vec c = box.size.div(2.f);
+		float r = mm2px(4.12f);
+		float haloW = mm2px(1.00f);
+		NVGcolor haloColor = color;
+
+		// 50% Visibility Rule: Nominal 0.35f alpha scaled down to 0.175f
+		haloColor.a *= 0.175f;
+
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, haloColor);
+		nvgStrokeWidth(args.vg, mm2px(1.40f) + haloW);
+		nvgStroke(args.vg);
+	}
+};
 
 struct GeorgiaWidget : ModuleWidget {
 	GeorgiaWidget(Georgia* module) {
@@ -623,9 +677,11 @@ struct GeorgiaWidget : ModuleWidget {
 		// FREQ, RANGE, FINE, SHAPE, MORPH
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[0], 21.59f)), module, Georgia::FREQ_PARAM));
 		
-		// Range button and LED centered at cols[1] (directly above DEPTH)
-		addChild(createLightCentered<GeorgiaRangeLightWidget>(mm2px(Vec(cols[1], 15.50f)), module, Georgia::RANGE_LIGHT_YELLOW));
-		addParam(createParamCentered<TL1105>(mm2px(Vec(cols[1], 21.59f)), module, Georgia::RANGE_PARAM));
+		// Concentric Illuminated Ring and Range Button at cols[1] (21.59 mm)
+		// 1. Light ring added FIRST via addChild (renders in background under button cap)
+		addChild(createLightCentered<GeorgiaRangeLightRing>(mm2px(Vec(cols[1], 21.59f)), module, Georgia::RANGE_LIGHT_YELLOW));
+		// 2. Button added SECOND via addParam (renders on top, captures mouse events directly)
+		addParam(createParamCentered<GeorgiaCustomButton>(mm2px(Vec(cols[1], 21.59f)), module, Georgia::RANGE_PARAM));
 
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[2], 21.59f)), module, Georgia::FINE_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(cols[3], 21.59f)), module, Georgia::SHAPE_PARAM));
