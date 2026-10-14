@@ -113,76 +113,71 @@ This section defines the mandatory, unified panel grid, spatial architecture, co
 
 ---
 
-### 7.1. Grid & Dimensions
+### 7.1. Standard Footprints & Column Grids
 
-- **Panel Height**: Standard Eurorack 3U ($128.50\text{ mm}$ / $240\text{ px}$ MetaModule bitmap height).
-- **Slim Module Width (6 HP)**: $30.48\text{ mm}$ ($1.20\text{ in}$) width ($57\text{ px}$ MetaModule bitmap width).
-- **Panel Background Fill**: Dark gray `#6e6e6e`.
-- **Horizontal Centering Columns**:
-  - **Left Channel ($X$)**: $x = 7.62\text{ mm}$ ($0.30\text{ in}$)
-  - **Right Channel ($Y$)**: $x = 22.86\text{ mm}$ ($0.90\text{ in}$)
-  - **Center Column**: $x = 15.24\text{ mm}$ ($0.60\text{ in}$)
+- **Height**: Standard Eurorack 3U ($128.50\text{ mm}$ / $240\text{ px}$ MetaModule bitmap). Fill: `#6e6e6e`.
+- **Footprint Tiers**:
+  - **8 HP** ($40.64\text{ mm}$): 2, 3, 4 params. 2 columns: $x = [12.00, 28.64]\text{ mm}$.
+  - **12 HP** ($60.96\text{ mm}$): 5, 6 params. 3 columns: $x = [12.00, 30.48, 48.96]\text{ mm}$.
+  - **14 HP** ($71.12\text{ mm}$): 7, 8 params. 4 columns: $x = [8.56, 26.23, 44.89, 62.56]\text{ mm}$.
+- **Odd-Parameter Rule**: On partial rows, controls right-align; column 0 ($x[0]$) remains empty (e.g. 3-param module places 3rd control in column 1 on row 2).
 
 ---
 
-### 7.2. Layout Architecture: Fixed Anchors vs. Bottom-Aligned Dynamic Spacing
-
-Garmire panels utilize a **Fixed-Anchor & Bottom-Aligned** spatial system. Absolute Y-coordinates apply **only** to the top title/first knob row and bottom signal outputs. All intermediate parameter rows, attenuverters, and CV inputs are positioned by **relative spacing rules bottom-aligned upward from the fixed output jacks**.
+### 7.2. Vertical Coordinates & Spacing Architecture
 
 ```
 +-------------------------------------------------------+ Y = 0.00 mm
-| ZONE 1: TITLE & FIXED TOP ANCHORS                     |
-| - Title "module" in Node.otf (Fixed Y = 7.62 mm)      |
-| - Version Tag "v1.X.Y" (Fixed Y = 10.41 mm)           |
-| - Row 1 Parameter Labels (Fixed Y = 13.07 mm)         |
-| - Row 1 Main Knobs (Fixed Y = 21.59 mm)               |
-+-------------------------------------------------------+
-| ZONE 2: PRIMARY PARAMETERS (Top-Down Spacing)         |
-| - Additional Parameter Rows (ΔY = 21.41 mm pitch)     |
-+================ Delineator Line 1 =====================+
-| ZONE 3: CV ATTENUVERTERS / MODIFIERS (Dynamic)        |
-| - Trimpot Rows (ΔY = 12.00 mm pitch stacked above L2) |
-+================ Delineator Line 2 =====================+
-| ZONE 4: I/O PORTS & ROUTING (Bottom-Aligned Upward)   |
-| - Jack Row 1 (Inputs)    [Y = Y_out - 3 * 9.50 mm]    |
-| - Jack Row 2 (Primary CV)[Y = Y_out - 2 * 9.50 mm]    |
-| - Jack Row 3 (Sec. CV)   [Y = Y_out - 1 * 9.50 mm]    |
-| - Jack Row 4 (Outputs)   [Fixed Y = 118.00 mm]        |
+| ZONE 1 & 2: MAIN KNOBS (Top-Down Spacing)             |
+| - Title Baseline: Y = 7.00 mm (Node.otf or D-DIN)     |
+| - Knob Row 1: Center Y = 20.00 mm (Label Y = 14.50 mm)|
+| - Knob Row 2: Center Y = 37.00 mm (Label Y = 31.50 mm)|
++================ Section Divider 1 ====================+
+| ZONE 3: ATTENUVERTERS (Stacked from Divider 2)        |
+| - Trimpot Row 1: Center Y = 66.00 mm (Label 62.00 mm) |
+| - Trimpot Row 2: Center Y = 77.00 mm (Label 73.00 mm) |
++================ Section Divider 2 ====================+
+| ZONE 4: I/O JACKS (Bottom-Up from Y = 120.00 mm)       |
+| - Jack Row 1 (CV 1): Center Y = 93.00 mm (Label 87.00)|
+| - Jack Row 2 (CV 2): Center Y = 106.50 mm (Lbl 100.50)|
+| - Jack Row 3 (Outs): Center Y = 120.00 mm (Lbl 114.00)|
 +-------------------------------------------------------+ Y = 128.50 mm
 ```
 
-#### **1. Fixed Top Anchors**
-- **Module Title**: Baseline $Y = 7.620\text{ mm}$ ($0.30\text{ in}$), centered horizontally ($x = 15.24\text{ mm}$). Rendered in lowercase `Node.otf` at scale $0.004800$, fill `#ffffff`.
-- **Version Tag**: Baseline $Y = 10.414\text{ mm}$, start $x \approx 13.25\text{ mm}$, scale $0.001600$, fill `#aaaaaa` (e.g. `v1.0.3`).
-- **Row 1 Main Knobs**: Center $Y = 21.59\text{ mm}$ ($X = 7.62\text{ mm}$, $Y = 22.86\text{ mm}$).
-  - *Row 1 Label*: Baseline $Y = 13.070\text{ mm}$, scale $0.003000$, fill `#1c1c1c` (e.g. `X`, `Y`).
+#### **Standard Multi-Row Modules (3 to 8 Parameters)**
+All modules with 2 knob rows share identical vertical coordinates:
+- **Knob Row 1**: Center $Y = 20.00\text{ mm}$ (Label baseline $14.50\text{ mm}$, offset $-5.50\text{ mm}$).
+- **Knob Row 2**: Center $Y = 37.00\text{ mm}$ (Label baseline $31.50\text{ mm}$, pitch $\Delta Y = 17.00\text{ mm}$).
+- **Section Divider 1**: Center $Y = 57.00\text{ mm}$ ($5.00\text{ mm}$ above Trimpot Row 1 label).
+- **Trimpot Row 1**: Center $Y = 66.00\text{ mm}$ (Label baseline $62.00\text{ mm}$, offset $-4.00\text{ mm}$).
+- **Trimpot Row 2**: Center $Y = 77.00\text{ mm}$ (Label baseline $73.00\text{ mm}$, pitch $\Delta Y = 11.00\text{ mm}$).
+- **Section Divider 2**: Center $Y = 82.00\text{ mm}$ ($5.00\text{ mm}$ below Trimpot Row 2 center).
+- **Jack Row 1 (CV 1)**: Center $Y = 93.00\text{ mm}$ (Label baseline $87.00\text{ mm}$, $5.00\text{ mm}$ below Divider 2, $-6.00\text{ mm}$ above jack center).
+- **Jack Row 2 (CV 2)**: Center $Y = 106.50\text{ mm}$ (Label baseline $100.50\text{ mm}$, pitch $\Delta Y = 13.50\text{ mm}$).
+- **Jack Row 3 (Outputs)**: Center $Y = 120.00\text{ mm}$ (Label baseline $114.00\text{ mm}$, pitch $\Delta Y = 13.50\text{ mm}$).
 
-#### **2. Fixed Bottom Anchor**
-- **Bottom Output Jack Row**: Center **$Y = 118.00\text{ mm}$** ($10.50\text{ mm}$ clearance above the bottom edge $Y = 128.50\text{ mm}$).
-  - *Shared Output Label*: Baseline $Y = 116.500\text{ mm}$, scale $0.002400$ (`OUT`).
-
-#### **3. Bottom-Aligned I/O Jack Stacking (Zone 4)**
-All jack rows stack **upward from the fixed output row** at $Y = 118.00\text{ mm}$ with a fixed vertical pitch of **$\Delta Y = 9.50\text{ mm}$**:
-- **Output Jacks (Row $N$)**: $Y = 118.00\text{ mm}$
-- **CV Input Row 2 (Row $N-1$)**: $Y = 118.00 - 9.50 = 108.50\text{ mm}$
-- **CV Input Row 1 (Row $N-2$)**: $Y = 118.00 - 2(9.50) = 99.00\text{ mm}$
-- **Signal Input Row (Row $N-3$)**: $Y = 118.00 - 3(9.50) = 89.50\text{ mm}$
-
-#### **4. Dynamic Attenuverter & Delineator Placement (Zone 3)**
-- **Delineator Line 2**: Placed $9.00\text{ mm}$ above the top-most jack center line.
-- **Trimpot Rows**: Stacked above Line 2 at a vertical pitch of **$\Delta Y = 12.00\text{ mm}$**.
-- **Delineator Line 1**: Placed $9.50\text{ mm}$ above the highest trimpot center line, separating Zone 3 from Zone 2.
+#### **Single-Row Modules (2 Parameters)**
+- **Knob Row 1**: Center $Y = 20.00\text{ mm}$ (Label $14.50\text{ mm}$).
+- **Section Divider 1**: Center $Y = 81.50\text{ mm}$ ($5.00\text{ mm}$ above Trimpot label).
+- **Trimpot Row 1**: Center $Y = 90.50\text{ mm}$ (Label $86.50\text{ mm}$).
+- **Section Divider 2**: Center $Y = 95.50\text{ mm}$ ($5.00\text{ mm}$ below Trimpot center).
+- **Jack Row 1 (CV)**: Center $Y = 106.50\text{ mm}$ (Label $100.50\text{ mm}$, $5.00\text{ mm}$ below Divider 2).
+- **Jack Row 2 (Outputs)**: Center $Y = 120.00\text{ mm}$ (Label $114.00\text{ mm}$, pitch $\Delta Y = 13.50\text{ mm}$).
 
 ---
 
-### 7.3. Relative Spacing & Clearance Tolerances
+### 7.3. Universal Relative Clearance & Offsets
 
-| Relative Interface | Vertical Pitch ($\Delta Y$) | Horizontal Separation ($\Delta X$) | Minimum Physical Clearance |
-| :--- | :--- | :--- | :--- |
-| **Knob Row $\rightarrow$ Knob Row** | $21.41\text{ mm}$ | $0.00\text{ mm}$ | $11.41\text{ mm}$ (outer edge to edge) |
-| **Trimpot Row $\rightarrow$ Trimpot Row** | $12.00\text{ mm}$ | $0.00\text{ mm}$ | $5.50\text{ mm}$ |
-| **Jack Row $\rightarrow$ Jack Row** | $9.50\text{ mm}$ | $0.00\text{ mm}$ | $3.00\text{ mm}$ (connector collar clearance) |
-| **Left Column ($X$) $\rightarrow$ Right Column ($Y$)** | $0.00\text{ mm}$ | $15.24\text{ mm}$ | $5.24\text{ mm}$ (horizontal jack separation) |
+- **Dividers**: Stretched to $80-82\%$ panel width, right-aligned. Height $0.30\text{ mm}$ ($0.15\text{ mm}$ highlight `#999999` + $0.15\text{ mm}$ shadow `#505050`).
+- **Divider-to-Control Tolerances**:
+  - Divider 1 $\rightarrow$ Trimpot 1 label: $5.00\text{ mm}$.
+  - Trimpot lowest center $\rightarrow$ Divider 2: $5.00\text{ mm}$.
+  - Divider 2 $\rightarrow$ Jack 1 label: $5.00\text{ mm}$.
+- **Vertical Pitches & Offsets**:
+  - Knobs: $\Delta Y = 17.00\text{ mm}$ (Label baseline $-5.50\text{ mm}$ above center).
+  - Trimpots: $\Delta Y = 11.00\text{ mm}$ (Label baseline $-4.00\text{ mm}$ above center).
+  - Jacks: $\Delta Y = 13.50\text{ mm}$ (Label baseline $-6.00\text{ mm}$ above center).
+- **Bottom Anchor**: Lowest jack row fixed at $Y = 120.00\text{ mm}$ ($4.35\text{ mm}$ hardware lip margin to bottom edge).
 
 ---
 
