@@ -52,6 +52,7 @@ SOURCES += src/Ampara.cpp
 SOURCES += src/Georgia.cpp
 SOURCES += src/Panopia.cpp
 SOURCES += src/Panopticon.cpp
+SOURCES += src/Crissy.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res

@@ -636,6 +636,17 @@
         "Visual",
         "Utility"
       ]
+    },
+    {
+      "slug": "Crissy",
+      "name": "Crissy",
+      "description": "Diagonal-criss cross vector generator with rapid spatial crossing cutting straight through the acoustic center, adjustable center pinch dwell, and morphable X, bow-tie, and asterisk patterns",
+      "tags": [
+        "Generate",
+        "Visual",
+        "Oscillator",
+        "Dual"
+      ]
     }
   ]
 }
