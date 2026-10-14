@@ -647,6 +647,17 @@
         "Oscillator",
         "Dual"
       ]
+    },
+    {
+      "slug": "Ziggy",
+      "name": "Ziggy",
+      "description": "Stepped and serpentine spatial raster generator scanning across the surround sound field with variable scanlines, continuous smoothness morphing, rotational phase, and bidirectional sync",
+      "tags": [
+        "Generate",
+        "Visual",
+        "Oscillator",
+        "Dual"
+      ]
     }
   ]
 }

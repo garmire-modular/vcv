@@ -53,6 +53,7 @@ SOURCES += src/Georgia.cpp
 SOURCES += src/Panopia.cpp
 SOURCES += src/Panopticon.cpp
 SOURCES += src/Crissy.cpp
+SOURCES += src/Ziggy.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res
