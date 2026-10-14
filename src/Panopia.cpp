@@ -132,13 +132,13 @@ struct Panopia : Module {
 		configParam<PercentParamQuantity>(CENTER_PARAM, 0.0f, 100.0f, 50.0f, "Center", "");
 		configParam<SmoothParamQuantity>(SMOOTH_PARAM, 0.0f, 100.0f, 20.0f, "Smooth", "%");
 
-		// Attenuverter Trimpots (Strict AGENTS.md rule: "<Parameter> CV depth", range -1.0 to 1.0)
-		configParam(X_AXIS_TRIM_PARAM, -1.0f, 1.0f, 0.0f, "X-axis CV depth", "");
-		configParam(Y_AXIS_TRIM_PARAM, -1.0f, 1.0f, 0.0f, "Y-axis CV depth", "");
-		configParam(ROTATION_TRIM_PARAM, -1.0f, 1.0f, 0.0f, "Rotation CV depth", "");
-		configParam(FOCUS_TRIM_PARAM, -1.0f, 1.0f, 0.0f, "Focus CV depth", "");
-		configParam(CENTER_TRIM_PARAM, -1.0f, 1.0f, 0.0f, "Center CV depth", "");
-		configParam(SMOOTH_TRIM_PARAM, -1.0f, 1.0f, 0.0f, "Smooth CV depth", "");
+		// Attenuverter Trimpots (Strict AGENTS.md rule: "<Parameter> CV depth", range -1.0 to 1.0, default 100% = 1.0f)
+		configParam(X_AXIS_TRIM_PARAM, -1.0f, 1.0f, 1.0f, "X-axis CV depth", "");
+		configParam(Y_AXIS_TRIM_PARAM, -1.0f, 1.0f, 1.0f, "Y-axis CV depth", "");
+		configParam(ROTATION_TRIM_PARAM, -1.0f, 1.0f, 1.0f, "Rotation CV depth", "");
+		configParam(FOCUS_TRIM_PARAM, -1.0f, 1.0f, 1.0f, "Focus CV depth", "");
+		configParam(CENTER_TRIM_PARAM, -1.0f, 1.0f, 1.0f, "Center CV depth", "");
+		configParam(SMOOTH_TRIM_PARAM, -1.0f, 1.0f, 1.0f, "Smooth CV depth", "");
 
 		// CV Inputs (Strict sentence case, no "input" suffix per AGENTS.md rule)
 		configInput(X_AXIS_CV_INPUT, "X-axis CV");
@@ -359,32 +359,32 @@ struct PanopiaWidget : ModuleWidget {
 		addParam(createParamCentered<PanopiaCustomKnob>(mm2px(Vec(col_x[1], 41.50f)), module, Panopia::CENTER_PARAM));
 		addParam(createParamCentered<PanopiaCustomKnob>(mm2px(Vec(col_x[2], 41.50f)), module, Panopia::SMOOTH_PARAM));
 
-		// Attenuverter Row 1: X, Y, Rotation (Center Y = 63.00 mm)
-		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[0], 63.00f)), module, Panopia::X_AXIS_TRIM_PARAM));
-		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[1], 63.00f)), module, Panopia::Y_AXIS_TRIM_PARAM));
-		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[2], 63.00f)), module, Panopia::ROTATION_TRIM_PARAM));
+		// Attenuverter Row 1: X, Y, Rotation (Center Y = 57.00 mm)
+		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[0], 57.00f)), module, Panopia::X_AXIS_TRIM_PARAM));
+		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[1], 57.00f)), module, Panopia::Y_AXIS_TRIM_PARAM));
+		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[2], 57.00f)), module, Panopia::ROTATION_TRIM_PARAM));
 
-		// Attenuverter Row 2: Focus, Center, Smooth (Center Y = 74.00 mm)
-		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[0], 74.00f)), module, Panopia::FOCUS_TRIM_PARAM));
-		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[1], 74.00f)), module, Panopia::CENTER_TRIM_PARAM));
-		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[2], 74.00f)), module, Panopia::SMOOTH_TRIM_PARAM));
+		// Attenuverter Row 2: Focus, Center, Smooth (Center Y = 68.00 mm)
+		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[0], 68.00f)), module, Panopia::FOCUS_TRIM_PARAM));
+		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[1], 68.00f)), module, Panopia::CENTER_TRIM_PARAM));
+		addParam(createParamCentered<PanopiaCustomTrimpot>(mm2px(Vec(col_x[2], 68.00f)), module, Panopia::SMOOTH_TRIM_PARAM));
 
-		// Jack Row 1 (Inputs 1-3): X, Y, Rotation (Center Y = 89.50 mm)
-		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[0], 89.50f)), module, Panopia::X_AXIS_CV_INPUT));
-		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[1], 89.50f)), module, Panopia::Y_AXIS_CV_INPUT));
-		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[2], 89.50f)), module, Panopia::ROTATION_CV_INPUT));
+		// Jack Row 1 (Inputs 1-3): X, Y, Rotation (Center Y = 85.00 mm, matching Maude)
+		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[0], 85.00f)), module, Panopia::X_AXIS_CV_INPUT));
+		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[1], 85.00f)), module, Panopia::Y_AXIS_CV_INPUT));
+		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[2], 85.00f)), module, Panopia::ROTATION_CV_INPUT));
 
-		// Jack Row 2 (Inputs 4-6): Focus, Center, Smooth (Center Y = 99.00 mm)
-		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[0], 99.00f)), module, Panopia::FOCUS_CV_INPUT));
-		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[1], 99.00f)), module, Panopia::CENTER_CV_INPUT));
-		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[2], 99.00f)), module, Panopia::SMOOTH_CV_INPUT));
+		// Jack Row 2 (Inputs 4-6): Focus, Center, Smooth (Center Y = 96.00 mm, matching Maude)
+		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[0], 96.00f)), module, Panopia::FOCUS_CV_INPUT));
+		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[1], 96.00f)), module, Panopia::CENTER_CV_INPUT));
+		addInput(createInputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[2], 96.00f)), module, Panopia::SMOOTH_CV_INPUT));
 
-		// Jack Row 3 (Outputs 1-3): X, Y, Rotation (Center Y = 108.50 mm)
-		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[0], 108.50f)), module, Panopia::X_AXIS_OUTPUT));
-		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[1], 108.50f)), module, Panopia::Y_AXIS_OUTPUT));
-		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[2], 108.50f)), module, Panopia::ROTATION_OUTPUT));
+		// Jack Row 3 (Outputs 1-3): X, Y, Rotation (Center Y = 107.00 mm, matching Maude)
+		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[0], 107.00f)), module, Panopia::X_AXIS_OUTPUT));
+		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[1], 107.00f)), module, Panopia::Y_AXIS_OUTPUT));
+		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[2], 107.00f)), module, Panopia::ROTATION_OUTPUT));
 
-		// Jack Row 4 (Outputs 4-6): Focus, Center, Smooth (Center Y = 118.00 mm)
+		// Jack Row 4 (Outputs 4-6): Focus, Center, Smooth (Center Y = 118.00 mm, matching Maude)
 		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[0], 118.00f)), module, Panopia::FOCUS_OUTPUT));
 		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[1], 118.00f)), module, Panopia::CENTER_OUTPUT));
 		addOutput(createOutputCentered<PanopiaCustomPort>(mm2px(Vec(col_x[2], 118.00f)), module, Panopia::SMOOTH_OUTPUT));

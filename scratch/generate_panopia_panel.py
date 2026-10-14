@@ -125,8 +125,8 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     badge_svg = get_palette_badge_svg("Panopia")
 
     # Section Dividers
-    # Divider 1 between Knobs (Row 2 Y=41.50) and Attenuverters (Row 1 Y=63.00): Center Y = 53.00 mm
-    # Divider 2 between Attenuverters (Row 2 Y=75.00) and Jacks (Row 1 Y=89.50): Center Y = 82.00 mm
+    # Divider 1 between Knobs (Row 2 Y=41.50) and Attenuverters (Row 1 Y=57.00): Center Y = 49.00 mm
+    # Divider 2 between Attenuverters (Row 2 Y=68.00) and Jacks (Row 1 Y=85.00): Center Y = 76.00 mm
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.1f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.1f}">',
@@ -134,9 +134,9 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
         f'  <rect width="{panel_w:.2f}" height="{panel_h:.1f}" fill="{bg_color}"/>',
         badge_svg,
         '',
-        render_section_divider(53.00, panel_w, hi_color, sh_color),
+        render_section_divider(49.00, panel_w, hi_color, sh_color),
         '',
-        render_section_divider(82.00, panel_w, hi_color, sh_color),
+        render_section_divider(76.00, panel_w, hi_color, sh_color),
         ''
     ]
 
@@ -144,9 +144,9 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0  # 0.0056444
     svg_parts.append(render_text(d_din_bold, "PANOPIA", panel_w / 2.0, 8.000, title_scale, title_color, "PANOPIA", align="center"))
 
-    # Version number "v1.0.0" in Quicksand-Regular, scale 0.001600, Y baseline 8mm, right-aligned
+    # Version number "v1.0.1" in Quicksand-Regular, scale 0.001600, Y baseline 8mm, right-aligned
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v1.0.0", version_x, 8.000, 0.001600, "#aaaaaa", "v1.0.0", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v1.0.1", version_x, 8.000, 0.001600, "#aaaaaa", "v1.0.1", align="right"))
 
     # ── Zone 1 & 2: Main Parameter Knobs (D-DIN Condensed Bold, 10pt, baseline - 5.75mm) ──
     knob_label_scale = 10.0 * 25.4 / 72.0 / 1000.0  # 0.0035278
@@ -164,31 +164,31 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     # ── Zone 3: CV Attenuverters (D-DIN Condensed, 8pt, baseline - 4.00mm) ──
     trim_label_scale = 8.0 * 25.4 / 72.0 / 1000.0  # 0.0028222
 
-    # Row 1 Attenuverters: Center Y = 63.00 mm -> Label baseline Y = 63.00 - 4.00 = 59.00 mm
+    # Row 1 Attenuverters: Center Y = 57.00 mm -> Label baseline Y = 57.00 - 4.00 = 53.00 mm
     trim1_labels = ["X", "Y", "ROT"]
     for i, lbl in enumerate(trim1_labels):
-        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 59.000, trim_label_scale, label_color, f"Trim 1: {lbl}"))
+        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 53.000, trim_label_scale, label_color, f"Trim 1: {lbl}"))
 
-    # Row 2 Attenuverters: Center Y = 74.00 mm -> Label baseline Y = 74.00 - 4.00 = 70.00 mm
+    # Row 2 Attenuverters: Center Y = 68.00 mm -> Label baseline Y = 68.00 - 4.00 = 64.00 mm
     trim2_labels = ["FOCUS", "CENTER", "SMOOTH"]
     for i, lbl in enumerate(trim2_labels):
-        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 70.000, trim_label_scale, label_color, f"Trim 2: {lbl}"))
+        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 64.000, trim_label_scale, label_color, f"Trim 2: {lbl}"))
 
-    # ── Zone 4: I/O Jacks (D-DIN Condensed, 8pt, baseline - 5.00mm) ──
-    # Jack Row 1 (Inputs 1-3): Center Y = 89.50 mm -> Label baseline Y = 89.50 - 5.00 = 84.50 mm
+    # ── Zone 4: I/O Jacks (D-DIN Condensed, 8pt, baseline - 5.00mm, matching Maude Y = 85, 96, 107, 118 mm) ──
+    # Jack Row 1 (Inputs 1-3): Center Y = 85.00 mm -> Label baseline Y = 85.00 - 5.00 = 80.00 mm
     jack1_labels = ["X", "Y", "ROT"]
     for i, lbl in enumerate(jack1_labels):
-        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 84.500, trim_label_scale, label_color, f"Jack 1: {lbl}"))
+        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 80.000, trim_label_scale, label_color, f"Jack 1: {lbl}"))
 
-    # Jack Row 2 (Inputs 4-6): Center Y = 99.00 mm -> Label baseline Y = 99.00 - 5.00 = 94.00 mm
+    # Jack Row 2 (Inputs 4-6): Center Y = 96.00 mm -> Label baseline Y = 96.00 - 5.00 = 91.00 mm
     jack2_labels = ["FOCUS", "CENTER", "SMOOTH"]
     for i, lbl in enumerate(jack2_labels):
-        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 94.000, trim_label_scale, label_color, f"Jack 2: {lbl}"))
+        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 91.000, trim_label_scale, label_color, f"Jack 2: {lbl}"))
 
-    # Jack Row 3 (Outputs 1-3): Center Y = 108.50 mm -> Label baseline Y = 108.50 - 5.00 = 103.50 mm
+    # Jack Row 3 (Outputs 1-3): Center Y = 107.00 mm -> Label baseline Y = 107.00 - 5.00 = 102.00 mm
     jack3_labels = ["X OUT", "Y OUT", "ROT OUT"]
     for i, lbl in enumerate(jack3_labels):
-        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 103.500, trim_label_scale, label_color, f"Jack 3: {lbl}"))
+        svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 102.000, trim_label_scale, label_color, f"Jack 3: {lbl}"))
 
     # Jack Row 4 (Outputs 4-6): Center Y = 118.00 mm -> Label baseline Y = 118.00 - 5.00 = 113.00 mm
     jack4_labels = ["FOC OUT", "CTR OUT", "SMH OUT"]
