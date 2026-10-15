@@ -58,7 +58,7 @@ static const ModelMeta METADATA[NUM_MODELS] = {
 	{ "Nosé-Hoover Attractor",        0.030f, 0, 1, 2, 1.00f },
 	{ "Sprott Attractor",             0.030f, 0, 1, 2, 1.00f },
 	{ "Four-Wing Attractor",          0.040f, 0, 1, 2, 1.00f },
-	{ "PWL Duffing Attractor",        0.020f, 0, 1, 2, 0.40f },
+	{ "PWL Duffing Attractor",        0.080f, 0, 1, 2, 0.40f },
 	{ "Arneodo Attractor",            0.030f, 0, 1, 2, 1.00f },
 	{ "Dequan Li Five-Wing",          0.005f, 0, 1, 2, 1.00f },
 	{ "Rabinovich-Fabrikant",         0.015f, 0, 1, 2, 1.00f },
@@ -197,21 +197,23 @@ inline void getAttractorDerivatives(int model, const float* s, float* ds, float 
 			break;
 		}
 		case MODEL_PWL_DUFFING: {
-			// Piecewise-linear Duffing system:
+			// Piecewise-linear Duffing system (Aziz-Alaoui 2000):
 			// dx/dt = y
 			// dy/dt = -m1*x - 0.5*(m0 - m1)*(|x+1| - |x-1|) - e*y + gamma*cos(omega*t)
 			// e = 0.25, m0 = -0.0845, m1 = 0.66, omega = 1.0 rad/s
-			// gamma in [-1.11, 1.39] modulated by complexity c
+			// Characteristic chaotic double-well tunnel regime occurs around gamma in [0.20, 0.40].
+			// Complexity parameter c in [0, 1] sweeps gamma from 0.18 to 0.38
+			// with c = 1.0 (complexity 10) hitting the highly dense chaotic tunnel at gamma = 0.365.
 			float e = 0.25f;
 			float m0 = -0.0845f;
 			float m1 = 0.66f;
 			float omega = 1.0f;
-			float gamma = -1.11f + 2.50f * c;
+			float gamma = 0.18f + 0.185f * c;
 			float pwl = -m1 * x - 0.5f * (m0 - m1) * (std::abs(x + 1.0f) - std::abs(x - 1.0f));
 			ds[0] = y;
 			ds[1] = pwl - e * y + gamma * std::cos(omega * t);
-			// Z is synthetic quadrature phase for 3D trajectory
-			ds[2] = -omega * x;
+			// Z is synthetic driving phase for 3D trajectory tunnel depth
+			ds[2] = -omega * std::sin(omega * t);
 			break;
 		}
 		case MODEL_ARNEODO: {

@@ -95,10 +95,10 @@ def main():
             title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version tag "v1.0.2"
+    # Version tag "v1.0.3"
     version_block = [
-        '  <!-- Label: "v1.0.2" -->',
-        render_qs_text(qs_reg_font, "v1.0.2", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v1.0.2")
+        '  <!-- Label: "v1.0.3" -->',
+        render_qs_text(qs_reg_font, "v1.0.3", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v1.0.3")
     ]
 
     svg_parts = [
@@ -118,8 +118,9 @@ def main():
         '  <!-- Range Button Indicator Ring Track (Center X = 26.23mm, Y = 20.00mm, R = 4.12mm, Stroke = 1.40mm) -->',
         '  <circle cx="26.230" cy="20.000" r="4.120" fill="none" stroke="#3a3a3a" stroke-width="1.400"/>',
         '',
-        '  <!-- Reseed Button Indicator Ring Track (Center X = 44.89mm, Y = 37.00mm, R = 4.12mm, Stroke = 1.40mm) -->',
-        '  <circle cx="44.890" cy="37.000" r="4.120" fill="none" stroke="#3a3a3a" stroke-width="1.400"/>',
+        '  <!-- 2mm Red Light Bezel (Horizontally centered between Reseed and Rate: X = 53.725mm, Y = 37.00mm, D = 2.0mm) -->',
+        '  <circle cx="53.725" cy="37.000" r="1.300" fill="#2b2b2b" stroke="#1c1c1c" stroke-width="0.250"/>',
+        '  <circle cx="53.725" cy="37.000" r="1.000" fill="#4a1515"/>',
         '',
         '  <!-- Grouping Line between RESEED and RATE labels (Center Y = 30.20mm) -->',
         '  <line x1="51.000" y1="30.200" x2="56.400" y2="30.200" stroke="#3a3a3a" stroke-width="0.300"/>',

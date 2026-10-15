@@ -270,26 +270,36 @@ struct Eris : Module {
 			if (std::abs(r) < 0.25f) {
 				return "Off (does not repeat)";
 			} else if (r > 0.0f) {
-				float u = (r - 0.5f) / 6.5f;
-				float E = std::log2(1.5f) + u * (7.0f - std::log2(1.5f));
-				float mult = std::pow(2.0f, E);
 				char buf[32];
-				std::snprintf(buf, sizeof(buf), "x%.2f", mult);
+				if (std::abs(r - std::round(r)) < 0.01f) {
+					std::snprintf(buf, sizeof(buf), "x%.0f", r);
+				} else {
+					std::snprintf(buf, sizeof(buf), "x%.1f", r);
+				}
 				return buf;
 			} else {
-				float u = (std::abs(r) - 0.5f) / 6.5f;
-				float E = 7.0f - u * (7.0f - std::log2(1.5f));
-				float div = std::pow(2.0f, E);
+				float div = std::abs(r);
 				char buf[32];
-				std::snprintf(buf, sizeof(buf), "/%.2f", div);
+				if (std::abs(div - std::round(div)) < 0.01f) {
+					std::snprintf(buf, sizeof(buf), "/%.0f", div);
+				} else {
+					std::snprintf(buf, sizeof(buf), "/%.1f", div);
+				}
 				return buf;
 			}
 		}
 
 		void setDisplayValueString(std::string s) override {
 			try {
-				float v = std::stof(s);
-				setValue(v);
+				// Strip leading '/' or 'x' if typed
+				if (!s.empty() && (s[0] == '/' || s[0] == 'x' || s[0] == 'X')) {
+					bool isDiv = (s[0] == '/');
+					float v = std::stof(s.substr(1));
+					setValue(isDiv ? -v : v);
+				} else {
+					float v = std::stof(s);
+					setValue(v);
+				}
 			} catch (...) {
 				ParamQuantity::setDisplayValueString(s);
 			}
@@ -317,8 +327,11 @@ struct Eris : Module {
 
 		configButton(RESEED_BUTTON_PARAM, "Manual reseed");
 
-		// RESEED RATE_PARAM: -7.0 to +7.0 with 0.5 step snap
-		configParam<ReseedRateParamQuantity>(RATE_PARAM, -7.f, 7.f, 0.f, "Reseed rate");
+		// RESEED RATE_PARAM: -128.0 to +128.0 with 0.5 step snap
+		// CCW: /128, /127.5, /127, /126.5 down to /1.5
+		// Center: 0 (Off)
+		// CW: x1.5 up to x128
+		configParam<ReseedRateParamQuantity>(RATE_PARAM, -128.f, 128.f, 0.f, "Reseed rate");
 		paramQuantities[RATE_PARAM]->snapEnabled = true;
 
 		// Zone 3: CV Attenuverters (Mandatory naming per AGENTS.md Section 7.5.4)
@@ -514,7 +527,7 @@ struct Eris : Module {
 
 			// Reseed clock & triggers: 0.5 steps
 			float rCv = inputs[RATE_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float rRaw = clampf(rateParam + rCv * rateTrim * 7.f, -7.f, 7.f);
+			float rRaw = clampf(rateParam + rCv * rateTrim * 128.f, -128.f, 128.f);
 			float currentRate = std::round(rRaw * 2.0f) * 0.5f;
 
 			bool extReseedTrig = false;
@@ -526,13 +539,9 @@ struct Eris : Module {
 			if (std::abs(currentRate) >= 0.25f) {
 				float rateMultiplier;
 				if (currentRate > 0.f) {
-					float u = (currentRate - 0.5f) / 6.5f;
-					float E = std::log2(1.5f) + u * (7.0f - std::log2(1.5f));
-					rateMultiplier = std::pow(2.0f, E);
+					rateMultiplier = currentRate;
 				} else {
-					float u = (std::abs(currentRate) - 0.5f) / 6.5f;
-					float E = 7.0f - u * (7.0f - std::log2(1.5f));
-					rateMultiplier = 1.0f / std::pow(2.0f, E);
+					rateMultiplier = 1.0f / std::max(0.1f, std::abs(currentRate));
 				}
 				float reseedFreq = std::max(1e-5f, fActual * rateMultiplier);
 				vs.reseedAccum += reseedFreq * args.sampleTime;
@@ -687,55 +696,6 @@ struct ErisRangeLightRing : ModuleLightWidget {
 	}
 };
 
-// ── Custom Reseed Light Ring Widget (Same halo as Range button, background color flashing +10% lightness) ──
-struct ErisReseedLightRing : ModuleLightWidget {
-	ErisReseedLightRing() {
-		box.size = mm2px(Vec(11.0f, 11.0f));
-		// Flash color: panel #6e6e6e (110, 110, 110) + 10% lightness => ~#878787 (135, 135, 135)
-		this->addBaseColor(nvgRGBA(135, 135, 135, 255));
-	}
-
-	void drawBackground(const DrawArgs& args) override {
-		Vec c = box.size.div(2.f);
-		float r = mm2px(4.12f);
-		float w = mm2px(1.40f);
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, c.x, c.y, r);
-		// Background ring: same color as panel background #6e6e6e
-		nvgStrokeColor(args.vg, nvgRGBA(110, 110, 110, 255));
-		nvgStrokeWidth(args.vg, w);
-		nvgStroke(args.vg);
-	}
-
-	void drawLight(const DrawArgs& args) override {
-		if (color.a <= 0.0f) return;
-		Vec c = box.size.div(2.f);
-		float r = mm2px(4.12f);
-		float w = mm2px(1.40f);
-
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, c.x, c.y, r);
-		nvgStrokeColor(args.vg, color);
-		nvgStrokeWidth(args.vg, w);
-		nvgStroke(args.vg);
-	}
-
-	void drawHalo(const DrawArgs& args) override {
-		if (color.a <= 0.0f) return;
-		Vec c = box.size.div(2.f);
-		float r = mm2px(4.12f);
-		float haloW = mm2px(1.00f);
-		NVGcolor haloColor = color;
-		haloColor.a *= 0.25f;
-
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, c.x, c.y, r);
-		nvgStrokeColor(args.vg, haloColor);
-		nvgStrokeWidth(args.vg, mm2px(1.40f) + haloW);
-		nvgStroke(args.vg);
-	}
-};
-
 struct ErisWidget : ModuleWidget {
 	ErisWidget(Eris* module) {
 		setModule(module);
@@ -751,11 +711,12 @@ struct ErisWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 20.00f)), module, Eris::FINE_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 20.00f)), module, Eris::MODEL_PARAM));
 
-		// Row 2: COMPLEX, ORBIT, RESEED BUTTON, RATE (Center Y = 37.00 mm)
+		// Row 2: COMPLEX, ORBIT, RESEED BUTTON, 2mm RED LIGHT, RATE (Center Y = 37.00 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 37.00f)), module, Eris::COMPLEX_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 37.00f)), module, Eris::ORBIT_PARAM));
-		addChild(createLightCentered<ErisReseedLightRing>(mm2px(Vec(col_x[2], 37.00f)), module, Eris::RESEED_LIGHT));
 		addParam(createParamCentered<ErisCustomButton>(mm2px(Vec(col_x[2], 37.00f)), module, Eris::RESEED_BUTTON_PARAM));
+		// 2mm Red Light horizontally centered between Reseed Button and Rate Knob: (44.89 + 62.56) / 2 = 53.725 mm
+		addChild(createLightCentered<MediumLight<RedLight>>(mm2px(Vec(53.725f, 37.00f)), module, Eris::RESEED_LIGHT));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 37.00f)), module, Eris::RATE_PARAM));
 
 		// Zone 3: CV Attenuverter Trimpots
