@@ -669,6 +669,17 @@
         "Oscillator",
         "Dual"
       ]
+    },
+    {
+      "slug": "Eris",
+      "name": "Eris",
+      "description": "18-model stochastic drift and chaotic strange attractor trajectory generator with macro complexity, random seed, synchronized reseed rate engine, and Z intensity depth VCA output",
+      "tags": [
+        "Generate",
+        "Visual",
+        "Oscillator",
+        "Dual"
+      ]
     }
   ]
 }
