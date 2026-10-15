@@ -52,13 +52,16 @@ struct Eris : Module {
 		RATE_PARAM,
 
 		// CV Attenuverters (Zone 3)
+		// Row 1: FREQ, FM, MODEL, COMPLEX
 		FREQ_TRIM_PARAM,
 		FM_TRIM_PARAM,
 		MODEL_TRIM_PARAM,
-
 		COMPLEX_TRIM_PARAM,
+
+		// Row 2 (Right-aligned): ORBIT, RATE, Z OUT
 		ORBIT_TRIM_PARAM,
 		RATE_TRIM_PARAM,
+		Z_AMOUNT_PARAM,
 
 		PARAMS_LEN
 	};
@@ -93,6 +96,7 @@ struct Eris : Module {
 		RANGE_LIGHT_YELLOW,
 		RANGE_LIGHT_ORANGE,
 		RANGE_LIGHT_PURPLE,
+		RESEED_LIGHT,
 
 		LIGHTS_LEN
 	};
@@ -101,6 +105,7 @@ struct Eris : Module {
 	ZOutputMode zMode = Z_UNIPOLAR_10V;
 	dsp::BooleanTrigger rangeTrigger;
 	dsp::BooleanTrigger reseedButtonTrigger;
+	dsp::PulseGenerator reseedFlashPulse;
 
 	struct VoiceState {
 		float basePhase = 0.f;
@@ -192,26 +197,69 @@ struct Eris : Module {
 
 	struct ModelParamQuantity : ParamQuantity {
 		std::string getDisplayValueString() override {
-			int idx = eris::clampVal((int)std::round(getValue()), 0, (int)eris::NUM_MODELS - 1);
+			int val = (int)std::round(getValue());
+			int idx = eris::clampVal(val - 1, 0, (int)eris::NUM_MODELS - 1);
 			char buf[64];
 			std::snprintf(buf, sizeof(buf), "%d: %s", idx + 1, eris::METADATA[idx].name);
 			return buf;
+		}
+
+		void setDisplayValueString(std::string s) override {
+			try {
+				int val = std::stoi(s);
+				setValue((float)val);
+			} catch (...) {
+				ParamQuantity::setDisplayValueString(s);
+			}
+		}
+	};
+
+	struct ComplexityParamQuantity : ParamQuantity {
+		std::string getDisplayValueString() override {
+			int val = (int)std::round(getValue());
+			return std::to_string(val);
+		}
+
+		void setDisplayValueString(std::string s) override {
+			try {
+				int val = std::stoi(s);
+				setValue((float)val);
+			} catch (...) {
+				ParamQuantity::setDisplayValueString(s);
+			}
 		}
 	};
 
 	struct OrbitParamQuantity : ParamQuantity {
 		std::string getDisplayValueString() override {
-			float v = getValue(); // -1.0 to +1.0 Hz
-			if (std::abs(v) < 0.005f) {
-				return "0.00 Hz (halted)";
-			} else if (v > 0.0f) {
-				char buf[32];
-				std::snprintf(buf, sizeof(buf), "+%.2f Hz (CW)", v);
+			float p = getValue(); // -100 to +100 (%)
+			// Non-linear speed mapping (max 0.5 Hz):
+			float sign = (p >= 0.f) ? 1.0f : -1.0f;
+			float u = std::abs(p) / 100.0f;
+			float speedHz = sign * 0.5f * std::pow(u, 1.5f);
+
+			if (std::abs(p) < 0.5f) {
+				return "0% (0.00 Hz - halted)";
+			} else if (p > 0.0f) {
+				char buf[64];
+				std::snprintf(buf, sizeof(buf), "+%.0f%% (+%.3f Hz CW)", p, speedHz);
 				return buf;
 			} else {
-				char buf[32];
-				std::snprintf(buf, sizeof(buf), "%.2f Hz (CCW)", v);
+				char buf[64];
+				std::snprintf(buf, sizeof(buf), "%.0f%% (%.3f Hz CCW)", p, speedHz);
 				return buf;
+			}
+		}
+
+		void setDisplayValueString(std::string s) override {
+			try {
+				// Strip trailing '%' if present
+				size_t pctPos = s.find('%');
+				if (pctPos != std::string::npos) s = s.substr(0, pctPos);
+				float v = std::stof(s);
+				setValue(v);
+			} catch (...) {
+				ParamQuantity::setDisplayValueString(s);
 			}
 		}
 	};
@@ -219,18 +267,31 @@ struct Eris : Module {
 	struct ReseedRateParamQuantity : ParamQuantity {
 		std::string getDisplayValueString() override {
 			float r = getValue();
-			if (std::abs(r) < 0.05f) {
+			if (std::abs(r) < 0.25f) {
 				return "Off (does not repeat)";
 			} else if (r > 0.0f) {
-				float mult = std::pow(2.0f, r);
+				float u = (r - 0.5f) / 6.5f;
+				float E = std::log2(1.5f) + u * (7.0f - std::log2(1.5f));
+				float mult = std::pow(2.0f, E);
 				char buf[32];
 				std::snprintf(buf, sizeof(buf), "x%.2f", mult);
 				return buf;
 			} else {
-				float div = std::pow(2.0f, -r);
+				float u = (std::abs(r) - 0.5f) / 6.5f;
+				float E = 7.0f - u * (7.0f - std::log2(1.5f));
+				float div = std::pow(2.0f, E);
 				char buf[32];
 				std::snprintf(buf, sizeof(buf), "/%.2f", div);
 				return buf;
+			}
+		}
+
+		void setDisplayValueString(std::string s) override {
+			try {
+				float v = std::stof(s);
+				setValue(v);
+			} catch (...) {
+				ParamQuantity::setDisplayValueString(s);
 			}
 		}
 	};
@@ -242,22 +303,35 @@ struct Eris : Module {
 		configParam<FreqParamQuantity>(FREQ_PARAM, 0.f, 1.f, 0.5f, "Frequency", " Hz");
 		configButton(RANGE_PARAM, "Range time-scale");
 		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine frequency", "%", 0.f, 10.f);
-		configParam<ModelParamQuantity>(MODEL_PARAM, 0.f, 17.f, 0.f, "Model");
+		// 1-based MODEL_PARAM: 1.0 to 18.0, integer snap, default 1
+		configParam<ModelParamQuantity>(MODEL_PARAM, 1.f, 18.f, 1.f, "Model");
+		paramQuantities[MODEL_PARAM]->snapEnabled = true;
 
 		// Row 2: COMPLEX, ORBIT, RESEED BUTTON, RESEED RATE
-		configParam(COMPLEX_PARAM, 0.f, 1.f, 0.5f, "Macro complexity", "%", 0.f, 100.f);
-		configParam<OrbitParamQuantity>(ORBIT_PARAM, -1.f, 1.f, 0.f, "Orbit speed", " Hz");
+		// COMPLEX_PARAM: 1 to 10 integer snap, default 2
+		configParam<ComplexityParamQuantity>(COMPLEX_PARAM, 1.f, 10.f, 2.f, "Macro complexity");
+		paramQuantities[COMPLEX_PARAM]->snapEnabled = true;
+
+		// ORBIT_PARAM: -100% to +100%, default 0%
+		configParam<OrbitParamQuantity>(ORBIT_PARAM, -100.f, 100.f, 0.f, "Orbit speed", "%");
+
 		configButton(RESEED_BUTTON_PARAM, "Manual reseed");
+
+		// RESEED RATE_PARAM: -7.0 to +7.0 with 0.5 step snap
 		configParam<ReseedRateParamQuantity>(RATE_PARAM, -7.f, 7.f, 0.f, "Reseed rate");
+		paramQuantities[RATE_PARAM]->snapEnabled = true;
 
 		// Zone 3: CV Attenuverters (Mandatory naming per AGENTS.md Section 7.5.4)
+		// Row 1: FREQ, FM, MODEL, COMPLEX
 		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 1.f, "Frequency CV depth", "%", 0.f, 100.f);
 		configParam(FM_TRIM_PARAM, -1.f, 1.f, 0.f, "External FM CV depth", "%", 0.f, 100.f);
 		configParam(MODEL_TRIM_PARAM, -1.f, 1.f, 0.f, "Model CV depth", "%", 0.f, 100.f);
-
 		configParam(COMPLEX_TRIM_PARAM, -1.f, 1.f, 0.f, "Macro complexity CV depth", "%", 0.f, 100.f);
+
+		// Row 2 (Right-aligned): ORBIT, RATE, Z OUT
 		configParam(ORBIT_TRIM_PARAM, -1.f, 1.f, 0.f, "Orbit speed CV depth", "%", 0.f, 100.f);
 		configParam(RATE_TRIM_PARAM, -1.f, 1.f, 0.f, "Reseed rate CV depth", "%", 0.f, 100.f);
+		configParam(Z_AMOUNT_PARAM, 0.f, 1.f, 1.f, "Z output", "%", 0.f, 100.f);
 
 		// Zone 4: Inputs (Mandatory sentence case, no redundant "input")
 		configInput(FREQ_CV_INPUT, "Frequency CV");
@@ -284,6 +358,7 @@ struct Eris : Module {
 		vs.crossfadeTau = 0.0f;
 		vs.isCrossfading = true;
 		vs.syncPulse.trigger(1e-4f);
+		reseedFlashPulse.trigger(0.005f); // 5 ms flash pulse
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -298,6 +373,9 @@ struct Eris : Module {
 		lights[RANGE_LIGHT_YELLOW].setBrightness(rangeMode == RANGE_VERY_SLOW ? 1.f : 0.f);
 		lights[RANGE_LIGHT_ORANGE].setBrightness(rangeMode == RANGE_LFO ? 1.f : 0.f);
 		lights[RANGE_LIGHT_PURPLE].setBrightness(rangeMode == RANGE_VCO ? 1.f : 0.f);
+
+		// Update Reseed Halo Flash (5ms pulse)
+		lights[RESEED_LIGHT].setBrightness(reseedFlashPulse.process(args.sampleTime) ? 1.f : 0.f);
 
 		int channels = std::max(1, inputs[FREQ_CV_INPUT].getChannels());
 		if (inputs[FM_CV_INPUT].isConnected()) channels = std::max(channels, inputs[FM_CV_INPUT].getChannels());
@@ -323,17 +401,19 @@ struct Eris : Module {
 		bool fmConnected = inputs[FM_CV_INPUT].isConnected();
 		bool syncConnected = inputs[SYNC_INPUT].isConnected();
 
-		float modelParam = params[MODEL_PARAM].getValue();
+		float modelParam = std::round(params[MODEL_PARAM].getValue());
 		float modelTrim = params[MODEL_TRIM_PARAM].getValue();
 
-		float complexParam = params[COMPLEX_PARAM].getValue();
+		float complexParam = std::round(params[COMPLEX_PARAM].getValue());
 		float complexTrim = params[COMPLEX_TRIM_PARAM].getValue();
 
 		float orbitParam = params[ORBIT_PARAM].getValue();
 		float orbitTrim = params[ORBIT_TRIM_PARAM].getValue();
 
-		float rateParam = params[RATE_PARAM].getValue();
+		float rateParam = std::round(params[RATE_PARAM].getValue() * 2.0f) * 0.5f;
 		float rateTrim = params[RATE_TRIM_PARAM].getValue();
+
+		float zAmount = params[Z_AMOUNT_PARAM].getValue();
 
 		const float twoPi = 2.0f * (float)M_PI;
 
@@ -384,14 +464,15 @@ struct Eris : Module {
 
 			vs.basePhase -= std::floor(vs.basePhase);
 
-			// Model selection
+			// Model selection (1-18 mapped to 0-17 index)
 			float mCv = inputs[MODEL_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float mVal = clampf(modelParam + mCv * modelTrim * 17.f, 0.f, 17.f);
-			int currentModel = eris::clampVal((int)std::round(mVal), 0, (int)eris::NUM_MODELS - 1);
+			float mVal = clampf(modelParam + mCv * modelTrim * 17.f, 1.f, 18.f);
+			int currentModel = eris::clampVal((int)std::round(mVal) - 1, 0, (int)eris::NUM_MODELS - 1);
 
-			// Complexity modulation
+			// Complexity modulation (1-10 mapped to 0.0-1.0)
 			float cCv = inputs[COMPLEX_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float currentComplexity = clampf(complexParam + cCv * complexTrim, 0.f, 1.f);
+			float cVal = clampf(complexParam + cCv * complexTrim * 9.f, 1.f, 10.f);
+			float currentComplexity = clampf((cVal - 1.f) / 9.f, 0.f, 1.f);
 
 			// First-time initialization
 			if (!vs.initialized) {
@@ -415,9 +496,12 @@ struct Eris : Module {
 			// Orbit 3D Tumbling Speed & Polarities:
 			// CW  (> 0): X +, Y -, Z +
 			// CCW (< 0): X -, Y +, Z -
-			// Max 1.0 Hz
+			// Max 0.5 Hz, non-linear (most travel in first 0.2 Hz)
 			float orbCv = inputs[ORBIT_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float orbitSpeedHz = clampf(orbitParam + orbCv * orbitTrim, -1.f, 1.f);
+			float orbPct = clampf(orbitParam + orbCv * orbitTrim * 100.f, -100.f, 100.f);
+			float orbSign = (orbPct >= 0.f) ? 1.0f : -1.0f;
+			float orbU = std::abs(orbPct) / 100.0f;
+			float orbitSpeedHz = orbSign * 0.5f * std::pow(orbU, 1.5f);
 			float omega = orbitSpeedHz * twoPi;
 
 			vs.thetaX += omega * 1.000f * args.sampleTime;
@@ -428,9 +512,10 @@ struct Eris : Module {
 			vs.thetaY -= std::floor(vs.thetaY / twoPi) * twoPi;
 			vs.thetaZ -= std::floor(vs.thetaZ / twoPi) * twoPi;
 
-			// Reseed clock & triggers
+			// Reseed clock & triggers: 0.5 steps
 			float rCv = inputs[RATE_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float currentRate = clampf(rateParam + rCv * rateTrim * 7.f, -7.f, 7.f);
+			float rRaw = clampf(rateParam + rCv * rateTrim * 7.f, -7.f, 7.f);
+			float currentRate = std::round(rRaw * 2.0f) * 0.5f;
 
 			bool extReseedTrig = false;
 			if (inputs[RESEED_TRIG_INPUT].isConnected()) {
@@ -438,8 +523,17 @@ struct Eris : Module {
 			}
 
 			bool clockReseed = false;
-			if (std::abs(currentRate) >= 0.05f) {
-				float rateMultiplier = (currentRate > 0.f) ? std::pow(2.0f, currentRate) : (1.0f / std::pow(2.0f, -currentRate));
+			if (std::abs(currentRate) >= 0.25f) {
+				float rateMultiplier;
+				if (currentRate > 0.f) {
+					float u = (currentRate - 0.5f) / 6.5f;
+					float E = std::log2(1.5f) + u * (7.0f - std::log2(1.5f));
+					rateMultiplier = std::pow(2.0f, E);
+				} else {
+					float u = (std::abs(currentRate) - 0.5f) / 6.5f;
+					float E = 7.0f - u * (7.0f - std::log2(1.5f));
+					rateMultiplier = 1.0f / std::pow(2.0f, E);
+				}
 				float reseedFreq = std::max(1e-5f, fActual * rateMultiplier);
 				vs.reseedAccum += reseedFreq * args.sampleTime;
 				if (vs.reseedAccum >= 1.0f) {
@@ -504,9 +598,9 @@ struct Eris : Module {
 			outputs[X_OUTPUT].setVoltage(clampf(rotX * 5.f, -12.f, 12.f), c);
 			outputs[Y_OUTPUT].setVoltage(clampf(rotY * 5.f, -12.f, 12.f), c);
 
-			// Z Output: 0V to +10V (ideal for 3xVCA / color depth) or ±5V bipolar
+			// Z Output: controlled by zAmount attenuverter (0-100%, default 100%)
 			float zNorm = eris::clampVal(0.5f + 0.5f * rotZ, 0.0f, 1.0f);
-			float zVolts = (zMode == Z_UNIPOLAR_10V) ? (zNorm * 10.0f) : (rotZ * 5.0f);
+			float zVolts = (zMode == Z_UNIPOLAR_10V) ? (zNorm * 10.0f * zAmount) : (rotZ * 5.0f * zAmount);
 			outputs[Z_OUTPUT].setVoltage(clampf(zVolts, -12.f, 12.f), c);
 
 			// Sync output pulse
@@ -593,6 +687,55 @@ struct ErisRangeLightRing : ModuleLightWidget {
 	}
 };
 
+// ── Custom Reseed Light Ring Widget (Same halo as Range button, background color flashing +10% lightness) ──
+struct ErisReseedLightRing : ModuleLightWidget {
+	ErisReseedLightRing() {
+		box.size = mm2px(Vec(11.0f, 11.0f));
+		// Flash color: panel #6e6e6e (110, 110, 110) + 10% lightness => ~#878787 (135, 135, 135)
+		this->addBaseColor(nvgRGBA(135, 135, 135, 255));
+	}
+
+	void drawBackground(const DrawArgs& args) override {
+		Vec c = box.size.div(2.f);
+		float r = mm2px(4.12f);
+		float w = mm2px(1.40f);
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		// Background ring: same color as panel background #6e6e6e
+		nvgStrokeColor(args.vg, nvgRGBA(110, 110, 110, 255));
+		nvgStrokeWidth(args.vg, w);
+		nvgStroke(args.vg);
+	}
+
+	void drawLight(const DrawArgs& args) override {
+		if (color.a <= 0.0f) return;
+		Vec c = box.size.div(2.f);
+		float r = mm2px(4.12f);
+		float w = mm2px(1.40f);
+
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, color);
+		nvgStrokeWidth(args.vg, w);
+		nvgStroke(args.vg);
+	}
+
+	void drawHalo(const DrawArgs& args) override {
+		if (color.a <= 0.0f) return;
+		Vec c = box.size.div(2.f);
+		float r = mm2px(4.12f);
+		float haloW = mm2px(1.00f);
+		NVGcolor haloColor = color;
+		haloColor.a *= 0.25f;
+
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, haloColor);
+		nvgStrokeWidth(args.vg, mm2px(1.40f) + haloW);
+		nvgStroke(args.vg);
+	}
+};
+
 struct ErisWidget : ModuleWidget {
 	ErisWidget(Eris* module) {
 		setModule(module);
@@ -611,19 +754,21 @@ struct ErisWidget : ModuleWidget {
 		// Row 2: COMPLEX, ORBIT, RESEED BUTTON, RATE (Center Y = 37.00 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 37.00f)), module, Eris::COMPLEX_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 37.00f)), module, Eris::ORBIT_PARAM));
+		addChild(createLightCentered<ErisReseedLightRing>(mm2px(Vec(col_x[2], 37.00f)), module, Eris::RESEED_LIGHT));
 		addParam(createParamCentered<ErisCustomButton>(mm2px(Vec(col_x[2], 37.00f)), module, Eris::RESEED_BUTTON_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 37.00f)), module, Eris::RATE_PARAM));
 
 		// Zone 3: CV Attenuverter Trimpots
-		// Row 1: FREQ, FM, MODEL (Center Y = 66.00 mm)
+		// Row 1: FREQ, FM, MODEL, COMPLEX (Center Y = 66.00 mm)
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 66.00f)), module, Eris::FREQ_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 66.00f)), module, Eris::FM_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 66.00f)), module, Eris::MODEL_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[3], 66.00f)), module, Eris::COMPLEX_TRIM_PARAM));
 
-		// Row 2: COMPLEX, ORBIT, RATE (Center Y = 77.00 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 77.00f)), module, Eris::COMPLEX_TRIM_PARAM));
+		// Row 2 (Right-aligned): ORBIT, RATE, Z OUT (Center Y = 77.00 mm)
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 77.00f)), module, Eris::ORBIT_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 77.00f)), module, Eris::RATE_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[3], 77.00f)), module, Eris::Z_AMOUNT_PARAM));
 
 		// Zone 4: I/O Jacks
 		// Row 1 (Inputs): FREQ, FM, MODEL, COMPLEX (Center Y = 93.00 mm)

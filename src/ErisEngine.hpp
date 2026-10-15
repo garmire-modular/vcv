@@ -22,12 +22,12 @@ enum ModelId {
 	MODEL_THOMAS,
 	MODEL_AIZAWA,
 	MODEL_CHEN,
+	MODEL_MODIFIED_CHEN,
 	MODEL_HALVORSEN,
-	MODEL_LIU_CHEN,
 	MODEL_NOSE_HOOVER,
 	MODEL_SPROTT,
 	MODEL_FOUR_WING,
-	MODEL_CHUA,
+	MODEL_PWL_DUFFING,
 	MODEL_ARNEODO,
 	MODEL_DEQUAN_LI,
 	MODEL_RABINOVICH,
@@ -53,12 +53,12 @@ static const ModelMeta METADATA[NUM_MODELS] = {
 	{ "Thomas Symmetric",             0.080f, 0, 1, 2, 1.00f },
 	{ "Aizawa Attractor",             0.020f, 0, 1, 2, 0.45f },
 	{ "Chen Attractor",               0.010f, 0, 2, 1, 0.20f },
+	{ "Modified Chen Attractor",      0.005f, 0, 1, 2, 0.25f },
 	{ "Halvorsen Attractor",          0.015f, 0, 1, 2, 0.30f },
-	{ "Lu Chen Attractor",            0.010f, 0, 2, 1, 1.00f },
 	{ "Nosé-Hoover Attractor",        0.030f, 0, 1, 2, 1.00f },
 	{ "Sprott Attractor",             0.030f, 0, 1, 2, 1.00f },
 	{ "Four-Wing Attractor",          0.040f, 0, 1, 2, 1.00f },
-	{ "Chua Double-Scroll",           0.020f, 0, 1, 2, 1.00f },
+	{ "PWL Duffing Attractor",        0.020f, 0, 1, 2, 0.40f },
 	{ "Arneodo Attractor",            0.030f, 0, 1, 2, 1.00f },
 	{ "Dequan Li Five-Wing",          0.005f, 0, 1, 2, 1.00f },
 	{ "Rabinovich-Fabrikant",         0.015f, 0, 1, 2, 1.00f },
@@ -82,7 +82,7 @@ struct OrbitBuffer {
 	float complexity = -1.f;
 };
 
-inline void getAttractorDerivatives(int model, const float* s, float* ds, float c) {
+inline void getAttractorDerivatives(int model, const float* s, float* ds, float c, float zDelay = 0.f, float t = 0.f) {
 	float x = s[0];
 	float y = s[1];
 	float z = s[2];
@@ -144,22 +144,31 @@ inline void getAttractorDerivatives(int model, const float* s, float* ds, float 
 			ds[2] = x * y - b * z;
 			break;
 		}
+		case MODEL_MODIFIED_CHEN: {
+			// Modified Chen system with time-delay feedback:
+			// dx/dt = a*(y - x)
+			// dy/dt = (c - a)*x - x*f + c*y
+			// dz/dt = x*y - b*z
+			// f = d0*z + d1*z(t - tau) - d2*sin(z(t - tau))
+			// Standard parameters: a = 35, c = 28, b = 3, d0 = 1, d1 = 1, d2 in [-20, 20]
+			float a = 35.0f;
+			float paramC = 28.0f;
+			float b = 3.0f;
+			float d0 = 1.0f;
+			float d1 = 1.0f;
+			// Complexity parameter modulates d2 across [-20, 20]
+			float d2 = -20.0f + 40.0f * c;
+			float f = d0 * z + d1 * zDelay - d2 * std::sin(zDelay);
+			ds[0] = a * (y - x);
+			ds[1] = (paramC - a) * x - x * f + paramC * y;
+			ds[2] = x * y - b * z;
+			break;
+		}
 		case MODEL_HALVORSEN: {
 			float a = 1.2f + 1.3f * c;
 			ds[0] = -a * x - 4.0f * y - 4.0f * z - y * y;
 			ds[1] = -a * y - 4.0f * z - 4.0f * x - z * z;
 			ds[2] = -a * z - 4.0f * x - 4.0f * y - x * x;
-			break;
-		}
-		case MODEL_LIU_CHEN: {
-			float a = 40.0f;
-			float b = 1.0f;
-			float k = 0.5f;
-			float paramC = 11.0f;
-			float h = 0.1f + 0.5f * c;
-			ds[0] = a * (y - x);
-			ds[1] = b * x - k * x * z;
-			ds[2] = -paramC * z + h * x * x;
 			break;
 		}
 		case MODEL_NOSE_HOOVER: {
@@ -187,15 +196,22 @@ inline void getAttractorDerivatives(int model, const float* s, float* ds, float 
 			ds[2] = d * z - x * y + e;
 			break;
 		}
-		case MODEL_CHUA: {
-			float beta = 14.28f;
-			float m0 = -1.143f;
-			float m1 = -0.714f;
-			float alpha = 7.5f + 3.0f * c;
-			float h = m1 * x + 0.5f * (m0 - m1) * (std::abs(x + 1.0f) - std::abs(x - 1.0f));
-			ds[0] = alpha * (y - h);
-			ds[1] = x - y + z;
-			ds[2] = -beta * y;
+		case MODEL_PWL_DUFFING: {
+			// Piecewise-linear Duffing system:
+			// dx/dt = y
+			// dy/dt = -m1*x - 0.5*(m0 - m1)*(|x+1| - |x-1|) - e*y + gamma*cos(omega*t)
+			// e = 0.25, m0 = -0.0845, m1 = 0.66, omega = 1.0 rad/s
+			// gamma in [-1.11, 1.39] modulated by complexity c
+			float e = 0.25f;
+			float m0 = -0.0845f;
+			float m1 = 0.66f;
+			float omega = 1.0f;
+			float gamma = -1.11f + 2.50f * c;
+			float pwl = -m1 * x - 0.5f * (m0 - m1) * (std::abs(x + 1.0f) - std::abs(x - 1.0f));
+			ds[0] = y;
+			ds[1] = pwl - e * y + gamma * std::cos(omega * t);
+			// Z is synthetic quadrature phase for 3D trajectory
+			ds[2] = -omega * x;
 			break;
 		}
 		case MODEL_ARNEODO: {
@@ -259,26 +275,26 @@ inline void getAttractorDerivatives(int model, const float* s, float* ds, float 
 	ds[2] = clampVal(ds[2], -500.f, 500.f);
 }
 
-inline void stepRK4(int model, float* s, float dt, float complexity) {
+inline void stepRK4(int model, float* s, float dt, float complexity, float zDelay = 0.f, float t = 0.f) {
 	float k1[3], k2[3], k3[3], k4[3];
 	float temp[3];
 
-	getAttractorDerivatives(model, s, k1, complexity);
+	getAttractorDerivatives(model, s, k1, complexity, zDelay, t);
 
 	temp[0] = s[0] + 0.5f * dt * k1[0];
 	temp[1] = s[1] + 0.5f * dt * k1[1];
 	temp[2] = s[2] + 0.5f * dt * k1[2];
-	getAttractorDerivatives(model, temp, k2, complexity);
+	getAttractorDerivatives(model, temp, k2, complexity, zDelay, t + 0.5f * dt);
 
 	temp[0] = s[0] + 0.5f * dt * k2[0];
 	temp[1] = s[1] + 0.5f * dt * k2[1];
 	temp[2] = s[2] + 0.5f * dt * k2[2];
-	getAttractorDerivatives(model, temp, k3, complexity);
+	getAttractorDerivatives(model, temp, k3, complexity, zDelay, t + 0.5f * dt);
 
 	temp[0] = s[0] + dt * k3[0];
 	temp[1] = s[1] + dt * k3[1];
 	temp[2] = s[2] + dt * k3[2];
-	getAttractorDerivatives(model, temp, k4, complexity);
+	getAttractorDerivatives(model, temp, k4, complexity, zDelay, t + dt);
 
 	s[0] += (dt / 6.0f) * (k1[0] + 2.0f * k2[0] + 2.0f * k3[0] + k4[0]);
 	s[1] += (dt / 6.0f) * (k1[1] + 2.0f * k2[1] + 2.0f * k3[1] + k4[1]);
@@ -333,9 +349,10 @@ inline void generateOrbit(OrbitBuffer& buf, int model, int seed, float complexit
 	// Strange Attractor Models (RK4 integration)
 	float s[3] = { 0.1f, 0.1f, 0.1f };
 	if (model == MODEL_CHEN) { s[0] = -0.1f; s[1] = 0.5f; s[2] = -0.6f; }
+	else if (model == MODEL_MODIFIED_CHEN) { s[0] = 1.0f; s[1] = 1.0f; s[2] = 14.0f; }
 	else if (model == MODEL_HALVORSEN) { s[0] = -1.48f; s[1] = -1.2f; s[2] = 0.5f; }
 	else if (model == MODEL_BOUALI) { s[0] = 1.0f; s[1] = 0.1f; s[2] = 0.1f; }
-	else if (model == MODEL_LIU_CHEN) { s[0] = 0.2f; s[1] = 0.1f; s[2] = 0.2f; }
+	else if (model == MODEL_PWL_DUFFING) { s[0] = 0.1f; s[1] = 0.1f; s[2] = 0.1f; }
 	else if (model == MODEL_RABINOVICH) { s[0] = -1.0f; s[1] = 0.0f; s[2] = 0.5f; }
 	else if (model == MODEL_DADRAS) { s[0] = 1.0f; s[1] = 1.0f; s[2] = 1.0f; }
 
@@ -349,9 +366,20 @@ inline void generateOrbit(OrbitBuffer& buf, int model, int seed, float complexit
 
 	float dt = METADATA[model].defaultDt;
 
+	// Delay buffer for Modified Chen (tau = 0.2s, dt = 0.005s => 40 delay steps)
+	const int DELAY_STEPS = 40;
+	float zRing[64];
+	for (int i = 0; i < 64; ++i) zRing[i] = s[2];
+	int ringIdx = 0;
+	float t = 0.f;
+
 	// Warmup steps to drop onto the strange attractor manifold
 	for (int step = 0; step < WARMUP_STEPS; ++step) {
-		stepRK4(model, s, dt, complexity);
+		float zDel = zRing[(ringIdx - DELAY_STEPS + 64) % 64];
+		stepRK4(model, s, dt, complexity, zDel, t);
+		zRing[ringIdx] = s[2];
+		ringIdx = (ringIdx + 1) % 64;
+		t += dt;
 	}
 
 	float minCoord[3] = { 1e9f, 1e9f, 1e9f };
@@ -360,7 +388,12 @@ inline void generateOrbit(OrbitBuffer& buf, int model, int seed, float complexit
 	float rawTraj[ORBIT_POINTS][3];
 
 	for (int n = 0; n < ORBIT_POINTS; ++n) {
-		stepRK4(model, s, dt, complexity);
+		float zDel = zRing[(ringIdx - DELAY_STEPS + 64) % 64];
+		stepRK4(model, s, dt, complexity, zDel, t);
+		zRing[ringIdx] = s[2];
+		ringIdx = (ringIdx + 1) % 64;
+		t += dt;
+
 		rawTraj[n][0] = s[0];
 		rawTraj[n][1] = s[1];
 		rawTraj[n][2] = s[2];

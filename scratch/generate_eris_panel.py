@@ -95,10 +95,10 @@ def main():
             title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version tag "v1.0.1"
+    # Version tag "v1.0.2"
     version_block = [
-        '  <!-- Label: "v1.0.1" -->',
-        render_qs_text(qs_reg_font, "v1.0.1", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v1.0.1")
+        '  <!-- Label: "v1.0.2" -->',
+        render_qs_text(qs_reg_font, "v1.0.2", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v1.0.2")
     ]
 
     svg_parts = [
@@ -117,6 +117,12 @@ def main():
         '',
         '  <!-- Range Button Indicator Ring Track (Center X = 26.23mm, Y = 20.00mm, R = 4.12mm, Stroke = 1.40mm) -->',
         '  <circle cx="26.230" cy="20.000" r="4.120" fill="none" stroke="#3a3a3a" stroke-width="1.400"/>',
+        '',
+        '  <!-- Reseed Button Indicator Ring Track (Center X = 44.89mm, Y = 37.00mm, R = 4.12mm, Stroke = 1.40mm) -->',
+        '  <circle cx="44.890" cy="37.000" r="4.120" fill="none" stroke="#3a3a3a" stroke-width="1.400"/>',
+        '',
+        '  <!-- Grouping Line between RESEED and RATE labels (Center Y = 30.20mm) -->',
+        '  <line x1="51.000" y1="30.200" x2="56.400" y2="30.200" stroke="#3a3a3a" stroke-width="0.300"/>',
         ''
     ]
     svg_parts.extend(title_block)
@@ -128,6 +134,7 @@ def main():
     # Row 1 Knobs & Controls (Center Y = 20.00, label baseline Y = 14.500)
     # Col 0: FREQ, Col 1: RANGE, Col 2: FINE, Col 3: MODEL
     svg_parts.append(render_qs_text(qs_font, "FREQ", col_x[0], 14.500, 0.002800, "#1c1c1c", "FREQ Knob Label"))
+    svg_parts.append(render_qs_text(qs_font, "RANGE", col_x[1], 14.500, 0.002400, "#1c1c1c", "RANGE Button Label"))
     svg_parts.append(render_qs_text(qs_font, "FINE", col_x[2], 14.500, 0.002800, "#1c1c1c", "FINE Knob Label"))
     svg_parts.append(render_qs_text(qs_font, "MODEL", col_x[3], 14.500, 0.002800, "#1c1c1c", "MODEL Knob Label"))
 
@@ -139,15 +146,16 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "RATE", col_x[3], 31.500, 0.002500, "#1c1c1c", "RATE Knob Label"))
 
     # Zone 3: CV Attenuverter Trimpots
-    # Row 1 Trimpots: FREQ, FM, MODEL (Center Y = 66.00, label baseline Y = 62.000)
+    # Row 1 Trimpots (4 trimpots): FREQ, FM, MODEL, COMPLEX (Center Y = 66.00, label baseline Y = 62.000)
     svg_parts.append(render_qs_text(qs_font, "FREQ", col_x[0], 62.000, 0.001900, "#2c2c2c", "FREQ CV Trim Label"))
     svg_parts.append(render_qs_text(qs_font, "FM", col_x[1], 62.000, 0.001900, "#2c2c2c", "FM CV Trim Label"))
     svg_parts.append(render_qs_text(qs_font, "MODEL", col_x[2], 62.000, 0.001900, "#2c2c2c", "MODEL CV Trim Label"))
+    svg_parts.append(render_qs_text(qs_font, "COMPLEX", col_x[3], 62.000, 0.001700, "#2c2c2c", "COMPLEX CV Trim Label"))
 
-    # Row 2 Trimpots: COMPLEX, ORBIT, RATE (Center Y = 77.00, label baseline Y = 73.000)
-    svg_parts.append(render_qs_text(qs_font, "COMPLEX", col_x[0], 73.000, 0.001800, "#2c2c2c", "COMPLEX CV Trim Label"))
+    # Row 2 Trimpots (3 trimpots, right-aligned): ORBIT, RATE, Z OUT (Center Y = 77.00, label baseline Y = 73.000)
     svg_parts.append(render_qs_text(qs_font, "ORBIT", col_x[1], 73.000, 0.001900, "#2c2c2c", "ORBIT CV Trim Label"))
     svg_parts.append(render_qs_text(qs_font, "RATE", col_x[2], 73.000, 0.001900, "#2c2c2c", "RATE CV Trim Label"))
+    svg_parts.append(render_qs_text(qs_font, "Z OUT", col_x[3], 73.000, 0.001800, "#2c2c2c", "Z OUT Trim Label"))
 
     # Zone 4: I/O Jacks
     # Jack Row 1 (Inputs): FREQ, FM, MODEL, COMPLEX (Center Y = 93.00, label baseline Y = 87.000)
