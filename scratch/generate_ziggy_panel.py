@@ -80,10 +80,10 @@ def main():
             title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version tag "v1.1.0"
+    # Version tag "v1.1.1"
     version_block = [
-        '  <!-- Label: "v1.1.0" -->',
-        render_qs_text(qs_reg_font, "v1.1.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v1.1.0")
+        '  <!-- Label: "v1.1.1" -->',
+        render_qs_text(qs_reg_font, "v1.1.1", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v1.1.1")
     ]
 
     svg_parts = [

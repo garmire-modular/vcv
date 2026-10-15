@@ -459,39 +459,63 @@ struct Ziggy : Module {
 
 			// ── Stepped & Serpentine Raster Computation ──
 			// Total lines = N
-			// Master phase u in [0, 1) covers N horizontal sweeps.
+			// Master phase u in [0, 1) covers N lines.
 			float w = u * (float)numLines;
 			int k = (int)std::floor(w);
 			if (k >= numLines) k = numLines - 1;
 			float v = w - (float)k; // intra-line phase in [0, 1)
 
-			// Fast X Axis:
-			// In serpentine (boustrophedon) mode:
-			// Even lines: Left to Right (-1 -> +1)
-			// Odd lines: Right to Left (+1 -> -1)
-			// 0% Smooth: Sharp pointy triangle wave with sharp corners at turnarounds
-			// 100% Smooth: Pure rounded sinusoidal wave
-			float xLinear = (k % 2 == 0) ? (2.f * v - 1.f) : (1.f - 2.f * v);
-			float xSinusoid = (k % 2 == 0) ? (-std::cos((float)M_PI * v)) : (std::cos((float)M_PI * v));
-			float rawX = (1.f - currentSmooth) * xLinear + currentSmooth * xSinusoid;
+			float dy = 2.f / (float)numLines;
+			float yk = -1.f + (2.f * (float)k + 1.f) / (float)numLines;
+			bool isEven = (k % 2 == 0);
+			const float xMax = 0.90f;
 
-			// Slow Y Axis:
-			float deltaY = 2.f / (float)numLines;
-			float yCenter = -1.f + 2.f * ((float)k + 0.5f) / (float)numLines;
+			// Turnaround takes a fraction of line time proportional to smooth:
+			float turnFrac = 0.05f + 0.18f * currentSmooth;
+			float rBulge = (dy * 0.75f) * currentSmooth;
 
-			// Flat horizontal scanline:
-			float yFlat = yCenter;
-			// Curved turnaround between scanlines (S-curve bevel):
-			float sCurve = 0.5f * (1.f - std::cos((float)M_PI * v));
-			float yCurved = yCenter - 0.5f * deltaY + deltaY * sCurve;
-			// Stepped mode: horizontal plateau with edge bevel determined by currentSmooth:
-			float yStep = (1.f - currentSmooth) * yFlat + currentSmooth * yCurved;
+			float rawX = 0.f;
+			float rawY = 0.f;
 
-			// Continuous diagonal tilt slope:
-			float ySlope = yCenter - 0.5f * deltaY + deltaY * v;
+			if (k < numLines - 1) {
+				float sweepFrac = 1.f - turnFrac;
+				if (v < sweepFrac) {
+					// Active horizontal sweep
+					float s = v / sweepFrac; // 0 to 1
+					rawX = isEven ? (-xMax + 2.f * xMax * s) : (xMax - 2.f * xMax * s);
+					rawY = yk + currentTilt * dy * (s - 0.5f);
+				} else {
+					// Edge turnaround connecting line k to line k+1
+					float p = (v - sweepFrac) / turnFrac; // 0 to 1
+					// Outward bulge on X
+					float bulge = rBulge * std::sin((float)M_PI * p);
+					rawX = isEven ? (xMax + bulge) : (-xMax - bulge);
 
-			// Blend between stepped mode and diagonal tilt:
-			float rawY = (1.f - currentTilt) * yStep + currentTilt * ySlope;
+					// Vertical progression with S-curve smoothing
+					float sCurve = 0.5f * (1.f - std::cos((float)M_PI * p));
+					float vertP = (1.f - currentSmooth) * p + currentSmooth * sCurve;
+					float yStep = yk + dy * vertP;
+					rawY = yStep + currentTilt * dy * 0.5f;
+				}
+			} else {
+				// Last line: active sweep followed by fast flyback to line 0
+				const float flyFrac = 0.08f;
+				float sweepFrac = 1.f - flyFrac;
+				if (v < sweepFrac) {
+					float s = v / sweepFrac;
+					rawX = isEven ? (-xMax + 2.f * xMax * s) : (xMax - 2.f * xMax * s);
+					rawY = yk + currentTilt * dy * (s - 0.5f);
+				} else {
+					// Flyback to line 0 start
+					float p = (v - sweepFrac) / flyFrac;
+					float startX = -xMax;
+					float startY = -1.f + 1.f / (float)numLines;
+					float endX = isEven ? xMax : -xMax;
+					float endY = yk;
+					rawX = (1.f - p) * endX + p * startX;
+					rawY = (1.f - p) * endY + p * startY;
+				}
+			}
 
 			// ── Phase Rotation (Bipolar ±180°) ──
 			float phaseRad = currentPhaseDeg * (float)(M_PI / 180.0);
