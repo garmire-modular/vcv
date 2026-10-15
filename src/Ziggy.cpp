@@ -11,12 +11,13 @@
 //  scans across the surround sound field.
 //  Controls:
 //    Row 1: Coarse Freq, 3-state Range (Very Slow / LFO / VCO), Fine Freq
-//    Row 2: Scanlines (2 to 10 lines), Smoothness (Stepped -> Serpentine),
+//    Row 2: Scanlines (2 to 10 lines), Tilt (Stepped horizontal -> Diagonal slope)
+//    Row 3: Smooth (Pointy/square corners -> Curved/smooth fillets),
 //           Phase (Spatial rotation +/-180°)
 //  Attenuverters & Jacks:
-//    Row 1 Inputs: Sync In, Freq CV, External FM
-//    Row 2 Inputs: Scanlines CV, Smoothness CV, Phase CV
-//    Row 3 Outputs: Sync Out, X Out, Y Out
+//    Row 1: Freq CV, Lines CV, Tilt CV
+//    Row 2: External FM, Smooth CV, Phase CV
+//    Row 3 (Outputs): Sync In, X Out, Y Out, Sync Out
 // ─────────────────────────────────────────────────────────────────────
 
 #ifndef M_PI
@@ -27,12 +28,6 @@ namespace {
 
 inline float clampf(float v, float lo, float hi) {
 	return (v < lo) ? lo : (v > hi) ? hi : v;
-}
-
-// Bipolar triangle wave over phase [0, 1)
-inline float triWave(float phase) {
-	float p = phase - std::floor(phase);
-	return 4.f * std::abs(p - 0.5f) - 1.f;
 }
 
 } // namespace
@@ -50,14 +45,16 @@ struct Ziggy : Module {
 		RANGE_PARAM,
 
 		LINES_PARAM,
+		TILT_PARAM,
 		SMOOTH_PARAM,
 		PHASE_PARAM,
 
 		// CV Attenuverters (Zone 3)
 		FREQ_TRIM_PARAM,
-		FM_TRIM_PARAM,
-
 		LINES_TRIM_PARAM,
+		TILT_TRIM_PARAM,
+
+		FM_TRIM_PARAM,
 		SMOOTH_TRIM_PARAM,
 		PHASE_TRIM_PARAM,
 
@@ -66,23 +63,26 @@ struct Ziggy : Module {
 
 	enum InputId {
 		// Row 1
-		SYNC_INPUT,
 		FREQ_CV_INPUT,
-		FM_CV_INPUT,
+		LINES_CV_INPUT,
+		TILT_CV_INPUT,
 
 		// Row 2
-		LINES_CV_INPUT,
+		FM_CV_INPUT,
 		SMOOTH_CV_INPUT,
 		PHASE_CV_INPUT,
+
+		// Row 3
+		SYNC_INPUT,
 
 		INPUTS_LEN
 	};
 
 	enum OutputId {
 		// Row 3
-		SYNC_OUTPUT,
 		X_OUTPUT,
 		Y_OUTPUT,
+		SYNC_OUTPUT,
 
 		OUTPUTS_LEN
 	};
@@ -128,7 +128,7 @@ struct Ziggy : Module {
 				return clampf(fCoarse + fine * 20.0f, 0.01f, 250.0f);
 			} else {
 				float fCoarse = 150.0f * std::pow(2000.0f / 150.0f, coarse);
-				return clampf(fCoarse * (1.0f + fine * 0.10f), 100.0f, 2500.0f);
+				return clampf(fCoarse + fine * 0.10f, 100.0f, 2500.0f);
 			}
 		}
 
@@ -290,27 +290,38 @@ struct Ziggy : Module {
 		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine frequency", "%", 0.f, 10.f);
 		configButton(RANGE_PARAM, "Range time-scale");
 
-		// Row 2 & 3: Raster Parameters
+		// Row 2: LINES & TILT
 		configParam<ScanlinesParamQuantity>(LINES_PARAM, 2.f, 10.f, 4.f, "Scanlines", "");
+		configParam(TILT_PARAM, 0.f, 1.f, 0.f, "Tilt", "%", 0.f, 100.f);
+
+		// Row 3: SMOOTH & PHASE
 		configParam(SMOOTH_PARAM, 0.f, 1.f, 0.5f, "Smoothness", "%", 0.f, 100.f);
 		configParam(PHASE_PARAM, -180.f, 180.f, 0.f, "Phase offset", "°", 0.f, 1.f);
 
 		// Zone 3: CV Attenuverters (Mandatory naming per AGENTS.md Section 7.5.4)
+		// Row 1 Attenuverters
 		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV depth", "%", 0.f, 100.f);
-		configParam(FM_TRIM_PARAM, -1.f, 1.f, 0.f, "Linear FM CV depth", "%", 0.f, 100.f);
-
 		configParam(LINES_TRIM_PARAM, -1.f, 1.f, 0.f, "Scanlines CV depth", "%", 0.f, 100.f);
+		configParam(TILT_TRIM_PARAM, -1.f, 1.f, 0.f, "Tilt CV depth", "%", 0.f, 100.f);
+
+		// Row 2 Attenuverters
+		configParam(FM_TRIM_PARAM, -1.f, 1.f, 0.f, "Linear FM CV depth", "%", 0.f, 100.f);
 		configParam(SMOOTH_TRIM_PARAM, -1.f, 1.f, 0.f, "Smoothness CV depth", "%", 0.f, 100.f);
 		configParam(PHASE_TRIM_PARAM, -1.f, 1.f, 0.f, "Phase CV depth", "%", 0.f, 100.f);
 
 		// Zone 4: Inputs (Strict sentence case, no redundant "input"/"IN" per Section 7.5.1)
-		configInput(SYNC_INPUT, "Sync");
+		// Row 1
 		configInput(FREQ_CV_INPUT, "Frequency CV");
-		configInput(FM_CV_INPUT, "External FM");
-
 		configInput(LINES_CV_INPUT, "Scanlines CV");
+		configInput(TILT_CV_INPUT, "Tilt CV");
+
+		// Row 2
+		configInput(FM_CV_INPUT, "External FM");
 		configInput(SMOOTH_CV_INPUT, "Smoothness CV");
 		configInput(PHASE_CV_INPUT, "Phase CV");
+
+		// Row 3 (Sync)
+		configInput(SYNC_INPUT, "Sync");
 
 		// Zone 4: Outputs (Strict sentence case, no redundant "output"/"OUT" per Section 7.5.1)
 		configOutput(SYNC_OUTPUT, "Sync");
@@ -348,10 +359,11 @@ struct Ziggy : Module {
 		int fCvCh  = inputs[FREQ_CV_INPUT].getChannels();
 		int fmCvCh = inputs[FM_CV_INPUT].getChannels();
 		int liCvCh = inputs[LINES_CV_INPUT].getChannels();
+		int tiCvCh = inputs[TILT_CV_INPUT].getChannels();
 		int smCvCh = inputs[SMOOTH_CV_INPUT].getChannels();
 		int phCvCh = inputs[PHASE_CV_INPUT].getChannels();
 
-		int numChannels = std::max({sCh, fCvCh, fmCvCh, liCvCh, smCvCh, phCvCh, 1});
+		int numChannels = std::max({sCh, fCvCh, fmCvCh, liCvCh, tiCvCh, smCvCh, phCvCh, 1});
 		outputs[SYNC_OUTPUT].setChannels(numChannels);
 		outputs[X_OUTPUT].setChannels(numChannels);
 		outputs[Y_OUTPUT].setChannels(numChannels);
@@ -361,12 +373,14 @@ struct Ziggy : Module {
 		float defaultF0   = calculateBaseFrequency(coarseParam, fineParam);
 
 		float linesParam  = params[LINES_PARAM].getValue();
+		float tiltParam   = params[TILT_PARAM].getValue();
 		float smoothParam = params[SMOOTH_PARAM].getValue();
 		float phaseParam  = params[PHASE_PARAM].getValue();
 
 		float fTrim      = params[FREQ_TRIM_PARAM].getValue();
-		float fmTrim     = params[FM_TRIM_PARAM].getValue();
 		float linesTrim  = params[LINES_TRIM_PARAM].getValue();
+		float tiltTrim   = params[TILT_TRIM_PARAM].getValue();
+		float fmTrim     = params[FM_TRIM_PARAM].getValue();
 		float smoothTrim = params[SMOOTH_TRIM_PARAM].getValue();
 		float phaseTrim  = params[PHASE_TRIM_PARAM].getValue();
 
@@ -428,6 +442,7 @@ struct Ziggy : Module {
 
 			// Parameter modulations
 			float liCv = inputs[LINES_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float tiCv = inputs[TILT_CV_INPUT].getPolyVoltage(c) / 5.f;
 			float smCv = inputs[SMOOTH_CV_INPUT].getPolyVoltage(c) / 5.f;
 			float phCv = inputs[PHASE_CV_INPUT].getPolyVoltage(c) / 5.f;
 
@@ -436,6 +451,7 @@ struct Ziggy : Module {
 			if (numLines < 2) numLines = 2;
 			if (numLines > 10) numLines = 10;
 
+			float currentTilt = clampf(tiltParam + tiCv * tiltTrim, 0.f, 1.f);
 			float currentSmooth = clampf(smoothParam + smCv * smoothTrim, 0.f, 1.f);
 			float currentPhaseDeg = clampf(phaseParam + phCv * phaseTrim * 180.f, -180.f, 180.f);
 
@@ -453,21 +469,29 @@ struct Ziggy : Module {
 			// In serpentine (boustrophedon) mode:
 			// Even lines: Left to Right (-1 -> +1)
 			// Odd lines: Right to Left (+1 -> -1)
+			// 0% Smooth: Sharp pointy triangle wave with sharp corners at turnarounds
+			// 100% Smooth: Pure rounded sinusoidal wave
 			float xLinear = (k % 2 == 0) ? (2.f * v - 1.f) : (1.f - 2.f * v);
-			// Smooth sinusoid for fast axis turnaround
 			float xSinusoid = (k % 2 == 0) ? (-std::cos((float)M_PI * v)) : (std::cos((float)M_PI * v));
 			float rawX = (1.f - currentSmooth) * xLinear + currentSmooth * xSinusoid;
 
 			// Slow Y Axis:
-			// Line center positions uniformly spaced in [-1, 1]:
-			float yStep = -1.f + 2.f * ((float)k + 0.5f) / (float)numLines;
-			// S-curve rounding during turnarounds (smooth vertical step)
-			float sCurve = 0.5f * (1.f - std::cos((float)M_PI * v));
-			float ySmoothStep = -1.f + 2.f * ((float)k + sCurve) / (float)numLines;
+			float deltaY = 2.f / (float)numLines;
+			float yCenter = -1.f + 2.f * ((float)k + 0.5f) / (float)numLines;
 
-			// Blend from pure stepped raster (horizontal plateaus with discrete steps)
-			// to smooth curvilinear serpentine ribbon
-			float rawY = (1.f - currentSmooth) * yStep + currentSmooth * ySmoothStep;
+			// Flat horizontal scanline:
+			float yFlat = yCenter;
+			// Curved turnaround between scanlines (S-curve bevel):
+			float sCurve = 0.5f * (1.f - std::cos((float)M_PI * v));
+			float yCurved = yCenter - 0.5f * deltaY + deltaY * sCurve;
+			// Stepped mode: horizontal plateau with edge bevel determined by currentSmooth:
+			float yStep = (1.f - currentSmooth) * yFlat + currentSmooth * yCurved;
+
+			// Continuous diagonal tilt slope:
+			float ySlope = yCenter - 0.5f * deltaY + deltaY * v;
+
+			// Blend between stepped mode and diagonal tilt:
+			float rawY = (1.f - currentTilt) * yStep + currentTilt * ySlope;
 
 			// ── Phase Rotation (Bipolar ±180°) ──
 			float phaseRad = currentPhaseDeg * (float)(M_PI / 180.0);
@@ -574,38 +598,41 @@ struct ZiggyWidget : ModuleWidget {
 		addChild(createLightCentered<ZiggyRangeLightRing>(mm2px(Vec(20.32, 21.59)), module, Ziggy::RANGE_LIGHT_YELLOW));
 		addParam(createParamCentered<ZiggyCustomButton>(mm2px(Vec(20.32, 21.59)), module, Ziggy::RANGE_PARAM));
 
-		// Row 2: LINES & SMOOTH Knobs (Center Y = 37.00 mm)
+		// Row 2: LINES & TILT Knobs (Center Y = 37.00 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 37.00)), module, Ziggy::LINES_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 37.00)), module, Ziggy::SMOOTH_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 37.00)), module, Ziggy::TILT_PARAM));
 
-		// Row 3: PHASE Knob (Center X = 20.32 mm, Center Y = 52.50 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(20.32, 52.50)), module, Ziggy::PHASE_PARAM));
+		// Row 3: SMOOTH & PHASE Knobs (Center Y = 52.50 mm)
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.82, 52.50)), module, Ziggy::SMOOTH_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(29.82, 52.50)), module, Ziggy::PHASE_PARAM));
 
 		// Zone 3: CV Attenuverter Trimpots (3 Columns: 8.82, 20.32, 31.82 mm)
-		// Row 1 Attenuverters: FREQ (20.32), FM (31.82) at Center Y = 70.00 mm
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 70.00)), module, Ziggy::FREQ_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 70.00)), module, Ziggy::FM_TRIM_PARAM));
+		// Row 1 Attenuverters: FREQ (8.82), LINES (20.32), TILT (31.82) at Center Y = 70.00 mm
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(8.82, 70.00)), module, Ziggy::FREQ_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 70.00)), module, Ziggy::LINES_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 70.00)), module, Ziggy::TILT_TRIM_PARAM));
 
-		// Row 2 Attenuverters: LINES (8.82), SMOOTH (20.32), PHASE (31.82) at Center Y = 79.50 mm
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(8.82, 79.50)), module, Ziggy::LINES_TRIM_PARAM));
+		// Row 2 Attenuverters: FM (8.82), SMOOTH (20.32), PHASE (31.82) at Center Y = 79.50 mm
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(8.82, 79.50)), module, Ziggy::FM_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(20.32, 79.50)), module, Ziggy::SMOOTH_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(31.82, 79.50)), module, Ziggy::PHASE_TRIM_PARAM));
 
 		// Zone 4: I/O Jacks
-		// Row 1 (Inputs): SYNC (8.82), FREQ (20.32), FM (31.82) at Center Y = 94.50 mm
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.82, 94.50)), module, Ziggy::SYNC_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 94.50)), module, Ziggy::FREQ_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 94.50)), module, Ziggy::FM_CV_INPUT));
+		// Row 1 (Inputs): FREQ (8.82), LINES (20.32), TILT (31.82) at Center Y = 94.50 mm
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.82, 94.50)), module, Ziggy::FREQ_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 94.50)), module, Ziggy::LINES_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 94.50)), module, Ziggy::TILT_CV_INPUT));
 
-		// Row 2 (Inputs): LINES (8.82), SMOOTH (20.32), PHASE (31.82) at Center Y = 106.00 mm
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.82, 106.00)), module, Ziggy::LINES_CV_INPUT));
+		// Row 2 (Inputs): FM (8.82), SMOOTH (20.32), PHASE (31.82) at Center Y = 106.00 mm
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(8.82, 106.00)), module, Ziggy::FM_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(20.32, 106.00)), module, Ziggy::SMOOTH_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(31.82, 106.00)), module, Ziggy::PHASE_CV_INPUT));
 
-		// Row 3 (Outputs): SYNC (8.82), X (20.32), Y (31.82) at Center Y = 118.00 mm
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(8.82, 118.00)), module, Ziggy::SYNC_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(20.32, 118.00)), module, Ziggy::X_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(31.82, 118.00)), module, Ziggy::Y_OUTPUT));
+		// Row 3 (Sync & Outputs): SYNC IN (6.07), X OUT (15.57), Y OUT (25.07), SYNC OUT (34.57) at Center Y = 118.00 mm
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(6.07, 118.00)), module, Ziggy::SYNC_INPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.57, 118.00)), module, Ziggy::X_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(25.07, 118.00)), module, Ziggy::Y_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(34.57, 118.00)), module, Ziggy::SYNC_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
