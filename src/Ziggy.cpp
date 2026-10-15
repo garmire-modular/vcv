@@ -291,11 +291,11 @@ struct Ziggy : Module {
 		configButton(RANGE_PARAM, "Range time-scale");
 
 		// Row 2: LINES & TILT
-		configParam<ScanlinesParamQuantity>(LINES_PARAM, 2.f, 10.f, 4.f, "Scanlines", "");
+		configParam<ScanlinesParamQuantity>(LINES_PARAM, 2.f, 10.f, 5.f, "Scanlines", "");
 		configParam(TILT_PARAM, 0.f, 1.f, 0.f, "Tilt", "%", 0.f, 100.f);
 
 		// Row 3: SMOOTH & PHASE
-		configParam(SMOOTH_PARAM, 0.f, 1.f, 0.5f, "Smoothness", "%", 0.f, 100.f);
+		configParam(SMOOTH_PARAM, 0.f, 1.f, 0.f, "Smoothness", "%", 0.f, 100.f);
 		configParam(PHASE_PARAM, -180.f, 180.f, 0.f, "Phase offset", "°", 0.f, 1.f);
 
 		// Zone 3: CV Attenuverters (Mandatory naming per AGENTS.md Section 7.5.4)
