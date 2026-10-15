@@ -458,8 +458,6 @@ struct Ziggy : Module {
 			float u = vs.basePhase;
 
 			// ── Stepped & Serpentine Raster Computation ──
-			// Total lines = N
-			// Master phase u in [0, 1) covers N lines.
 			float w = u * (float)numLines;
 			int k = (int)std::floor(w);
 			if (k >= numLines) k = numLines - 1;
@@ -468,54 +466,56 @@ struct Ziggy : Module {
 			float dy = 2.f / (float)numLines;
 			float yk = -1.f + (2.f * (float)k + 1.f) / (float)numLines;
 			bool isEven = (k % 2 == 0);
-			const float xMax = 0.90f;
+			const float xMax = 0.88f;
 
-			// Turnaround takes a fraction of line time proportional to smooth:
-			float turnFrac = 0.05f + 0.18f * currentSmooth;
-			float rBulge = (dy * 0.75f) * currentSmooth;
+			// Mode A: Pure serpentine zigzag (Tilt = 1.0)
+			float xTri = isEven ? (-xMax + 2.f * xMax * v) : (xMax - 2.f * xMax * v);
+			float xSin = isEven ? (-xMax * std::cos((float)M_PI * v)) : (xMax * std::cos((float)M_PI * v));
+			float xA = (1.f - currentSmooth) * xTri + currentSmooth * xSin;
+			float yA = -1.f + 2.f * u;
 
-			float rawX = 0.f;
-			float rawY = 0.f;
+			// Mode B: Stepped raster with outward turnaround caps (Tilt = 0.0)
+			const float turnFrac = 0.20f;
+			const float sweepFrac = 1.f - turnFrac;
+			float xB = 0.f;
+			float yB = 0.f;
 
 			if (k < numLines - 1) {
-				float sweepFrac = 1.f - turnFrac;
-				if (v < sweepFrac) {
-					// Active horizontal sweep
-					float s = v / sweepFrac; // 0 to 1
-					rawX = isEven ? (-xMax + 2.f * xMax * s) : (xMax - 2.f * xMax * s);
-					rawY = yk + currentTilt * dy * (s - 0.5f);
-				} else {
-					// Edge turnaround connecting line k to line k+1
-					float p = (v - sweepFrac) / turnFrac; // 0 to 1
-					// Outward bulge on X
-					float bulge = rBulge * std::sin((float)M_PI * p);
-					rawX = isEven ? (xMax + bulge) : (-xMax - bulge);
-
-					// Vertical progression with S-curve smoothing
-					float sCurve = 0.5f * (1.f - std::cos((float)M_PI * p));
-					float vertP = (1.f - currentSmooth) * p + currentSmooth * sCurve;
-					float yStep = yk + dy * vertP;
-					rawY = yStep + currentTilt * dy * 0.5f;
-				}
-			} else {
-				// Last line: active sweep followed by fast flyback to line 0
-				const float flyFrac = 0.08f;
-				float sweepFrac = 1.f - flyFrac;
 				if (v < sweepFrac) {
 					float s = v / sweepFrac;
-					rawX = isEven ? (-xMax + 2.f * xMax * s) : (xMax - 2.f * xMax * s);
-					rawY = yk + currentTilt * dy * (s - 0.5f);
+					xB = isEven ? (-xMax + 2.f * xMax * s) : (xMax - 2.f * xMax * s);
+					yB = yk;
 				} else {
-					// Flyback to line 0 start
-					float p = (v - sweepFrac) / flyFrac;
+					float p = (v - sweepFrac) / turnFrac;
+					float bulge = (dy * 0.75f) * currentSmooth * std::sin((float)M_PI * p);
+					xB = isEven ? (xMax + bulge) : (-xMax - bulge);
+
+					float sCurve = 0.5f * (1.f - std::cos((float)M_PI * p));
+					float vertP = (1.f - currentSmooth) * p + currentSmooth * sCurve;
+					yB = yk + dy * vertP;
+				}
+			} else {
+				// Last line + flyback
+				const float flyFrac = 0.08f;
+				const float sweepFracLast = 1.f - flyFrac;
+				if (v < sweepFracLast) {
+					float s = v / sweepFracLast;
+					xB = isEven ? (-xMax + 2.f * xMax * s) : (xMax - 2.f * xMax * s);
+					yB = yk;
+				} else {
+					float p = (v - sweepFracLast) / flyFrac;
 					float startX = -xMax;
 					float startY = -1.f + 1.f / (float)numLines;
 					float endX = isEven ? xMax : -xMax;
 					float endY = yk;
-					rawX = (1.f - p) * endX + p * startX;
-					rawY = (1.f - p) * endY + p * startY;
+					xB = (1.f - p) * endX + p * startX;
+					yB = (1.f - p) * endY + p * startY;
 				}
 			}
+
+			// Seamless blend between Stepped Raster (tilt = 0) and Pure Serpentine (tilt = 1)
+			float rawX = (1.f - currentTilt) * xB + currentTilt * xA;
+			float rawY = (1.f - currentTilt) * yB + currentTilt * yA;
 
 			// ── Phase Rotation (Bipolar ±180°) ──
 			float phaseRad = currentPhaseDeg * (float)(M_PI / 180.0);
