@@ -658,6 +658,17 @@
         "Oscillator",
         "Dual"
       ]
+    },
+    {
+      "slug": "Annette",
+      "name": "Annette",
+      "description": "16-figure acousmatic spatial trajectory generator based on Annette Vande Gorne's Figures d'espace with dual continuous morphological parameters and wide frequency range",
+      "tags": [
+        "Generate",
+        "Visual",
+        "Oscillator",
+        "Dual"
+      ]
     }
   ]
 }

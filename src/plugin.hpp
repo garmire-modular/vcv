@@ -66,3 +66,4 @@ extern Model* modelPanopia;
 extern Model* modelPanopticon;
 extern Model* modelCrissy;
 extern Model* modelZiggy;
+extern Model* modelAnnette;
