@@ -54,7 +54,7 @@ static const ModelMeta METADATA[NUM_MODELS] = {
 	{ "Aizawa Attractor",             0.020f, 0, 1, 2, 0.45f },
 	{ "Chen Attractor",               0.010f, 0, 2, 1, 0.20f },
 	{ "Halvorsen Attractor",          0.015f, 0, 1, 2, 0.30f },
-	{ "Liu-Chen Attractor",           0.010f, 0, 2, 1, 1.00f },
+	{ "Lu Chen Attractor",            0.010f, 0, 2, 1, 1.00f },
 	{ "Nosé-Hoover Attractor",        0.030f, 0, 1, 2, 1.00f },
 	{ "Sprott Attractor",             0.030f, 0, 1, 2, 1.00f },
 	{ "Four-Wing Attractor",          0.040f, 0, 1, 2, 1.00f },

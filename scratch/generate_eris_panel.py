@@ -95,10 +95,10 @@ def main():
             title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
         curr_x += w
 
-    # Version tag "v1.0.0"
+    # Version tag "v1.0.1"
     version_block = [
-        '  <!-- Label: "v1.0.0" -->',
-        render_qs_text(qs_reg_font, "v1.0.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v1.0.0")
+        '  <!-- Label: "v1.0.1" -->',
+        render_qs_text(qs_reg_font, "v1.0.1", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v1.0.1")
     ]
 
     svg_parts = [
@@ -132,9 +132,9 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "MODEL", col_x[3], 14.500, 0.002800, "#1c1c1c", "MODEL Knob Label"))
 
     # Row 2 Knobs & Controls (Center Y = 37.00, label baseline Y = 31.500)
-    # Col 0: COMPLEX, Col 1: SEED, Col 2: RESEED (button), Col 3: RATE
+    # Col 0: COMPLEX, Col 1: ORBIT, Col 2: RESEED (button), Col 3: RATE
     svg_parts.append(render_qs_text(qs_font, "COMPLEX", col_x[0], 31.500, 0.002300, "#1c1c1c", "COMPLEX Knob Label"))
-    svg_parts.append(render_qs_text(qs_font, "SEED", col_x[1], 31.500, 0.002500, "#1c1c1c", "SEED Knob Label"))
+    svg_parts.append(render_qs_text(qs_font, "ORBIT", col_x[1], 31.500, 0.002500, "#1c1c1c", "ORBIT Knob Label"))
     svg_parts.append(render_qs_text(qs_font, "RESEED", col_x[2], 31.500, 0.002300, "#1c1c1c", "RESEED Button Label"))
     svg_parts.append(render_qs_text(qs_font, "RATE", col_x[3], 31.500, 0.002500, "#1c1c1c", "RATE Knob Label"))
 
@@ -144,9 +144,9 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "FM", col_x[1], 62.000, 0.001900, "#2c2c2c", "FM CV Trim Label"))
     svg_parts.append(render_qs_text(qs_font, "MODEL", col_x[2], 62.000, 0.001900, "#2c2c2c", "MODEL CV Trim Label"))
 
-    # Row 2 Trimpots: COMPLEX, SEED, RATE (Center Y = 77.00, label baseline Y = 73.000)
+    # Row 2 Trimpots: COMPLEX, ORBIT, RATE (Center Y = 77.00, label baseline Y = 73.000)
     svg_parts.append(render_qs_text(qs_font, "COMPLEX", col_x[0], 73.000, 0.001800, "#2c2c2c", "COMPLEX CV Trim Label"))
-    svg_parts.append(render_qs_text(qs_font, "SEED", col_x[1], 73.000, 0.001900, "#2c2c2c", "SEED CV Trim Label"))
+    svg_parts.append(render_qs_text(qs_font, "ORBIT", col_x[1], 73.000, 0.001900, "#2c2c2c", "ORBIT CV Trim Label"))
     svg_parts.append(render_qs_text(qs_font, "RATE", col_x[2], 73.000, 0.001900, "#2c2c2c", "RATE CV Trim Label"))
 
     # Zone 4: I/O Jacks
@@ -156,8 +156,8 @@ def main():
     svg_parts.append(render_qs_text(qs_font, "MODEL", col_x[2], 87.000, 0.002300, "#2c2c2c", "MODEL Jack Label"))
     svg_parts.append(render_qs_text(qs_font, "COMPLEX", col_x[3], 87.000, 0.002000, "#2c2c2c", "COMPLEX Jack Label"))
 
-    # Jack Row 2 (Inputs): SEED, RESEED, RATE, SYNC (Center Y = 106.50, label baseline Y = 100.500)
-    svg_parts.append(render_qs_text(qs_font, "SEED", col_x[0], 100.500, 0.002300, "#2c2c2c", "SEED Jack Label"))
+    # Jack Row 2 (Inputs): ORBIT, RESEED, RATE, SYNC (Center Y = 106.50, label baseline Y = 100.500)
+    svg_parts.append(render_qs_text(qs_font, "ORBIT", col_x[0], 100.500, 0.002300, "#2c2c2c", "ORBIT Jack Label"))
     svg_parts.append(render_qs_text(qs_font, "RESEED", col_x[1], 100.500, 0.002000, "#2c2c2c", "RESEED Jack Label"))
     svg_parts.append(render_qs_text(qs_font, "RATE", col_x[2], 100.500, 0.002300, "#2c2c2c", "RATE Jack Label"))
     svg_parts.append(render_qs_text(qs_font, "SYNC", col_x[3], 100.500, 0.002300, "#2c2c2c", "SYNC In Jack Label"))

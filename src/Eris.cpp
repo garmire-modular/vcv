@@ -9,12 +9,12 @@
 //  Generate class module based on 18 chaotic strange attractors & drift.
 //  Controls:
 //    Row 1: Coarse Freq, 3-state Range (Very Slow / LFO / VCO), Fine Freq, Model
-//    Row 2: Complex, Seed, Reseed trigger button, Reseed Rate knob
+//    Row 2: Complex, Orbit (Bipolar 3D tumble speed), Reseed trigger button, Reseed Rate knob
 //  Attenuverters & Jacks:
 //    Trimpot Row 1: Freq CV, FM CV, Model CV
-//    Trimpot Row 2: Complex CV, Seed CV, Reseed Rate CV
+//    Trimpot Row 2: Complex CV, Orbit CV, Reseed Rate CV
 //    Jack Row 1 (Inputs): Freq CV, FM CV, Model CV, Complex CV
-//    Jack Row 2 (Inputs): Seed CV, Reseed Trig In, Reseed Rate CV, Sync In
+//    Jack Row 2 (Inputs): Orbit CV, Reseed Trig In, Reseed Rate CV, Sync In
 //    Jack Row 3 (Outputs): X, Y, Z (Color blanking/depth VCA CV), Sync Out
 // ─────────────────────────────────────────────────────────────────────
 
@@ -47,7 +47,7 @@ struct Eris : Module {
 
 		// Row 2
 		COMPLEX_PARAM,
-		SEED_PARAM,
+		ORBIT_PARAM,
 		RESEED_BUTTON_PARAM,
 		RATE_PARAM,
 
@@ -57,7 +57,7 @@ struct Eris : Module {
 		MODEL_TRIM_PARAM,
 
 		COMPLEX_TRIM_PARAM,
-		SEED_TRIM_PARAM,
+		ORBIT_TRIM_PARAM,
 		RATE_TRIM_PARAM,
 
 		PARAMS_LEN
@@ -71,7 +71,7 @@ struct Eris : Module {
 		COMPLEX_CV_INPUT,
 
 		// Jack Row 2 (Inputs)
-		SEED_CV_INPUT,
+		ORBIT_CV_INPUT,
 		RESEED_TRIG_INPUT,
 		RATE_CV_INPUT,
 		SYNC_INPUT,
@@ -109,6 +109,11 @@ struct Eris : Module {
 		dsp::SchmittTrigger syncTrigger;
 		dsp::SchmittTrigger extReseedTrigger;
 		dsp::PulseGenerator syncPulse;
+
+		// 3D Orbit Tumbler Angles
+		float thetaX = 0.f;
+		float thetaY = 0.f;
+		float thetaZ = 0.f;
 
 		eris::OrbitBuffer activeOrbit;
 		eris::OrbitBuffer targetOrbit;
@@ -194,6 +199,23 @@ struct Eris : Module {
 		}
 	};
 
+	struct OrbitParamQuantity : ParamQuantity {
+		std::string getDisplayValueString() override {
+			float v = getValue(); // -1.0 to +1.0 Hz
+			if (std::abs(v) < 0.005f) {
+				return "0.00 Hz (halted)";
+			} else if (v > 0.0f) {
+				char buf[32];
+				std::snprintf(buf, sizeof(buf), "+%.2f Hz (CW)", v);
+				return buf;
+			} else {
+				char buf[32];
+				std::snprintf(buf, sizeof(buf), "%.2f Hz (CCW)", v);
+				return buf;
+			}
+		}
+	};
+
 	struct ReseedRateParamQuantity : ParamQuantity {
 		std::string getDisplayValueString() override {
 			float r = getValue();
@@ -222,9 +244,9 @@ struct Eris : Module {
 		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine frequency", "%", 0.f, 10.f);
 		configParam<ModelParamQuantity>(MODEL_PARAM, 0.f, 17.f, 0.f, "Model");
 
-		// Row 2: COMPLEX, SEED, RESEED BUTTON, RESEED RATE
+		// Row 2: COMPLEX, ORBIT, RESEED BUTTON, RESEED RATE
 		configParam(COMPLEX_PARAM, 0.f, 1.f, 0.5f, "Macro complexity", "%", 0.f, 100.f);
-		configParam(SEED_PARAM, 1.f, 1000.f, 100.f, "Random seed");
+		configParam<OrbitParamQuantity>(ORBIT_PARAM, -1.f, 1.f, 0.f, "Orbit speed", " Hz");
 		configButton(RESEED_BUTTON_PARAM, "Manual reseed");
 		configParam<ReseedRateParamQuantity>(RATE_PARAM, -7.f, 7.f, 0.f, "Reseed rate");
 
@@ -234,7 +256,7 @@ struct Eris : Module {
 		configParam(MODEL_TRIM_PARAM, -1.f, 1.f, 0.f, "Model CV depth", "%", 0.f, 100.f);
 
 		configParam(COMPLEX_TRIM_PARAM, -1.f, 1.f, 0.f, "Macro complexity CV depth", "%", 0.f, 100.f);
-		configParam(SEED_TRIM_PARAM, -1.f, 1.f, 0.f, "Random seed CV depth", "%", 0.f, 100.f);
+		configParam(ORBIT_TRIM_PARAM, -1.f, 1.f, 0.f, "Orbit speed CV depth", "%", 0.f, 100.f);
 		configParam(RATE_TRIM_PARAM, -1.f, 1.f, 0.f, "Reseed rate CV depth", "%", 0.f, 100.f);
 
 		// Zone 4: Inputs (Mandatory sentence case, no redundant "input")
@@ -243,7 +265,7 @@ struct Eris : Module {
 		configInput(MODEL_CV_INPUT, "Model CV");
 		configInput(COMPLEX_CV_INPUT, "Macro complexity CV");
 
-		configInput(SEED_CV_INPUT, "Random seed CV");
+		configInput(ORBIT_CV_INPUT, "Orbit CV");
 		configInput(RESEED_TRIG_INPUT, "Reseed trigger");
 		configInput(RATE_CV_INPUT, "Reseed rate CV");
 		configInput(SYNC_INPUT, "Sync");
@@ -255,12 +277,13 @@ struct Eris : Module {
 		configOutput(SYNC_OUTPUT, "Sync");
 	}
 
-	void triggerReseed(VoiceState& vs, int targetModel, int targetSeed, float targetComplexity) {
-		// Advance target seed pseudorandomly
-		vs.currentSeed = ((targetSeed * 1103515245 + 12345) & 0x7fffffff) % 1000 + 1;
+	void triggerReseed(VoiceState& vs, int targetModel, float targetComplexity) {
+		// Mutate seed to branch into a fresh, distinct chaotic path
+		vs.currentSeed = ((vs.currentSeed * 1103515245 + 12345) & 0x7fffffff) % 1000 + 1;
 		eris::generateOrbit(vs.targetOrbit, targetModel, vs.currentSeed, targetComplexity);
 		vs.crossfadeTau = 0.0f;
 		vs.isCrossfading = true;
+		vs.syncPulse.trigger(1e-4f);
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -281,7 +304,7 @@ struct Eris : Module {
 		if (inputs[SYNC_INPUT].isConnected()) channels = std::max(channels, inputs[SYNC_INPUT].getChannels());
 		if (inputs[MODEL_CV_INPUT].isConnected()) channels = std::max(channels, inputs[MODEL_CV_INPUT].getChannels());
 		if (inputs[COMPLEX_CV_INPUT].isConnected()) channels = std::max(channels, inputs[COMPLEX_CV_INPUT].getChannels());
-		if (inputs[SEED_CV_INPUT].isConnected()) channels = std::max(channels, inputs[SEED_CV_INPUT].getChannels());
+		if (inputs[ORBIT_CV_INPUT].isConnected()) channels = std::max(channels, inputs[ORBIT_CV_INPUT].getChannels());
 		if (inputs[RESEED_TRIG_INPUT].isConnected()) channels = std::max(channels, inputs[RESEED_TRIG_INPUT].getChannels());
 		if (inputs[RATE_CV_INPUT].isConnected()) channels = std::max(channels, inputs[RATE_CV_INPUT].getChannels());
 		channels = std::min(channels, 16);
@@ -306,11 +329,13 @@ struct Eris : Module {
 		float complexParam = params[COMPLEX_PARAM].getValue();
 		float complexTrim = params[COMPLEX_TRIM_PARAM].getValue();
 
-		float seedParam = params[SEED_PARAM].getValue();
-		float seedTrim = params[SEED_TRIM_PARAM].getValue();
+		float orbitParam = params[ORBIT_PARAM].getValue();
+		float orbitTrim = params[ORBIT_TRIM_PARAM].getValue();
 
 		float rateParam = params[RATE_PARAM].getValue();
 		float rateTrim = params[RATE_TRIM_PARAM].getValue();
+
+		const float twoPi = 2.0f * (float)M_PI;
 
 		for (int c = 0; c < channels; ++c) {
 			VoiceState& vs = voices[c];
@@ -340,7 +365,7 @@ struct Eris : Module {
 			// Linear FM modulation
 			float fActual;
 			if (!fmConnected) {
-				float carrierSelfMod = std::sin(2.f * (float)M_PI * vs.basePhase);
+				float carrierSelfMod = std::sin(twoPi * vs.basePhase);
 				float deltaF = fCarrier * carrierSelfMod * fmTrim;
 				fActual = std::max(0.0001f, fCarrier + deltaF);
 			} else {
@@ -368,14 +393,8 @@ struct Eris : Module {
 			float cCv = inputs[COMPLEX_CV_INPUT].getPolyVoltage(c) / 5.f;
 			float currentComplexity = clampf(complexParam + cCv * complexTrim, 0.f, 1.f);
 
-			// Seed parameter
-			float sCv = inputs[SEED_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float sVal = clampf(seedParam + sCv * seedTrim * 999.f, 1.f, 1000.f);
-			int targetSeed = (int)std::round(sVal);
-
 			// First-time initialization
 			if (!vs.initialized) {
-				vs.currentSeed = targetSeed;
 				vs.lastModel = currentModel;
 				vs.lastComplexity = currentComplexity;
 				eris::generateOrbit(vs.activeOrbit, currentModel, vs.currentSeed, currentComplexity);
@@ -392,6 +411,22 @@ struct Eris : Module {
 					vs.isCrossfading = true;
 				}
 			}
+
+			// Orbit 3D Tumbling Speed & Polarities:
+			// CW  (> 0): X +, Y -, Z +
+			// CCW (< 0): X -, Y +, Z -
+			// Max 1.0 Hz
+			float orbCv = inputs[ORBIT_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float orbitSpeedHz = clampf(orbitParam + orbCv * orbitTrim, -1.f, 1.f);
+			float omega = orbitSpeedHz * twoPi;
+
+			vs.thetaX += omega * 1.000f * args.sampleTime;
+			vs.thetaY += omega * (-0.618f) * args.sampleTime;
+			vs.thetaZ += omega * 1.414f * args.sampleTime;
+
+			vs.thetaX -= std::floor(vs.thetaX / twoPi) * twoPi;
+			vs.thetaY -= std::floor(vs.thetaY / twoPi) * twoPi;
+			vs.thetaZ -= std::floor(vs.thetaZ / twoPi) * twoPi;
 
 			// Reseed clock & triggers
 			float rCv = inputs[RATE_CV_INPUT].getPolyVoltage(c) / 5.f;
@@ -416,7 +451,7 @@ struct Eris : Module {
 			}
 
 			if (manualReseedPressed || extReseedTrig || clockReseed) {
-				triggerReseed(vs, currentModel, targetSeed, currentComplexity);
+				triggerReseed(vs, currentModel, currentComplexity);
 			}
 
 			// Sample active / target orbits with 5ms equal-power crossfade
@@ -441,12 +476,37 @@ struct Eris : Module {
 				}
 			}
 
+			// 3D Euler Rotation around X, Y, Z:
+			float rz0 = 2.0f * outPt.z - 1.0f; // Centered to [-1, 1]
+
+			// 1. Rotate around X axis by thetaX:
+			float cosX = std::cos(vs.thetaX);
+			float sinX = std::sin(vs.thetaX);
+			float x1 = outPt.x;
+			float y1 = outPt.y * cosX - rz0 * sinX;
+			float z1 = outPt.y * sinX + rz0 * cosX;
+
+			// 2. Rotate around Y axis by thetaY:
+			float cosY = std::cos(vs.thetaY);
+			float sinY = std::sin(vs.thetaY);
+			float x2 = x1 * cosY + z1 * sinY;
+			float y2 = y1;
+			float z2 = -x1 * sinY + z1 * cosY;
+
+			// 3. Rotate around Z axis by thetaZ:
+			float cosZ = std::cos(vs.thetaZ);
+			float sinZ = std::sin(vs.thetaZ);
+			float rotX = x2 * cosZ - y2 * sinZ;
+			float rotY = x2 * sinZ + y2 * cosZ;
+			float rotZ = z2;
+
 			// Output scaling: Eurorack 10Vpp (±5V) for X and Y
-			outputs[X_OUTPUT].setVoltage(clampf(outPt.x * 5.f, -12.f, 12.f), c);
-			outputs[Y_OUTPUT].setVoltage(clampf(outPt.y * 5.f, -12.f, 12.f), c);
+			outputs[X_OUTPUT].setVoltage(clampf(rotX * 5.f, -12.f, 12.f), c);
+			outputs[Y_OUTPUT].setVoltage(clampf(rotY * 5.f, -12.f, 12.f), c);
 
 			// Z Output: 0V to +10V (ideal for 3xVCA / color depth) or ±5V bipolar
-			float zVolts = (zMode == Z_UNIPOLAR_10V) ? (outPt.z * 10.0f) : (outPt.z * 10.0f - 5.0f);
+			float zNorm = eris::clampVal(0.5f + 0.5f * rotZ, 0.0f, 1.0f);
+			float zVolts = (zMode == Z_UNIPOLAR_10V) ? (zNorm * 10.0f) : (rotZ * 5.0f);
 			outputs[Z_OUTPUT].setVoltage(clampf(zVolts, -12.f, 12.f), c);
 
 			// Sync output pulse
@@ -548,9 +608,9 @@ struct ErisWidget : ModuleWidget {
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 20.00f)), module, Eris::FINE_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 20.00f)), module, Eris::MODEL_PARAM));
 
-		// Row 2: COMPLEX, SEED, RESEED BUTTON, RATE (Center Y = 37.00 mm)
+		// Row 2: COMPLEX, ORBIT, RESEED BUTTON, RATE (Center Y = 37.00 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 37.00f)), module, Eris::COMPLEX_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 37.00f)), module, Eris::SEED_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 37.00f)), module, Eris::ORBIT_PARAM));
 		addParam(createParamCentered<ErisCustomButton>(mm2px(Vec(col_x[2], 37.00f)), module, Eris::RESEED_BUTTON_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 37.00f)), module, Eris::RATE_PARAM));
 
@@ -560,9 +620,9 @@ struct ErisWidget : ModuleWidget {
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 66.00f)), module, Eris::FM_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 66.00f)), module, Eris::MODEL_TRIM_PARAM));
 
-		// Row 2: COMPLEX, SEED, RATE (Center Y = 77.00 mm)
+		// Row 2: COMPLEX, ORBIT, RATE (Center Y = 77.00 mm)
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 77.00f)), module, Eris::COMPLEX_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 77.00f)), module, Eris::SEED_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 77.00f)), module, Eris::ORBIT_TRIM_PARAM));
 		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 77.00f)), module, Eris::RATE_TRIM_PARAM));
 
 		// Zone 4: I/O Jacks
@@ -572,8 +632,8 @@ struct ErisWidget : ModuleWidget {
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 93.00f)), module, Eris::MODEL_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 93.00f)), module, Eris::COMPLEX_CV_INPUT));
 
-		// Row 2 (Inputs): SEED, RESEED, RATE, SYNC (Center Y = 106.50 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 106.50f)), module, Eris::SEED_CV_INPUT));
+		// Row 2 (Inputs): ORBIT, RESEED, RATE, SYNC (Center Y = 106.50 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 106.50f)), module, Eris::ORBIT_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 106.50f)), module, Eris::RESEED_TRIG_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 106.50f)), module, Eris::RATE_CV_INPUT));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 106.50f)), module, Eris::SYNC_INPUT));
