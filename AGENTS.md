@@ -23,10 +23,11 @@ Before writing or modifying any code, SVGs, or build configurations, you MUST ou
 - [ ] **Architecture Check:** DSP changes preserve real-time safety (no malloc, free, locks, or file I/O in `process()`).
 - [ ] **Functional Taxonomy:** Module class (Generate, Transform, Utility, or Control) confirmed via user prompt and tagged in `plugin.json`.
 - [ ] **HP Sizing & Crowding Check:** Pre-flight component spacing verified against clearance tolerances; HP increase proposed to user if crowded.
+- [ ] **Custom Hardware Widgets:** ModuleWidget uses custom Garmire widgets (`res/knob.svg`, `res/tinyknob.svg`, `res/3_5mm_jacks.svg`, `res/button_gray_0.svg`).
 - [ ] **No Virtual Screws:** No `ScrewSilver` or `ScrewBlack` widgets added to `ModuleWidget`.
 - [ ] **Version Tracking:** Initial module version starts strictly at `v1.0.0` (independent of the overall plugin suite version `v2.X.X`), with per-module version recorded and autoincremented.
 - [ ] **Panel Edit Method:** Vector modifications target `scratch/generate_<module>_panel.py`, NEVER direct edits to `res/<Module>.svg`.
-- [ ] **Font Handling:** No `<text>` tags used. All typography converted to cubic paths (`C`) via `fontTools` + `pathops`.
+- [ ] **Font Handling:** No `<text>` tags used. D-DIN/Quicksand typography converted to cubic paths (`C`) via `fontTools` + `pathops` per Section 7.5 hierarchy.
 - [ ] **Port & Parameter Tooltips:** Tooltips use strict sentence case; no redundant "input"/"output" words in jack tooltips; attenuverters named `<Parameter> CV depth`.
 - [ ] **Sync Verification:** Mandatory per-module version bumps are synchronously reflected across `plugin.json`, faceplate SVG, and `metamodule/assets/<Module>.png`.
 - [ ] **Build Targets:** Commands to validate both VCV Rack and MetaModule cross-compilation are identified.
@@ -109,94 +110,143 @@ Before generating a panel or writing widget layouts, conduct a pre-flight panel 
 
 ## 7. Panel Layout & UI Design System
 
-This section defines the mandatory, unified panel grid, spatial architecture, component clearance tolerances, and typography hierarchy for all **Garmire** hardware-compatible modules.
+This section defines the mandatory, unified panel grid, spatial architecture, component clearance tolerances, custom hardware widget standards, and typography hierarchy for all **Garmire** hardware-compatible modules.
 
 ---
 
-### 7.1. Standard Footprints & Column Grids
+### 7.1. Horizontal Column Grid & Alignment Rules
 
-- **Height**: Standard Eurorack 3U ($128.50\text{ mm}$ / $240\text{ px}$ MetaModule bitmap). Fill: `#6e6e6e`.
-- **Footprint Tiers**:
-  - **8 HP** ($40.64\text{ mm}$): 2, 3, 4 params. 2 columns: $x = [12.00, 28.64]\text{ mm}$.
-  - **12 HP** ($60.96\text{ mm}$): 5, 6 params. 3 columns: $x = [12.00, 30.48, 48.96]\text{ mm}$.
-  - **14 HP** ($71.12\text{ mm}$): 7, 8 params. 4 columns: $x = [8.56, 26.23, 44.89, 62.56]\text{ mm}$.
-- **Odd-Parameter Rule**: On partial rows, controls right-align; column 0 ($x[0]$) remains empty (e.g. 3-param module places 3rd control in column 1 on row 2).
+- **Panel Height**: Standard Eurorack 3U ($128.50\text{ mm}$ / $240\text{ px}$ MetaModule bitmap). Background fill: `#6e6e6e`.
+- **Panel Width**: $W = \text{HP} \times 5.08\text{ mm}$.
+- **Horizontal Outer Margins**:
+  - For modules with 2 or more columns, the first (leftmost) and last (rightmost) component columns are placed **strictly at $7.00\text{ mm}$ from either panel edge**:
+    - Left column: $x_0 = 7.00\text{ mm}$
+    - Right column: $x_{N-1} = W - 7.00\text{ mm}$
+- **Column Pitch & Offset**:
+  - Preferred horizontal grid pitch / column spacing: **$13.32\text{ mm}$**.
+- **Odd Number of Columns Rule**:
+  - When a control row has an odd number of columns (e.g. 3 or 5), the center component column **MUST always sit exactly at the $50\%$ midline ($X = W / 2.0$)**.
 
 ---
 
 ### 7.2. Vertical Coordinates & Spacing Architecture
 
+All Garmire panels adhere strictly to universal vertical coordinates, anchors, and bottom-up stacking rules:
+
 ```
-+-------------------------------------------------------+ Y = 0.00 mm
-| ZONE 1 & 2: MAIN KNOBS (Top-Down Spacing)             |
-| - Title Baseline: Y = 7.00 mm (Node.otf or D-DIN)     |
-| - Knob Row 1: Center Y = 20.00 mm (Label Y = 14.50 mm)|
-| - Knob Row 2: Center Y = 37.00 mm (Label Y = 31.50 mm)|
-+================ Section Divider 1 ====================+
-| ZONE 3: ATTENUVERTERS (Stacked from Divider 2)        |
-| - Trimpot Row 1: Center Y = 66.00 mm (Label 62.00 mm) |
-| - Trimpot Row 2: Center Y = 77.00 mm (Label 73.00 mm) |
-+================ Section Divider 2 ====================+
-| ZONE 4: I/O JACKS (Bottom-Up from Y = 120.00 mm)       |
-| - Jack Row 1 (CV 1): Center Y = 93.00 mm (Label 87.00)|
-| - Jack Row 2 (CV 2): Center Y = 106.50 mm (Lbl 100.50)|
-| - Jack Row 3 (Outs): Center Y = 120.00 mm (Lbl 114.00)|
-+-------------------------------------------------------+ Y = 128.50 mm
++-------------------------------------------------------------------+ Y = 0.00 mm
+| ZONE 1: HEADER & TITLE                                            |
+| - Module Title: Fixed Y = 8.000 mm (D-DIN-Bold, centered)          |
+| - Version Tag:  Fixed Y = 8.000 mm (Quicksand-Regular, X = W-2.15)|
++-------------------------------------------------------------------+
+| ZONE 2: PRIMARY KNOBS (Top-Down Spacing)                           |
+| - Knob Row 1 Center: Fixed Y = 18.00 mm (Label Y = 12.25 mm)       |
+| - Knob Row 2 Center: Fixed Y = 34.00 mm (Label Y = 28.25 mm)       |
+|   (Universal Knob Pitch: ΔY = 16.00 mm, Label Offset: -5.75 mm)   |
++================ Delineator Line 1 ================================+
+| ZONE 3: CV ATTENUVERTERS (Trimpots)                               |
+| - Trimpot Pitch: ΔY = 11.00 mm                                    |
+| - Trimpot Label Offset: -4.00 mm above trimpot center             |
++================ Delineator Line 2 ================================+
+| ZONE 4: I/O PORTS & JACKS (Bottom-Up from Y = 117.00 mm)          |
+| - Jack Pitch: ΔY = 13.00 mm universal                             |
+| - Jack Label Offset: -5.00 mm above jack center                   |
+| - Bottom Output Jack Row Center: Fixed Y = 117.00 mm               |
++-------------------------------------------------------------------+ Y = 128.50 mm
 ```
 
-#### **Standard Multi-Row Modules (3 to 8 Parameters)**
-All modules with 2 knob rows share identical vertical coordinates:
-- **Knob Row 1**: Center $Y = 20.00\text{ mm}$ (Label baseline $14.50\text{ mm}$, offset $-5.50\text{ mm}$).
-- **Knob Row 2**: Center $Y = 37.00\text{ mm}$ (Label baseline $31.50\text{ mm}$, pitch $\Delta Y = 17.00\text{ mm}$).
-- **Section Divider 1**: Center $Y = 57.00\text{ mm}$ ($5.00\text{ mm}$ above Trimpot Row 1 label).
-- **Trimpot Row 1**: Center $Y = 66.00\text{ mm}$ (Label baseline $62.00\text{ mm}$, offset $-4.00\text{ mm}$).
-- **Trimpot Row 2**: Center $Y = 77.00\text{ mm}$ (Label baseline $73.00\text{ mm}$, pitch $\Delta Y = 11.00\text{ mm}$).
-- **Section Divider 2**: Center $Y = 82.00\text{ mm}$ ($5.00\text{ mm}$ below Trimpot Row 2 center).
-- **Jack Row 1 (CV 1)**: Center $Y = 93.00\text{ mm}$ (Label baseline $87.00\text{ mm}$, $5.00\text{ mm}$ below Divider 2, $-6.00\text{ mm}$ above jack center).
-- **Jack Row 2 (CV 2)**: Center $Y = 106.50\text{ mm}$ (Label baseline $100.50\text{ mm}$, pitch $\Delta Y = 13.50\text{ mm}$).
-- **Jack Row 3 (Outputs)**: Center $Y = 120.00\text{ mm}$ (Label baseline $114.00\text{ mm}$, pitch $\Delta Y = 13.50\text{ mm}$).
-
-#### **Single-Row Modules (2 Parameters)**
-- **Knob Row 1**: Center $Y = 20.00\text{ mm}$ (Label $14.50\text{ mm}$).
-- **Section Divider 1**: Center $Y = 81.50\text{ mm}$ ($5.00\text{ mm}$ above Trimpot label).
-- **Trimpot Row 1**: Center $Y = 90.50\text{ mm}$ (Label $86.50\text{ mm}$).
-- **Section Divider 2**: Center $Y = 95.50\text{ mm}$ ($5.00\text{ mm}$ below Trimpot center).
-- **Jack Row 1 (CV)**: Center $Y = 106.50\text{ mm}$ (Label $100.50\text{ mm}$, $5.00\text{ mm}$ below Divider 2).
-- **Jack Row 2 (Outputs)**: Center $Y = 120.00\text{ mm}$ (Label $114.00\text{ mm}$, pitch $\Delta Y = 13.50\text{ mm}$).
+#### **1. Fixed Vertical Coordinates & Pitches**
+- **Bottom Output Jack Anchor**: Fixed at **$Y = 117.00\text{ mm}$**.
+- **Universal Jack Pitch ($\Delta Y_{\text{jack}}$)**: **$13.00\text{ mm}$** between center positions. Jack rows stack bottom-up:
+  - Row $N$ (Lowest / Outputs): $Y = 117.00\text{ mm}$ (Label baseline $Y = 112.00\text{ mm}$)
+  - Row $N-1$: $Y = 104.00\text{ mm}$ (Label baseline $Y = 99.00\text{ mm}$)
+  - Row $N-2$: $Y = 91.00\text{ mm}$ (Label baseline $Y = 86.00\text{ mm}$)
+- **Jack Label Baseline**: Strictly **$-5.00\text{ mm}$ above jack center**.
+- **Universal Attenuverter Trimpot Pitch ($\Delta Y_{\text{trim}}$)**: **$11.00\text{ mm}$** between center positions.
+- **Trimpot Label Baseline**: Strictly **$-4.00\text{ mm}$ above trimpot center**.
+- **Knob Row 1 Center**: Fixed at **$Y = 18.00\text{ mm}$**.
+- **Universal Knob Vertical Pitch ($\Delta Y_{\text{knob}}$)**: **$16.00\text{ mm}$** universal (Row 1 at $18.00\text{ mm}$, Row 2 at $34.00\text{ mm}$, Row 3 at $50.00\text{ mm}$).
+- **Knob Label Baseline**: Strictly **$-5.75\text{ mm}$ above knob center** (Row 1 label baseline at $Y = 12.250\text{ mm}$).
 
 ---
 
-### 7.3. Universal Relative Clearance & Offsets
+### 7.3. Delineator Lines Specification
 
-- **Dividers**: Stretched to $80-82\%$ panel width, right-aligned. Height $0.30\text{ mm}$ ($0.15\text{ mm}$ highlight `#999999` + $0.15\text{ mm}$ shadow `#505050`).
-- **Divider-to-Control Tolerances**:
-  - Divider 1 $\rightarrow$ Trimpot 1 label: $5.00\text{ mm}$.
-  - Trimpot lowest center $\rightarrow$ Divider 2: $5.00\text{ mm}$.
-  - Divider 2 $\rightarrow$ Jack 1 label: $5.00\text{ mm}$.
-- **Vertical Pitches & Offsets**:
-  - Knobs: $\Delta Y = 17.00\text{ mm}$ (Label baseline $-5.50\text{ mm}$ above center).
-  - Trimpots: $\Delta Y = 11.00\text{ mm}$ (Label baseline $-4.00\text{ mm}$ above center).
-  - Jacks: $\Delta Y = 13.50\text{ mm}$ (Label baseline $-6.00\text{ mm}$ above center).
-- **Bottom Anchor**: Lowest jack row fixed at $Y = 120.00\text{ mm}$ ($4.35\text{ mm}$ hardware lip margin to bottom edge).
+Section delineator lines visually separate Zones 2, 3, and 4:
+- **Vertical Positioning**:
+  - Delineator lines are **always located exactly $10.00\text{ mm}$ above the center position** of the control/jack row immediately below them:
+    - **Delineator Line 2** (separating Attenuverters and Jacks): Center $Y = Y_{\text{jack\_top\_center}} - 10.00\text{ mm}$.
+    - **Delineator Line 1** (separating Knobs and Attenuverters): Center $Y = Y_{\text{trim\_top\_center}} - 10.00\text{ mm}$.
+- **Horizontal Alignment & Span**:
+  - Right-aligned to **$80\%$ of panel width** ($x_{\text{start}} = 0.20 \times W$, $x_{\text{end}} = W$).
+- **Line Height & Structure**:
+  - Total height: **$0.300\text{ mm}$**.
+  - Composed of two stacked lines:
+    - Top highlight line: $0.150\text{ mm}$ height, fill/stroke `#999999`.
+    - Bottom shadow line: $0.150\text{ mm}$ height, fill/stroke `#5e5e5e`.
 
 ---
 
-### 7.4. Typography & Hierarchy
+### 7.4. Custom Hardware Widget SVG Standards
 
-| Typography Role | Font File | Case | Scale Factor | Relative Baseline Offset | Color |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Module Title** | `res/Node.otf` | Lowercase | `0.004800` | Fixed $Y = 7.620\text{ mm}$ | `#ffffff` |
-| **Version Tag** | `res/Quicksand.ttf` | Lowercase | `0.001600` | Fixed $Y = 10.414\text{ mm}$ | `#aaaaaa` |
-| **Channel Headers (Knobs/Jacks)** | `res/Quicksand-Medium.ttf` | Uppercase | `0.003000` | $-8.52\text{ mm}$ above Knob 1 / $-5.50\text{ mm}$ above Jack 1 | `#1c1c1c` |
-| **Parameter Subheaders** | `res/Quicksand-Medium.ttf` | Uppercase | `0.002400` | $-8.50\text{ mm}$ above Knob $N$ | `#1c1c1c` |
-| **Trimpot CV Labels** | `res/Quicksand-Medium.ttf` | Uppercase | `0.002000` | $-4.50\text{ mm}$ above Trimpot Center | `#2c2c2c` |
-| **Jack Function Labels** | `res/Quicksand-Medium.ttf` | Uppercase | `0.002400` | $-1.50\text{ mm}$ above Jack Center | `#2c2c2c` |
+All modules must instantiate Garmire's custom hardware SVG components instead of default VCV Rack widgets:
+
+| Hardware Component | C++ Widget Type | Top SVG Asset (`res/`) | Background SVG Asset (`res/`) |
+| :--- | :--- | :--- | :--- |
+| **Main Knob** | `RoundKnob` | `res/knob.svg` | `res/knob_bg.svg` |
+| **Attenuverter Trimpot** | `RoundKnob` | `res/tinyknob.svg` | `res/tinyknob_bg.svg` |
+| **3.5mm Eurorack Jack** | `app::SvgPort` | `res/3_5mm_jacks.svg` | N/A |
+| **Tactile Momentary Button**| `app::SvgSwitch` | Frame 0: `res/button_gray_0.svg`<br>Frame 1: `res/button_gray_1.svg` | N/A |
+
+*Widget Implementation Example*:
+```cpp
+struct GarmirePort : app::SvgPort {
+    GarmirePort() { setSvg(Svg::load(asset::plugin(pluginInstance, "res/3_5mm_jacks.svg"))); }
+};
+struct GarmireKnob : RoundKnob {
+    GarmireKnob() {
+        setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob.svg")));
+        bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob_bg.svg")));
+    }
+};
+struct GarmireTrimpot : RoundKnob {
+    GarmireTrimpot() {
+        setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob.svg")));
+        bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob_bg.svg")));
+    }
+};
+struct GarmireButton : app::SvgSwitch {
+    GarmireButton() {
+        momentary = true;
+        addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_0.svg")));
+        addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_1.svg")));
+    }
+};
+```
+
+---
+
+### 7.5. Typography Hierarchy & Sizing
+
+| Feature / Label Role | Font File | Size (pt) | Scale Factor (`scale`) | Case | Vertical Anchor / Baseline Offset | Color (Medium Skin) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Module Title** | `res/D-DIN-Bold.otf` | **16 pt** | `0.005644` | UPPERCASE | Fixed $Y = 8.000\text{ mm}$ (horizontally centered) | `#ffffff` |
+| **Version Tag** | `res/Quicksand-Regular.ttf` | **4.5 pt** | `0.001600` | lowercase | Fixed $Y = 8.000\text{ mm}$ (right margin $X = W - 2.15\text{ mm}$) | `#aaaaaa` |
+| **Main Knobs (Zone 1 & 2)** | `res/D-DINCondensed-Bold.otf` | **10 pt** | `0.003528` | UPPERCASE | Offset **$-5.75\text{ mm}$** above knob center | `#222222` |
+| **CV Trimpots (Zone 3)** | `res/D-DINCondensed.otf` | **8 pt** | `0.002822` | UPPERCASE | Offset **$-4.00\text{ mm}$** above trimpot center | `#222222` |
+| **I/O Jacks (Zone 4)** | `res/D-DINCondensed.otf` | **8 pt** | `0.002822` | UPPERCASE | Offset **$-5.00\text{ mm}$** above jack center | `#222222` |
+
+#### **Scale Factor Formula**:
+$$\text{scale} = \frac{\text{size}_{\text{pt}} \times 25.4\text{ mm/in}}{72.0\text{ pt/in} \times \text{UPM}}$$
+For $\text{UPM} = 1000$ (OTF standard):
+- **16 pt**: $\frac{16.0 \times 25.4}{72.0 \times 1000} \approx \mathbf{0.005644}$
+- **10 pt**: $\frac{10.0 \times 25.4}{72.0 \times 1000} \approx \mathbf{0.003528}$
+- **8 pt**: $\frac{8.0 \times 25.4}{72.0 \times 1000} \approx \mathbf{0.002822}$
+- **4.5 pt**: $\frac{4.535 \times 25.4}{72.0 \times 1000} \approx \mathbf{0.001600}$
 
 #### **Mandatory Path Vector Pipeline Rules**:
-1. **No `<text>` Elements**: Raw `<text>` tags are strictly forbidden in SVG faceplates.
-2. **Cubic Bezier Conversion (`QuadToCubicPathPen`)**: TrueType quadratic curves (`Q`) must be converted to explicit cubic Beziers (`C`).
-3. **Skia PathOps Simplification (`pathops.simplify`)**: All glyph contours must be passed through Skia `pathops.simplify()` to resolve winding directions and eliminate self-intersections.
-4. **NanoSVG Number Formatting**: Coordinates must be formatted with `clean_svg_path_numbers()` (1 decimal place rounding `.1f` and space padding around command letters `M C L Z`).
+1. **Zero `<text>` Elements**: Raw `<text>` tags are strictly forbidden in SVG faceplates. All typography must be converted to cubic Beziers (`C`) via `fontTools` and simplified with Skia `pathops.simplify()`.
+2. **NanoSVG Number Formatting**: Coordinates must be formatted with `clean_svg_path_numbers()` (1 decimal place rounding `.1f` and space padding around command letters `M C L Z`).
 
 ---
 
