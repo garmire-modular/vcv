@@ -105,9 +105,9 @@ def main():
         render_text_centered(din_bold, "AION", panel_w / 2.0, 8.000, 0.005644, "#ffffff", "AION")
     ]
 
-    # Version tag "v1.0.1" in Quicksand-Regular (4.5 pt, scale 0.001600, right margin X = W - 2.15 mm = 38.490 mm, baseline 8.000)
+    # Version tag "v1.0.2" in Quicksand-Regular (4.5 pt, scale 0.001600, right margin X = W - 2.15 mm = 38.490 mm, baseline 8.000)
     version_block = [
-        render_text_right(qs_reg_font, "v1.0.1", panel_w - 2.150, 8.000, 0.001600, "#aaaaaa", "v1.0.1")
+        render_text_right(qs_reg_font, "v1.0.2", panel_w - 2.150, 8.000, 0.001600, "#aaaaaa", "v1.0.2")
     ]
 
     svg_parts = [
@@ -120,18 +120,18 @@ def main():
         '    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>',
         '  </g>',
         '',
-        '  <!-- LCD Display Bezel & Frame (Center X = 20.32 mm, Center Y = 16.50 mm, W = 34.00 mm, H = 11.00 mm, moved up 1mm) -->',
+        '  <!-- Time LCD Display Bezel & Frame (Center X = 20.32 mm, Center Y = 16.50 mm, W = 28.00 mm, H = 8.50 mm, slim & refined) -->',
         '  <g id="lcd-frame">',
-        '    <rect x="3.320" y="11.000" width="34.000" height="11.000" rx="1.000" fill="#101412" stroke="#2c3530" stroke-width="0.350"/>',
+        '    <rect x="6.320" y="12.250" width="28.000" height="8.500" rx="0.800" fill="#101412" stroke="#2c3530" stroke-width="0.300"/>',
         '  </g>',
         '',
         '  <!-- Zone 2: Row at Y = 31.00 mm: Start Button (X = 7.00), Countdown LCD (X = 20.32), PWM Knob (X = 33.64) -->',
         render_text_centered(din_cond_bold, "START", col0, 25.250, 0.003528, "#222222", "START Button Label"),
         render_text_centered(din_cond, "REMAIN", col1, 25.250, 0.002822, "#222222", "REMAIN Display Label"),
         render_text_centered(din_cond_bold, "PWM", col2, 25.250, 0.003528, "#222222", "PWM Knob Label"),
-        '  <!-- Countdown LCD Housing (Center X = 20.32 mm, Center Y = 31.00 mm, W = 14.00 mm, H = 8.00 mm) -->',
+        '  <!-- Countdown LCD Housing (Center X = 20.32 mm, Center Y = 31.00 mm, W = 17.00 mm, H = 7.50 mm) -->',
         '  <g id="countdown-frame">',
-        '    <rect x="13.320" y="27.000" width="14.000" height="8.000" rx="0.800" fill="#101412" stroke="#2c3530" stroke-width="0.300"/>',
+        '    <rect x="11.820" y="27.250" width="17.000" height="7.500" rx="0.800" fill="#101412" stroke="#2c3530" stroke-width="0.300"/>',
         '  </g>',
         '',
         render_section_divider(39.00, panel_w),
