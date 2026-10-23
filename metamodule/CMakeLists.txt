@@ -68,6 +68,8 @@ target_sources(Garmire PRIVATE
     ${SOURCE_DIR}/src/Ampara.cpp
     ${SOURCE_DIR}/src/Georgia.cpp
     ${SOURCE_DIR}/src/Aion.cpp
+    ${SOURCE_DIR}/src/Aionidion.cpp
+    ${SOURCE_DIR}/src/Aiona.cpp
 )
 
 # ── Include paths ────────────────────────────────────────────────────

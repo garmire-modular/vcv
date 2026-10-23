@@ -691,6 +691,28 @@
         "Envelope generator",
         "Clock generator"
       ]
+    },
+    {
+      "slug": "Aionidion",
+      "name": "Aionidion",
+      "description": "High-speed event and function generator with seconds and milliseconds display, selectable voltage range, trigger/gate I/O, and 7 continuous synchronous functions",
+      "tags": [
+        "Control",
+        "Function generator",
+        "Envelope generator",
+        "Clock generator"
+      ]
+    },
+    {
+      "slug": "Aiona",
+      "name": "Aiona",
+      "description": "Macro-timescale event and function generator with hours and minutes display, selectable voltage range, trigger/gate I/O, and 7 continuous synchronous functions",
+      "tags": [
+        "Control",
+        "Function generator",
+        "Envelope generator",
+        "Clock generator"
+      ]
     }
   ]
 }
