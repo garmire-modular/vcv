@@ -10,9 +10,10 @@
 //  Aion — Timed Event & Function Generator (8 HP)
 //  Control class module providing precision timed events up to 999m59s
 //  with 7-segment display, stacked minutes/seconds step buttons,
+//  real-time CV display tracking, remaining-seconds countdown LCD,
 //  selectable voltage range, start trigger/gate input, active high/low
-//  gates, trigger & EOC pulses, and 7 continuous synchronous functions
-//  (Ramp Up, Ramp Down, Triangle, Inverted Triangle, Sine, Cosine, PWM).
+//  gates, trigger & EOC pulses, and synchronous continuous functions
+//  (Ramp Up, Ramp Down, Triangle +, Triangle -, Sine +, Sine -, PWM Pulse).
 // ─────────────────────────────────────────────────────────────────────
 
 #ifndef M_PI
@@ -56,34 +57,42 @@ struct Aion : Module {
 	};
 
 	enum OutputId {
-		HIGH_OUTPUT,
-		LOW_OUTPUT,
+		// Row 2
 		TRIG_OUTPUT,
+		PULSE_OUTPUT,
+		// Row 3
+		HIGH_OUTPUT,
+		SIN_PLUS_OUTPUT,
+		TRI_PLUS_OUTPUT,
+		// Row 4
+		LOW_OUTPUT,
+		SIN_MINUS_OUTPUT,
+		TRI_MINUS_OUTPUT,
+		// Row 5
+		RAMP_PLUS_OUTPUT,
+		RAMP_MINUS_OUTPUT,
 		EOC_OUTPUT,
-		PWM_OUTPUT,
-		RAMP_UP_OUTPUT,
-		RAMP_DN_OUTPUT,
-		TRI_OUTPUT,
-		INV_TRI_OUTPUT,
-		SINE_OUTPUT,
-		COSINE_OUTPUT,
 		OUTPUTS_LEN
 	};
 
 	enum LightId {
-		RUN_LIGHT_G,
-		RUN_LIGHT_R,
 		LIGHTS_LEN
 	};
 
-	// ── State Variables ──
+	// ── Base Parameters ──
 	int minutes = 0;       // 0 to 999
 	int seconds = 10;      // 0 to 59 (default 10s)
 	VoltageRange voltageRange = RANGE_UNIPOLAR_10V;
 
+	// ── Dynamic Display Values (Updated with CV modulation) ──
+	int displayMinutes = 0;
+	int displaySeconds = 10;
+	float remainingSeconds = 0.0f;
+
+	// ── DSP State ──
 	bool running = false;
 	float elapsedSec = 0.0f;
-	float currentProgress = 0.0f; // 0.0 to 1.0 (for display)
+	float currentProgress = 0.0f;
 
 	dsp::SchmittTrigger startBtnTrigger;
 	dsp::SchmittTrigger startGateTrigger;
@@ -107,17 +116,17 @@ struct Aion : Module {
 		configInput(START_INPUT, "Start gate");
 
 		// Outputs (Strictly no redundant "output" or "out" per Section 7.5.1)
+		configOutput(TRIG_OUTPUT, "Trigger pulse");
+		configOutput(PULSE_OUTPUT, "Pulse width modulated wave");
 		configOutput(HIGH_OUTPUT, "High gate");
+		configOutput(SIN_PLUS_OUTPUT, "Sine");
+		configOutput(TRI_PLUS_OUTPUT, "Triangle");
 		configOutput(LOW_OUTPUT, "Low gate");
-		configOutput(TRIG_OUTPUT, "Trigger");
+		configOutput(SIN_MINUS_OUTPUT, "Inverted sine");
+		configOutput(TRI_MINUS_OUTPUT, "Inverted triangle");
+		configOutput(RAMP_PLUS_OUTPUT, "Ramp up");
+		configOutput(RAMP_MINUS_OUTPUT, "Ramp down");
 		configOutput(EOC_OUTPUT, "End of cycle gate");
-		configOutput(PWM_OUTPUT, "Pulse width modulated wave");
-		configOutput(RAMP_UP_OUTPUT, "Ramp up");
-		configOutput(RAMP_DN_OUTPUT, "Ramp down");
-		configOutput(TRI_OUTPUT, "Triangle");
-		configOutput(INV_TRI_OUTPUT, "Inverted triangle");
-		configOutput(SINE_OUTPUT, "Sine");
-		configOutput(COSINE_OUTPUT, "Cosine");
 	}
 
 	void getRangeVoltages(float& vMin, float& vMax) const {
@@ -141,7 +150,6 @@ struct Aion : Module {
 	void parseTimeString(const std::string& str) {
 		int m = 0;
 		int s = 0;
-		// Check for formats like "12m34s", "12m 34s", "12m", "34s", "12:34"
 		size_t mPos = str.find_first_of("mM'");
 		size_t sPos = str.find_first_of("sS\"");
 		size_t colonPos = str.find(':');
@@ -163,14 +171,13 @@ struct Aion : Module {
 			s = std::atoi(str.substr(0, sPos).c_str());
 		}
 		else {
-			// Plain number: treat as seconds
 			int totalSec = std::atoi(str.c_str());
 			m = totalSec / 60;
 			s = totalSec % 60;
 		}
 
-		minutes = clampf((float)m, 0.0f, 999.0f);
-		seconds = clampf((float)s, 0.0f, 59.0f);
+		minutes = (int)clampf((float)m, 0.0f, 999.0f);
+		seconds = (int)clampf((float)s, 0.0f, 59.0f);
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -206,6 +213,11 @@ struct Aion : Module {
 
 		float totalDuration = clampf(baseSec + minCvDelta + secCvDelta, 0.001f, 59999.0f);
 
+		// Dynamically update displayed minutes and seconds to reflect CV modulation
+		int effTotalInt = (int)std::round(totalDuration);
+		displayMinutes = clampf((float)(effTotalInt / 60), 0.0f, 999.0f);
+		displaySeconds = clampf((float)(effTotalInt % 60), 0.0f, 59.0f);
+
 		// 3. Update Progress & Timing
 		float phase = 0.0f;
 		if (running) {
@@ -214,11 +226,16 @@ struct Aion : Module {
 				phase = 1.0f;
 				running = false;
 				elapsedSec = 0.0f;
+				remainingSeconds = 0.0f;
 				eocPulse.trigger(0.001f); // 1 ms EOC pulse
 			}
 			else {
 				phase = elapsedSec / totalDuration;
+				remainingSeconds = std::max(0.0f, totalDuration - elapsedSec);
 			}
+		}
+		else {
+			remainingSeconds = 0.0f;
 		}
 		currentProgress = phase;
 
@@ -244,48 +261,38 @@ struct Aion : Module {
 		}
 		float uInvTri = running ? (1.0f - uTri) : 0.0f;
 
-		// Output 1 & 2: Gates
-		outputs[HIGH_OUTPUT].setVoltage(running ? vMax : 0.0f);
-		outputs[LOW_OUTPUT].setVoltage(running ? vMin : vMax);
-
-		// Output 3 & 4: Pulses
+		// Row 2: TRIG & PULSE
 		bool trigActive = startPulse.process(args.sampleTime);
-		bool eocActive = eocPulse.process(args.sampleTime);
 		outputs[TRIG_OUTPUT].setVoltage(trigActive ? vMax : 0.0f);
-		outputs[EOC_OUTPUT].setVoltage(eocActive ? vMax : 0.0f);
-
-		// Output 5: PWM
 		bool pwmHigh = running && (phase < pw);
-		outputs[PWM_OUTPUT].setVoltage(pwmHigh ? vMax : vMin);
+		outputs[PULSE_OUTPUT].setVoltage(pwmHigh ? vMax : vMin);
 
-		// Output 6: Ramp Up
-		outputs[RAMP_UP_OUTPUT].setVoltage(vMin + uRampUp * vSpan);
+		// Row 3: HIGH, SIN+, TRI+
+		outputs[HIGH_OUTPUT].setVoltage(running ? vMax : 0.0f);
 
-		// Output 7: Ramp Down
-		outputs[RAMP_DN_OUTPUT].setVoltage(vMin + uRampDn * vSpan);
-
-		// Output 8: Triangle
-		outputs[TRI_OUTPUT].setVoltage(vMin + uTri * vSpan);
-
-		// Output 9: Inverted Triangle
-		outputs[INV_TRI_OUTPUT].setVoltage(vMin + uInvTri * vSpan);
-
-		// Output 10 & 11: Sine & Cosine
 		float sinVal = running ? std::sin(2.0f * (float)M_PI * phase) : 0.0f;
-		float cosVal = running ? std::cos(2.0f * (float)M_PI * phase) : 0.0f;
+		float invSinVal = -sinVal;
 
 		if (isBipolar()) {
-			outputs[SINE_OUTPUT].setVoltage(vMax * sinVal);
-			outputs[COSINE_OUTPUT].setVoltage(vMax * cosVal);
+			outputs[SIN_PLUS_OUTPUT].setVoltage(vMax * sinVal);
+			outputs[SIN_MINUS_OUTPUT].setVoltage(vMax * invSinVal);
 		}
 		else {
-			outputs[SINE_OUTPUT].setVoltage(vMin + 0.5f * (1.0f + sinVal) * vSpan);
-			outputs[COSINE_OUTPUT].setVoltage(vMin + 0.5f * (1.0f + cosVal) * vSpan);
+			outputs[SIN_PLUS_OUTPUT].setVoltage(vMin + 0.5f * (1.0f + sinVal) * vSpan);
+			outputs[SIN_MINUS_OUTPUT].setVoltage(vMin + 0.5f * (1.0f + invSinVal) * vSpan);
 		}
 
-		// 6. Running Status LED (Green when running, dim when idle)
-		lights[RUN_LIGHT_G].setBrightness(running ? 1.0f : 0.0f);
-		lights[RUN_LIGHT_R].setBrightness(0.0f);
+		outputs[TRI_PLUS_OUTPUT].setVoltage(vMin + uTri * vSpan);
+
+		// Row 4: LOW, SIN-, TRI-
+		outputs[LOW_OUTPUT].setVoltage(running ? vMin : vMax);
+		outputs[TRI_MINUS_OUTPUT].setVoltage(vMin + uInvTri * vSpan);
+
+		// Row 5: RAMP+, RAMP-, EOC
+		outputs[RAMP_PLUS_OUTPUT].setVoltage(vMin + uRampUp * vSpan);
+		outputs[RAMP_MINUS_OUTPUT].setVoltage(vMin + uRampDn * vSpan);
+		bool eocActive = eocPulse.process(args.sampleTime);
+		outputs[EOC_OUTPUT].setVoltage(eocActive ? vMax : 0.0f);
 	}
 
 	json_t* dataToJson() override {
@@ -365,6 +372,10 @@ struct AionTimeTextField : ui::TextField {
 			if (module) {
 				module->parseTimeString(getText());
 			}
+			ui::MenuOverlay* overlay = getAncestorOfType<ui::MenuOverlay>();
+			if (overlay) {
+				overlay->requestDelete();
+			}
 			e.consume(this);
 			return;
 		}
@@ -372,18 +383,42 @@ struct AionTimeTextField : ui::TextField {
 	}
 };
 
+// Helper function to build the Aion context menu items
+static void appendAionMenuItems(ui::Menu* menu, Aion* module) {
+	if (!module) return;
+
+	menu->addChild(createMenuLabel("Set Event Time"));
+	AionTimeTextField* textField = new AionTimeTextField(module);
+	menu->addChild(textField);
+	if (APP && APP->event) {
+		APP->event->setSelectedWidget(textField);
+	}
+
+	menu->addChild(new MenuSeparator());
+	menu->addChild(createMenuLabel("Voltage Range"));
+
+	const char* rangeLabels[] = {
+		"+/-1V (-1V to +1V)",
+		"0-1V (0V to +1V)",
+		"+/-5V (-5V to +5V)",
+		"0-5V (0V to +5V)",
+		"+/-10V (-10V to +10V)",
+		"0-10V (0V to +10V)"
+	};
+
+	for (int i = 0; i < Aion::NUM_RANGES; i++) {
+		Aion::VoltageRange mode = (Aion::VoltageRange)i;
+		menu->addChild(createCheckMenuItem(rangeLabels[i], "",
+			[=]() { return module ? module->voltageRange == mode : false; },
+			[=]() { if (module) module->voltageRange = mode; }
+		));
+	}
+}
+
 // ── 7-Segment LCD Display Widget ──
 struct AionDisplayWidget : OpaqueWidget {
 	Aion* module = nullptr;
 
-	// Segment map for digits 0-9: segments a,b,c,d,e,f,g (bit 0 to bit 6)
-	// a: bit 0 (top)
-	// b: bit 1 (top right)
-	// c: bit 2 (bottom right)
-	// d: bit 3 (bottom)
-	// e: bit 4 (bottom left)
-	// f: bit 5 (top left)
-	// g: bit 6 (middle)
 	const uint8_t segmentTable[10] = {
 		0b00111111, // 0: a b c d e f
 		0b00000110, // 1: b c
@@ -412,9 +447,9 @@ struct AionDisplayWidget : OpaqueWidget {
 		if (digit < 0 || digit > 9) digit = 0;
 		uint8_t mask = segmentTable[digit];
 
-		float dw = 6.2f;   // digit width
-		float dh = 15.0f;  // digit height
-		float st = 1.35f;  // segment thickness
+		float dw = 6.2f;
+		float dh = 15.0f;
+		float st = 1.35f;
 		float halfH = dh * 0.5f;
 
 		// a: top horizontal
@@ -468,16 +503,15 @@ struct AionDisplayWidget : OpaqueWidget {
 		nvgStrokeWidth(args.vg, 1.0f);
 		nvgStroke(args.vg);
 
-		// Colors
-		NVGcolor onColor = nvgRGBA(0x38, 0xf8, 0x70, 0xff);  // High contrast vibrant LCD green
-		NVGcolor offColor = nvgRGBA(0x15, 0x27, 0x1a, 0x55); // Dim unlit segment mesh
-		NVGcolor btnColor = nvgRGBA(0x72, 0x8a, 0x7a, 0xff); // Stacked arrow buttons
+		NVGcolor onColor = nvgRGBA(0x38, 0xf8, 0x70, 0xff);
+		NVGcolor offColor = nvgRGBA(0x15, 0x27, 0x1a, 0x55);
+		NVGcolor btnColor = nvgRGBA(0x72, 0x8a, 0x7a, 0xff);
 
-		int mVal = module ? module->minutes : 0;
-		int sVal = module ? module->seconds : 10;
+		// Read dynamically modulated display minutes & seconds
+		int mVal = module ? module->displayMinutes : 0;
+		int sVal = module ? module->displaySeconds : 10;
 
 		// 2. Left Stacked Arrows (Minutes Up / Down)
-		// Up arrow center at (11.0, h * 0.30), Down arrow at (11.0, h * 0.70)
 		drawArrow(args.vg, 10.0f, h * 0.28f, true, btnColor);
 		drawArrow(args.vg, 10.0f, h * 0.72f, false, btnColor);
 
@@ -486,7 +520,6 @@ struct AionDisplayWidget : OpaqueWidget {
 		drawArrow(args.vg, w - 10.0f, h * 0.72f, false, btnColor);
 
 		// 4. Center 7-Segment Digits: 3 Minutes + ' + 2 Seconds + "
-		// Compute individual digits
 		int m100 = (mVal / 100) % 10;
 		int m10 = (mVal / 10) % 10;
 		int m1 = mVal % 10;
@@ -536,6 +569,15 @@ struct AionDisplayWidget : OpaqueWidget {
 			return;
 		}
 
+		// Right click on display: open time entry context menu
+		if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_RIGHT) {
+			ui::Menu* menu = createMenu();
+			appendAionMenuItems(menu, module);
+			e.consume(this);
+			return;
+		}
+
+		// Left click on display: check stacked arrow buttons
 		if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT) {
 			float x = e.pos.x;
 			float y = e.pos.y;
@@ -572,61 +614,179 @@ struct AionDisplayWidget : OpaqueWidget {
 	}
 };
 
+// ── Smaller Countdown LCD Display Widget ──
+struct AionCountdownWidget : OpaqueWidget {
+	Aion* module = nullptr;
+
+	const uint8_t segmentTable[10] = {
+		0b00111111, // 0
+		0b00000110, // 1
+		0b01011011, // 2
+		0b01001111, // 3
+		0b01100110, // 4
+		0b01101101, // 5
+		0b01111101, // 6
+		0b00000111, // 7
+		0b01111111, // 8
+		0b01101111  // 9
+	};
+
+	AionCountdownWidget() {
+		box.size = mm2px(Vec(14.0f, 8.0f));
+	}
+
+	void drawSegment(NVGcontext* vg, float x, float y, float w, float h, bool on, NVGcolor onCol, NVGcolor offCol) {
+		nvgBeginPath(vg);
+		nvgRoundedRect(vg, x, y, w, h, 0.3f);
+		nvgFillColor(vg, on ? onCol : offCol);
+		nvgFill(vg);
+	}
+
+	void drawMiniDigit(NVGcontext* vg, float dx, float dy, int digit, NVGcolor onCol, NVGcolor offCol) {
+		if (digit < 0 || digit > 9) digit = 0;
+		uint8_t mask = segmentTable[digit];
+
+		float dw = 4.2f;
+		float dh = 10.0f;
+		float st = 1.0f;
+		float halfH = dh * 0.5f;
+
+		// a
+		drawSegment(vg, dx + st * 0.7f, dy, dw - st * 1.4f, st, (mask & 0x01), onCol, offCol);
+		// b
+		drawSegment(vg, dx + dw - st, dy + st * 0.7f, st, halfH - st * 0.9f, (mask & 0x02), onCol, offCol);
+		// c
+		drawSegment(vg, dx + dw - st, dy + halfH + st * 0.2f, st, halfH - st * 0.9f, (mask & 0x04), onCol, offCol);
+		// d
+		drawSegment(vg, dx + st * 0.7f, dy + dh - st, dw - st * 1.4f, st, (mask & 0x08), onCol, offCol);
+		// e
+		drawSegment(vg, dx, dy + halfH + st * 0.2f, st, halfH - st * 0.9f, (mask & 0x10), onCol, offCol);
+		// f
+		drawSegment(vg, dx, dy + st * 0.7f, st, halfH - st * 0.9f, (mask & 0x20), onCol, offCol);
+		// g
+		drawSegment(vg, dx + st * 0.7f, dy + halfH - st * 0.5f, dw - st * 1.4f, st, (mask & 0x40), onCol, offCol);
+	}
+
+	void draw(const DrawArgs& args) override {
+		nvgSave(args.vg);
+
+		float w = box.size.x;
+		float h = box.size.y;
+
+		// LCD screen housing
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.0f, 0.0f, w, h, 2.0f);
+		nvgFillColor(args.vg, nvgRGBA(0x10, 0x14, 0x12, 0xff));
+		nvgFill(args.vg);
+
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.5f, 0.5f, w - 1.0f, h - 1.0f, 1.5f);
+		nvgStrokeColor(args.vg, nvgRGBA(0x2c, 0x35, 0x30, 0xff));
+		nvgStrokeWidth(args.vg, 0.8f);
+		nvgStroke(args.vg);
+
+		// Countdown digits
+		bool isRun = module ? module->running : false;
+		float remSec = module ? module->remainingSeconds : 0.0f;
+		int secInt = isRun ? (int)std::ceil(remSec) : 0;
+
+		NVGcolor onColor = isRun ? nvgRGBA(0xff, 0xb8, 0x33, 0xff) : nvgRGBA(0x60, 0x50, 0x20, 0x60); // Warm amber
+		NVGcolor offColor = nvgRGBA(0x25, 0x1e, 0x10, 0x40);
+
+		// Format integer seconds into up to 5 digits (right-aligned)
+		char buf[16];
+		std::snprintf(buf, sizeof(buf), "%5d", secInt);
+
+		float digitPitch = 5.8f;
+		float startX = (w - (5 * digitPitch - 1.6f)) * 0.5f;
+		float digitY = (h - 10.0f) * 0.5f;
+
+		for (int i = 0; i < 5; i++) {
+			char c = buf[i];
+			float dx = startX + i * digitPitch;
+			if (c >= '0' && c <= '9') {
+				drawMiniDigit(args.vg, dx, digitY, c - '0', onColor, offColor);
+			}
+			else {
+				// Blank space: draw off segments
+				drawMiniDigit(args.vg, dx, digitY, 8, offColor, offColor);
+			}
+		}
+
+		nvgRestore(args.vg);
+	}
+
+	void onButton(const ButtonEvent& e) override {
+		if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_RIGHT) {
+			ui::Menu* menu = createMenu();
+			appendAionMenuItems(menu, module);
+			e.consume(this);
+			return;
+		}
+		OpaqueWidget::onButton(e);
+	}
+};
+
 // ── Module Widget ──
 struct AionWidget : ModuleWidget {
 	AionWidget(Aion* module) {
 		setModule(module);
 		setPanel(Svg::load(asset::plugin(pluginInstance, "res/Aion.svg")));
 
-		// Strict Ban on Virtual Screws (AGENTS.md Section 7.5.6) - ZERO screws added
+		// Zero virtual screws added (AGENTS.md Section 7.5.6)
 
-		// Column coordinates per Section 7.1
 		float col0 = 7.000f;
 		float col1 = 20.320f;
 		float col2 = 33.640f;
 
-		// ── Zone 2: LCD Display & Primary Controls ──
-		// 7-Segment LCD Display (Center X = 20.32 mm, Center Y = 17.50 mm, W = 34.00 mm, H = 11.00 mm)
+		// ── Zone 2: LCD Display & Controls ──
+		// Main 7-Segment LCD Display (Center X = 20.32 mm, Center Y = 16.50 mm [moved up 1mm], W = 34.00 mm, H = 11.00 mm)
 		AionDisplayWidget* display = new AionDisplayWidget();
 		display->module = module;
-		display->box.pos = mm2px(Vec(col1 - 17.0f, 17.50f - 5.5f));
+		display->box.pos = mm2px(Vec(col1 - 17.0f, 11.00f));
 		addChild(display);
 
-		// Row at Y = 32.00 mm: Start Button, Run Indicator LED, PWM Knob
-		addParam(createParamCentered<GarmireButton>(mm2px(Vec(col0, 32.00f)), module, Aion::START_PARAM));
-		addChild(createLightCentered<MediumLight<GreenRedLight>>(mm2px(Vec(col1, 32.00f)), module, Aion::RUN_LIGHT_G));
-		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(col2, 32.00f)), module, Aion::PWM_PARAM));
+		// Row at Y = 31.00 mm: Start Button (X = 7.00), Countdown LCD (X = 20.32), PWM Knob (X = 33.64)
+		addParam(createParamCentered<GarmireButton>(mm2px(Vec(col0, 31.00f)), module, Aion::START_PARAM));
+
+		// Countdown LCD Display (Center X = 20.32 mm, Center Y = 31.00 mm, W = 14.00 mm, H = 8.00 mm)
+		AionCountdownWidget* countdown = new AionCountdownWidget();
+		countdown->module = module;
+		countdown->box.pos = mm2px(Vec(col1 - 7.0f, 27.00f));
+		addChild(countdown);
+
+		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(col2, 31.00f)), module, Aion::PWM_PARAM));
 
 		// ── Zone 3: CV Attenuverters (Center Y = 49.00 mm) ──
 		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col0, 49.00f)), module, Aion::MIN_ATTEN_PARAM));
 		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col1, 49.00f)), module, Aion::SEC_ATTEN_PARAM));
 		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col2, 49.00f)), module, Aion::PWM_ATTEN_PARAM));
 
-		// ── Zone 4: I/O Jacks (5 Rows from Y = 65.00 mm to Y = 117.00 mm) ──
-		// Jack Row 1 (Center Y = 65.00 mm): MIN CV, SEC CV, PWM CV
+		// ── Zone 4: I/O Jacks (Exact User Order: 5 Rows x 3 Columns) ──
+		// Row 1 (Center Y = 65.00 mm): MIN, SEC, PWM
 		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col0, 65.00f)), module, Aion::MIN_CV_INPUT));
 		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col1, 65.00f)), module, Aion::SEC_CV_INPUT));
 		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col2, 65.00f)), module, Aion::PWM_CV_INPUT));
 
-		// Jack Row 2 (Center Y = 78.00 mm): START Gate, HIGH Gate, LOW Gate
+		// Row 2 (Center Y = 78.00 mm): START, TRIG, PULSE
 		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col0, 78.00f)), module, Aion::START_INPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col1, 78.00f)), module, Aion::HIGH_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col2, 78.00f)), module, Aion::LOW_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col1, 78.00f)), module, Aion::TRIG_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col2, 78.00f)), module, Aion::PULSE_OUTPUT));
 
-		// Jack Row 3 (Center Y = 91.00 mm): TRIG, EOC, PWM
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col0, 91.00f)), module, Aion::TRIG_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col1, 91.00f)), module, Aion::EOC_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col2, 91.00f)), module, Aion::PWM_OUTPUT));
+		// Row 3 (Center Y = 91.00 mm): HIGH, SIN+, TRI+
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col0, 91.00f)), module, Aion::HIGH_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col1, 91.00f)), module, Aion::SIN_PLUS_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col2, 91.00f)), module, Aion::TRI_PLUS_OUTPUT));
 
-		// Jack Row 4 (Center Y = 104.00 mm): RAMP +, RAMP -, TRI
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col0, 104.00f)), module, Aion::RAMP_UP_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col1, 104.00f)), module, Aion::RAMP_DN_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col2, 104.00f)), module, Aion::TRI_OUTPUT));
+		// Row 4 (Center Y = 104.00 mm): LOW, SIN-, TRI-
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col0, 104.00f)), module, Aion::LOW_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col1, 104.00f)), module, Aion::SIN_MINUS_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col2, 104.00f)), module, Aion::TRI_MINUS_OUTPUT));
 
-		// Jack Row 5 (Center Y = 117.00 mm): INV, SIN, COS
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col0, 117.00f)), module, Aion::INV_TRI_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col1, 117.00f)), module, Aion::SINE_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col2, 117.00f)), module, Aion::COSINE_OUTPUT));
+		// Row 5 (Center Y = 117.00 mm): RAMP+, RAMP-, EOC
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col0, 117.00f)), module, Aion::RAMP_PLUS_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col1, 117.00f)), module, Aion::RAMP_MINUS_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col2, 117.00f)), module, Aion::EOC_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
@@ -634,30 +794,7 @@ struct AionWidget : ModuleWidget {
 		if (!module) return;
 
 		menu->addChild(new MenuSeparator());
-		menu->addChild(createMenuLabel("Set Event Time"));
-
-		AionTimeTextField* textField = new AionTimeTextField(module);
-		menu->addChild(textField);
-
-		menu->addChild(new MenuSeparator());
-		menu->addChild(createMenuLabel("Voltage Range"));
-
-		const char* rangeLabels[] = {
-			"+/-1V (-1V to +1V)",
-			"0-1V (0V to +1V)",
-			"+/-5V (-5V to +5V)",
-			"0-5V (0V to +5V)",
-			"+/-10V (-10V to +10V)",
-			"0-10V (0V to +10V)"
-		};
-
-		for (int i = 0; i < Aion::NUM_RANGES; i++) {
-			Aion::VoltageRange mode = (Aion::VoltageRange)i;
-			menu->addChild(createCheckMenuItem(rangeLabels[i], "",
-				[=]() { return module->voltageRange == mode; },
-				[=]() { module->voltageRange = mode; }
-			));
-		}
+		appendAionMenuItems(menu, module);
 	}
 };
 

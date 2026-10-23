@@ -105,9 +105,9 @@ def main():
         render_text_centered(din_bold, "AION", panel_w / 2.0, 8.000, 0.005644, "#ffffff", "AION")
     ]
 
-    # Version tag "v1.0.0" in Quicksand-Regular (4.5 pt, scale 0.001600, right margin X = W - 2.15 mm = 38.490 mm, baseline 8.000)
+    # Version tag "v1.0.1" in Quicksand-Regular (4.5 pt, scale 0.001600, right margin X = W - 2.15 mm = 38.490 mm, baseline 8.000)
     version_block = [
-        render_text_right(qs_reg_font, "v1.0.0", panel_w - 2.150, 8.000, 0.001600, "#aaaaaa", "v1.0.0")
+        render_text_right(qs_reg_font, "v1.0.1", panel_w - 2.150, 8.000, 0.001600, "#aaaaaa", "v1.0.1")
     ]
 
     svg_parts = [
@@ -120,15 +120,19 @@ def main():
         '    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>',
         '  </g>',
         '',
-        '  <!-- LCD Display Bezel & Frame (Center X = 20.32 mm, Center Y = 17.50 mm, W = 34.00 mm, H = 11.00 mm) -->',
+        '  <!-- LCD Display Bezel & Frame (Center X = 20.32 mm, Center Y = 16.50 mm, W = 34.00 mm, H = 11.00 mm, moved up 1mm) -->',
         '  <g id="lcd-frame">',
-        '    <rect x="3.320" y="12.000" width="34.000" height="11.000" rx="1.000" fill="#101412" stroke="#2c3530" stroke-width="0.350"/>',
+        '    <rect x="3.320" y="11.000" width="34.000" height="11.000" rx="1.000" fill="#101412" stroke="#2c3530" stroke-width="0.350"/>',
         '  </g>',
         '',
-        '  <!-- Zone 2: Row at Y = 32.00 mm: Start Button (X = 7.00), Run Indicator (X = 20.32), PWM Knob (X = 33.64) -->',
-        render_text_centered(din_cond_bold, "START", col0, 32.000 - 5.750, 0.003528, "#222222", "START Button Label"),
-        render_text_centered(din_cond_bold, "RUN", col1, 32.000 - 5.750, 0.003528, "#222222", "RUN Indicator Label"),
-        render_text_centered(din_cond_bold, "PWM", col2, 32.000 - 5.750, 0.003528, "#222222", "PWM Knob Label"),
+        '  <!-- Zone 2: Row at Y = 31.00 mm: Start Button (X = 7.00), Countdown LCD (X = 20.32), PWM Knob (X = 33.64) -->',
+        render_text_centered(din_cond_bold, "START", col0, 25.250, 0.003528, "#222222", "START Button Label"),
+        render_text_centered(din_cond, "REMAIN", col1, 25.250, 0.002822, "#222222", "REMAIN Display Label"),
+        render_text_centered(din_cond_bold, "PWM", col2, 25.250, 0.003528, "#222222", "PWM Knob Label"),
+        '  <!-- Countdown LCD Housing (Center X = 20.32 mm, Center Y = 31.00 mm, W = 14.00 mm, H = 8.00 mm) -->',
+        '  <g id="countdown-frame">',
+        '    <rect x="13.320" y="27.000" width="14.000" height="8.000" rx="0.800" fill="#101412" stroke="#2c3530" stroke-width="0.300"/>',
+        '  </g>',
         '',
         render_section_divider(39.00, panel_w),
         '',
@@ -140,30 +144,30 @@ def main():
         render_section_divider(55.00, panel_w),
         '',
         '  <!-- Zone 4: I/O Jacks (5 Rows, Bottom Anchor Y = 117.00 mm, Pitch = 13.00 mm) -->',
-        '  <!-- Jack Row 1 (Center Y = 65.00 mm, Label Baseline = 60.00 mm) -->',
+        '  <!-- Jack Row 1 (Center Y = 65.00 mm, Label Baseline = 60.00 mm): MIN, SEC, PWM -->',
         render_text_centered(din_cond, "MIN", col0, 60.000, 0.002822, "#222222", "MIN CV Jack Label"),
         render_text_centered(din_cond, "SEC", col1, 60.000, 0.002822, "#222222", "SEC CV Jack Label"),
         render_text_centered(din_cond, "PWM", col2, 60.000, 0.002822, "#222222", "PWM CV Jack Label"),
         '',
-        '  <!-- Jack Row 2 (Center Y = 78.00 mm, Label Baseline = 73.00 mm) -->',
+        '  <!-- Jack Row 2 (Center Y = 78.00 mm, Label Baseline = 73.00 mm): START, TRIG, PULSE -->',
         render_text_centered(din_cond, "START", col0, 73.000, 0.002822, "#222222", "START Gate Jack Label"),
-        render_text_centered(din_cond, "HIGH", col1, 73.000, 0.002822, "#222222", "HIGH Gate Jack Label"),
-        render_text_centered(din_cond, "LOW", col2, 73.000, 0.002822, "#222222", "LOW Gate Jack Label"),
+        render_text_centered(din_cond, "TRIG", col1, 73.000, 0.002822, "#222222", "TRIG Pulse Jack Label"),
+        render_text_centered(din_cond, "PULSE", col2, 73.000, 0.002822, "#222222", "PULSE Jack Label"),
         '',
-        '  <!-- Jack Row 3 (Center Y = 91.00 mm, Label Baseline = 86.00 mm) -->',
-        render_text_centered(din_cond, "TRIG", col0, 86.000, 0.002822, "#222222", "TRIG Jack Label"),
-        render_text_centered(din_cond, "EOC", col1, 86.000, 0.002822, "#222222", "EOC Jack Label"),
-        render_text_centered(din_cond, "PWM", col2, 86.000, 0.002822, "#222222", "PWM Jack Label"),
+        '  <!-- Jack Row 3 (Center Y = 91.00 mm, Label Baseline = 86.00 mm): HIGH, SIN+, TRI+ -->',
+        render_text_centered(din_cond, "HIGH", col0, 86.000, 0.002822, "#222222", "HIGH Gate Jack Label"),
+        render_text_centered(din_cond, "SIN+", col1, 86.000, 0.002822, "#222222", "SIN+ Jack Label"),
+        render_text_centered(din_cond, "TRI+", col2, 86.000, 0.002822, "#222222", "TRI+ Jack Label"),
         '',
-        '  <!-- Jack Row 4 (Center Y = 104.00 mm, Label Baseline = 99.00 mm) -->',
-        render_text_centered(din_cond, "RAMP +", col0, 99.000, 0.002822, "#222222", "RAMP + Jack Label"),
-        render_text_centered(din_cond, "RAMP -", col1, 99.000, 0.002822, "#222222", "RAMP - Jack Label"),
-        render_text_centered(din_cond, "TRI", col2, 99.000, 0.002822, "#222222", "TRI Jack Label"),
+        '  <!-- Jack Row 4 (Center Y = 104.00 mm, Label Baseline = 99.00 mm): LOW, SIN-, TRI- -->',
+        render_text_centered(din_cond, "LOW", col0, 99.000, 0.002822, "#222222", "LOW Gate Jack Label"),
+        render_text_centered(din_cond, "SIN-", col1, 99.000, 0.002822, "#222222", "SIN- Jack Label"),
+        render_text_centered(din_cond, "TRI-", col2, 99.000, 0.002822, "#222222", "TRI- Jack Label"),
         '',
-        '  <!-- Jack Row 5 (Center Y = 117.00 mm, Label Baseline = 112.00 mm) -->',
-        render_text_centered(din_cond, "INV", col0, 112.000, 0.002822, "#222222", "INV Jack Label"),
-        render_text_centered(din_cond, "SIN", col1, 112.000, 0.002822, "#222222", "SIN Jack Label"),
-        render_text_centered(din_cond, "COS", col2, 112.000, 0.002822, "#222222", "COS Jack Label"),
+        '  <!-- Jack Row 5 (Center Y = 117.00 mm, Label Baseline = 112.00 mm): RAMP+, RAMP-, EOC -->',
+        render_text_centered(din_cond, "RAMP+", col0, 112.000, 0.002822, "#222222", "RAMP+ Jack Label"),
+        render_text_centered(din_cond, "RAMP-", col1, 112.000, 0.002822, "#222222", "RAMP- Jack Label"),
+        render_text_centered(din_cond, "EOC", col2, 112.000, 0.002822, "#222222", "EOC Gate Jack Label"),
         ''
     ]
 
