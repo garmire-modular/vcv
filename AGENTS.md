@@ -70,8 +70,23 @@ To prevent race conditions, file locks on `plugin.dll` or `build/` objects, and 
 
 ---
 
-## 4. Mandatory Plugin Directory Deployment (`make install`)
+## 4. Mandatory Pre-Commit Compliance Verification & Plugin Deployment (`make install`)
 
+### 4.1. Automated Compliance Verification
+Before committing code, vector panels, or metadata changes, you MUST run the automated compliance linter:
+```powershell
+python scratch/verify_compliance.py
+```
+This script validates that:
+- No virtual screws (`ScrewSilver` or `ScrewBlack`) exist.
+- No redundant `"input"` / `"output"` (or `"IN"` / `"OUT"`) words exist in `configInput()` or `configOutput()`.
+- Attenuverter tooltips follow strict `<Parameter> CV depth` sentence case.
+- SVGs contain zero `<text>` elements.
+- All modules define a valid functional taxonomy class in `plugin.json`.
+
+If any `[ERROR]` is flagged, it must be resolved prior to committing or installing.
+
+### 4.2. Plugin Directory Deployment (`make install`)
 Whenever compiling or verifying changes to the VCV Rack plugin:
 - The system MUST ALWAYS copy the compiled Rack files to the active user plugin directories so the user can immediately test them in VCV Rack.
 - Run `make install` (or deploy `plugin.dll`, `plugin.json`, `res/`, and `dist/*.vcvplugin` to `C:/Users/Pat/AppData/Local/Rack2/plugins-win-x64/Garmire` and `C:/Users/Pat/AppData/Local/Rack2/plugins-win-x64`).

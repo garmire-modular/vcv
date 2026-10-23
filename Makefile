@@ -67,6 +67,9 @@ RACK_PLUGINS_DIR ?= C:/Users/Pat/AppData/Local/Rack2/plugins-win-x64
 # Include the Rack SDK build system
 include $(RACK_DIR)/plugin.mk
 
+check-compliance:
+	@python scratch/verify_compliance.py
+
 install: dist
 	@mkdir -p "$(RACK_USER_DIR)"
 	@cp -r res "$(RACK_USER_DIR)/" 2>/dev/null || true
