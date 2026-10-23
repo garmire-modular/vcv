@@ -68,3 +68,4 @@ extern Model* modelCrissy;
 extern Model* modelZiggy;
 extern Model* modelAnnette;
 extern Model* modelEris;
+extern Model* modelAion;

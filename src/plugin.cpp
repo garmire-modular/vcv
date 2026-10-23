@@ -67,5 +67,6 @@ void init(Plugin* p) {
 	p->addModel(modelZiggy);
 	p->addModel(modelAnnette);
 	p->addModel(modelEris);
+	p->addModel(modelAion);
 }
 

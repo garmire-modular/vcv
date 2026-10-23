@@ -680,6 +680,17 @@
         "Oscillator",
         "Dual"
       ]
+    },
+    {
+      "slug": "Aion",
+      "name": "Aion",
+      "description": "Timed event and multi-waveform function generator with 7-segment minutes/seconds display, selectable voltage range, trigger/gate I/O, and 7 continuous synchronous functions",
+      "tags": [
+        "Control",
+        "Function generator",
+        "Envelope generator",
+        "Clock generator"
+      ]
     }
   ]
 }

@@ -56,6 +56,7 @@ SOURCES += src/Crissy.cpp
 SOURCES += src/Ziggy.cpp
 SOURCES += src/Annette.cpp
 SOURCES += src/Eris.cpp
+SOURCES += src/Aion.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res
