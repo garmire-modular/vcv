@@ -9,10 +9,10 @@
 // ─────────────────────────────────────────────────────────────────────
 //  Aion — Timed Event & Function Generator (8 HP)
 //  Control class module providing precision timed events up to 999m59s
-//  with sleek 7-segment display, stacked minutes/seconds step buttons,
+//  with 34x8.5mm 7-segment display, stacked minutes/seconds step buttons,
 //  real-time CV display tracking, latched run timing (editing time or CV
-//  prepares the next trigger without disturbing current cycle), dual
-//  888'88" leading-zero countdown LCD, selectable voltage range,
+//  prepares the next trigger without disturbing current cycle), snug
+//  14x7.5mm 888'88" leading-zero countdown LCD, selectable voltage range,
 //  start trigger/gate input, active high/low gates, trigger & EOC pulses,
 //  and synchronous continuous functions (Ramp+, Ramp-, Tri+, Tri-, Sin+, Sin-, Pulse).
 // ─────────────────────────────────────────────────────────────────────
@@ -460,12 +460,12 @@ static void draw7Segment(NVGcontext* vg, float dx, float dy, float dw, float dh,
 	drawSegment(vg, dx + st * 0.7f, dy + halfH - st * 0.5f, dw - st * 1.4f, st, (mask & 0x40), onCol, offCol);
 }
 
-// ── Primary Time LCD Display Widget (Sleek & Refined 28.0 x 8.5 mm) ──
+// ── Primary Time LCD Display Widget (34.0 x 8.5 mm, Slim Height with Full Width) ──
 struct AionDisplayWidget : OpaqueWidget {
 	Aion* module = nullptr;
 
 	AionDisplayWidget() {
-		box.size = mm2px(Vec(28.0f, 8.5f));
+		box.size = mm2px(Vec(34.0f, 8.5f));
 	}
 
 	void drawArrow(NVGcontext* vg, float cx, float cy, bool up, NVGcolor col) {
@@ -511,12 +511,12 @@ struct AionDisplayWidget : OpaqueWidget {
 		int sVal = module ? module->displaySeconds : 10;
 
 		// Left Stacked Arrows (Minutes Up / Down)
-		drawArrow(args.vg, 7.0f, h * 0.30f, true, btnColor);
-		drawArrow(args.vg, 7.0f, h * 0.70f, false, btnColor);
+		drawArrow(args.vg, 8.5f, h * 0.30f, true, btnColor);
+		drawArrow(args.vg, 8.5f, h * 0.70f, false, btnColor);
 
 		// Right Stacked Arrows (Seconds Up / Down)
-		drawArrow(args.vg, w - 7.0f, h * 0.30f, true, btnColor);
-		drawArrow(args.vg, w - 7.0f, h * 0.70f, false, btnColor);
+		drawArrow(args.vg, w - 8.5f, h * 0.30f, true, btnColor);
+		drawArrow(args.vg, w - 8.5f, h * 0.70f, false, btnColor);
 
 		// Center 7-Segment Digits: 3 Minutes + ' + 2 Seconds + " (with leading zeroes)
 		int m100 = (mVal / 100) % 10;
@@ -525,11 +525,12 @@ struct AionDisplayWidget : OpaqueWidget {
 		int s10 = (sVal / 10) % 10;
 		int s1 = sVal % 10;
 
-		float dw = 5.2f;
+		float dw = 5.4f;
 		float dh = 12.5f;
 		float st = 1.15f;
-		float digitPitch = 7.0f;
-		float startX = 14.5f;
+		float digitPitch = 7.5f;
+		float contentW = 3.0f * digitPitch + 4.5f + 2.0f * digitPitch + 3.8f;
+		float startX = (w - contentW) * 0.5f;
 		float digitY = (h - dh) * 0.5f;
 
 		// Minutes digits (8 8 8)
@@ -547,7 +548,7 @@ struct AionDisplayWidget : OpaqueWidget {
 		nvgStroke(args.vg);
 
 		// Seconds digits (8 8)
-		float secStartX = primeX + 4.6f;
+		float secStartX = primeX + 4.8f;
 		draw7Segment(args.vg, secStartX, digitY, dw, dh, st, s10, onColor, offColor);
 		draw7Segment(args.vg, secStartX + digitPitch, digitY, dw, dh, st, s1, onColor, offColor);
 
@@ -585,8 +586,8 @@ struct AionDisplayWidget : OpaqueWidget {
 			float h = box.size.y;
 			int step = (e.mods & GLFW_MOD_SHIFT) ? 10 : 1;
 
-			// Left side: Minutes buttons (x < 14.0)
-			if (x < 14.0f) {
+			// Left side: Minutes buttons (x < 18.0)
+			if (x < 18.0f) {
 				if (y < h * 0.5f) {
 					module->minutes = std::min(999, module->minutes + step);
 				}
@@ -597,8 +598,8 @@ struct AionDisplayWidget : OpaqueWidget {
 				return;
 			}
 
-			// Right side: Seconds buttons (x > w - 14.0)
-			if (x > w - 14.0f) {
+			// Right side: Seconds buttons (x > w - 18.0)
+			if (x > w - 18.0f) {
 				if (y < h * 0.5f) {
 					module->seconds = (module->seconds + step) % 60;
 				}
@@ -614,12 +615,12 @@ struct AionDisplayWidget : OpaqueWidget {
 	}
 };
 
-// ── Countdown LCD Display Widget (Formated 888'88" with leading zeroes) ──
+// ── Countdown LCD Display Widget (Snug 14.0 x 7.5 mm, 888'88" with leading zeroes) ──
 struct AionCountdownWidget : OpaqueWidget {
 	Aion* module = nullptr;
 
 	AionCountdownWidget() {
-		box.size = mm2px(Vec(17.0f, 7.5f));
+		box.size = mm2px(Vec(14.0f, 7.5f));
 	}
 
 	void draw(const DrawArgs& args) override {
@@ -654,11 +655,13 @@ struct AionCountdownWidget : OpaqueWidget {
 		int s10 = (sVal / 10) % 10;
 		int s1 = sVal % 10;
 
-		float dw = 3.8f;
+		float dw = 3.6f;
 		float dh = 9.5f;
-		float st = 0.9f;
-		float digitPitch = 5.2f;
-		float startX = 4.2f;
+		float st = 0.85f;
+		float digitPitch = 4.8f;
+		// Content: 3 min digits (3 * 4.8) + prime tick (3.2) + 2 sec digits (2 * 4.8) + double prime tick (2.5) = 29.7px
+		float contentW = 3.0f * digitPitch + 3.2f + 2.0f * digitPitch + 2.5f;
+		float startX = (w - contentW) * 0.5f; // Exactly centered horizontally with zero asymmetric empty space!
 		float digitY = (h - dh) * 0.5f;
 
 		// Minutes digits (8 8 8)
@@ -667,7 +670,7 @@ struct AionCountdownWidget : OpaqueWidget {
 		draw7Segment(args.vg, startX + digitPitch * 2.0f, digitY, dw, dh, st, m1, onColor, offColor);
 
 		// Prime tick '
-		float primeX = startX + digitPitch * 3.0f - 1.0f;
+		float primeX = startX + digitPitch * 3.0f - 0.8f;
 		nvgBeginPath(args.vg);
 		nvgMoveTo(args.vg, primeX, digitY + 1.0f);
 		nvgLineTo(args.vg, primeX + 1.2f, digitY + 3.2f);
@@ -676,12 +679,12 @@ struct AionCountdownWidget : OpaqueWidget {
 		nvgStroke(args.vg);
 
 		// Seconds digits (8 8)
-		float secStartX = primeX + 3.6f;
+		float secStartX = primeX + 3.2f;
 		draw7Segment(args.vg, secStartX, digitY, dw, dh, st, s10, onColor, offColor);
 		draw7Segment(args.vg, secStartX + digitPitch, digitY, dw, dh, st, s1, onColor, offColor);
 
 		// Double prime tick "
-		float dprimeX = secStartX + digitPitch * 2.0f - 0.8f;
+		float dprimeX = secStartX + digitPitch * 2.0f - 0.6f;
 		nvgBeginPath(args.vg);
 		nvgMoveTo(args.vg, dprimeX, digitY + 1.0f);
 		nvgLineTo(args.vg, dprimeX + 1.0f, digitY + 3.2f);
@@ -718,19 +721,19 @@ struct AionWidget : ModuleWidget {
 		float col2 = 33.640f;
 
 		// ── Zone 2: LCD Displays & Primary Controls ──
-		// Main 7-Segment LCD Display (Center X = 20.32 mm, Center Y = 16.50 mm, W = 28.00 mm, H = 8.50 mm)
+		// Main 7-Segment LCD Display (Center X = 20.32 mm, Center Y = 16.50 mm, W = 34.00 mm, H = 8.50 mm)
 		AionDisplayWidget* display = new AionDisplayWidget();
 		display->module = module;
-		display->box.pos = mm2px(Vec(col1 - 14.0f, 12.25f));
+		display->box.pos = mm2px(Vec(col1 - 17.0f, 12.25f));
 		addChild(display);
 
 		// Row at Y = 31.00 mm: Start Button (X = 7.00), Countdown LCD (X = 20.32), PWM Knob (X = 33.64)
 		addParam(createParamCentered<GarmireButton>(mm2px(Vec(col0, 31.00f)), module, Aion::START_PARAM));
 
-		// Countdown LCD Display (Center X = 20.32 mm, Center Y = 31.00 mm, W = 17.00 mm, H = 7.50 mm)
+		// Countdown LCD Display (Center X = 20.32 mm, Center Y = 31.00 mm, W = 14.00 mm, H = 7.50 mm)
 		AionCountdownWidget* countdown = new AionCountdownWidget();
 		countdown->module = module;
-		countdown->box.pos = mm2px(Vec(col1 - 8.5f, 27.25f));
+		countdown->box.pos = mm2px(Vec(col1 - 7.0f, 27.25f));
 		addChild(countdown);
 
 		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(col2, 31.00f)), module, Aion::PWM_PARAM));
