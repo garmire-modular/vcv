@@ -24,6 +24,7 @@ Before writing or modifying any code, SVGs, or build configurations, you MUST ou
 - [ ] **Functional Taxonomy:** Module class (Generate, Transform, Utility, or Control) confirmed via user prompt and tagged in `plugin.json`.
 - [ ] **HP Sizing & Crowding Check:** Pre-flight component spacing verified against clearance tolerances; HP increase proposed to user if crowded.
 - [ ] **Custom Hardware Widgets:** ModuleWidget uses custom Garmire widgets (`res/knob.svg`, `res/tinyknob.svg`, `res/3_5mm_jacks.svg`, `res/button_gray_0.svg`).
+- [ ] **Triple Skin Architecture:** Panel script generates Medium, Light, and Dark SVG skins (`res/<Module>.svg`, `res/<Module>_Light.svg`, `res/<Module>_Dark.svg`) with context menu switching and JSON persistence.
 - [ ] **No Virtual Screws:** No `ScrewSilver` or `ScrewBlack` widgets added to `ModuleWidget`.
 - [ ] **Version Tracking:** Initial module version starts strictly at `v1.0.0` (independent of the overall plugin suite version `v2.X.X`), with per-module version recorded and autoincremented.
 - [ ] **Panel Edit Method:** Vector modifications target `scratch/generate_<module>_panel.py`, NEVER direct edits to `res/<Module>.svg`.
@@ -324,4 +325,138 @@ All Garmire hardware modules include a vertical color badge oriented along the f
      python scratch/palette/build_standalone.py
      ```
    - This script updates the embedded SVG and module definitions in `scratch/palette/index.html`. As a result, when the Palette Manager website is refreshed, the new module will immediately appear in the module selection dropdown and stage for preview and palette assignment.
+
+---
+
+### 7.7. Triple Skin Theme System (Medium, Light, Dark)
+
+Every Garmire module faceplate supports three distinct skin themes: **Medium** (default Eurorack studio gray), **Light** (clean studio aluminum), and **Dark** (matte black stealth).
+
+#### **1. Skin Palette Specifications**
+
+| Theme | Panel Filename (`res/`) | Background Fill | Title Color | Label & Line Color | Delineator Top Highlight | Delineator Bottom Shadow | Button Light Ring Trim |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Medium (Default)** | `<Module>.svg` | `#6e6e6e` | `#ffffff` | `#222222` | `#999999` | `#5e5e5e` | `#484848` |
+| **Light** | `<Module>_Light.svg` | `#c6c6c6` | `#333333` | `#222222` | `#e4e4e4` | `#a8a8a8` | `#9e9e9e` |
+| **Dark** | `<Module>_Dark.svg` | `#333333` | `#c6c6c6` | `#ffffff` | `#585858` | `#202020` | `#222222` |
+
+#### **2. Panel Generator Multi-Skin Output**
+In `scratch/generate_<module>_panel.py`, the generator must iterate through the three skins, rendering all three SVG faceplates and their verification bitmaps:
+```python
+skins = [
+    {
+        'name': 'Medium',
+        'filename': f'res/{module_name}.svg',
+        'bg_color': '#6e6e6e',
+        'title_color': '#ffffff',
+        'label_color': '#222222',
+        'line_color': '#222222',
+        'hi_color': '#999999',
+        'sh_color': '#5e5e5e',
+        'ring_color': '#484848'
+    },
+    {
+        'name': 'Light',
+        'filename': f'res/{module_name}_Light.svg',
+        'bg_color': '#c6c6c6',
+        'title_color': '#333333',
+        'label_color': '#222222',
+        'line_color': '#222222',
+        'hi_color': '#e4e4e4',
+        'sh_color': '#a8a8a8',
+        'ring_color': '#9e9e9e'
+    },
+    {
+        'name': 'Dark',
+        'filename': f'res/{module_name}_Dark.svg',
+        'bg_color': '#333333',
+        'title_color': '#c6c6c6',
+        'label_color': '#ffffff',
+        'line_color': '#ffffff',
+        'hi_color': '#585858',
+        'sh_color': '#202020',
+        'ring_color': '#222222'
+    }
+]
+```
+
+#### **3. C++ Module & Widget Theme Switching Protocol**
+Every module C++ file implements persistent theme state and dynamic SVG swapping:
+
+```cpp
+// 1. In Module struct:
+enum SkinTheme {
+    THEME_MEDIUM = 0,
+    THEME_LIGHT = 1,
+    THEME_DARK = 2
+};
+SkinTheme skinTheme = THEME_MEDIUM;
+
+json_t* dataToJson() override {
+    json_t* rootJ = json_object();
+    json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+    return rootJ;
+}
+
+void dataFromJson(json_t* rootJ) override {
+    json_t* stJ = json_object_get(rootJ, "skinTheme");
+    if (stJ) {
+        skinTheme = (SkinTheme)json_integer_value(stJ);
+    }
+}
+
+// 2. In ModuleWidget struct:
+SvgPanel* panel = nullptr;
+SkinTheme currentTheme = THEME_MEDIUM;
+
+void setTheme(SkinTheme theme) {
+    currentTheme = theme;
+    if (panel) {
+        std::string path;
+        switch (theme) {
+            case THEME_LIGHT:
+                path = asset::plugin(pluginInstance, "res/<Module>_Light.svg");
+                break;
+            case THEME_DARK:
+                path = asset::plugin(pluginInstance, "res/<Module>_Dark.svg");
+                break;
+            case THEME_MEDIUM:
+            default:
+                path = asset::plugin(pluginInstance, "res/<Module>.svg");
+                break;
+        }
+        panel->setBackground(Svg::load(path));
+    }
+}
+
+void step() override {
+    ModuleWidget::step();
+    auto* mod = dynamic_cast<MyModule*>(module);
+    if (mod && mod->skinTheme != currentTheme) {
+        setTheme(mod->skinTheme);
+    }
+}
+
+// 3. In appendContextMenu:
+void appendContextMenu(Menu* menu) override {
+    auto* mod = dynamic_cast<MyModule*>(module);
+    if (!mod) return;
+
+    menu->addChild(new MenuSeparator());
+    menu->addChild(createMenuLabel("Skin"));
+
+    const char* skinLabels[] = {"Medium (Default)", "Light", "Dark"};
+    for (int i = 0; i < 3; i++) {
+        SkinTheme theme = (SkinTheme)i;
+        menu->addChild(createCheckMenuItem(skinLabels[i], "",
+            [=]() { return mod->skinTheme == theme; },
+            [=]() {
+                mod->skinTheme = theme;
+                setTheme(theme);
+            }
+        ));
+    }
+}
+```
+
 
