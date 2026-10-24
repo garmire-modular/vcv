@@ -110,9 +110,10 @@ def render_note_label(cp, x_center, y_baseline, scale=0.0028, dotted=False, trip
 def generate_panel(skin_dict):
     W = 40.64
     H = 128.50
-    col0 = 11.50
+    # Standard Garmire 8 HP columns
+    col0 = 7.00
     col1 = 20.32
-    col2 = 29.14
+    col2 = 33.64
     
     # 7 rows of jacks with 13.0mm universal Garmire pitch, bottom anchor Y = 117.00mm
     bottom_y = 117.00
@@ -122,6 +123,7 @@ def generate_panel(skin_dict):
     bg_color = skin_dict['bg_color']
     title_color = skin_dict['title_color']
     label_color = skin_dict['label_color']
+    version_color = skin_dict['version_color']
     hi_color = skin_dict['hi_color']
     sh_color = skin_dict['sh_color']
     svg_filename = skin_dict['filename']
@@ -135,38 +137,30 @@ def generate_panel(skin_dict):
     svg.append('    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none" />')
     svg.append('  </g>')
     
-    # Title & Version (v1.0.2)
+    # Title & Version (v1.0.3)
     svg.append(render_text(ddin_bold, 'BEATRICE', W / 2.0, 6.8, 14.0, title_color))
-    svg.append(render_text(quicksand, 'v1.0.2', W - 2.15, 6.8, 4.5, '#aaaaaa'))
+    svg.append(render_text(quicksand, 'v1.0.3', W - 2.15, 6.8, 4.5, version_color))
     
-    # LCD Display Frame (34.00 x 8.50 mm, centered vertically at Y = 15.00mm, spanning 10.75 - 19.25mm)
+    # LCD Display Frame placeholder (34.00 x 8.50 mm, centered at X = 20.32mm, Y = 10.75 - 19.25mm)
     lcd_y = 10.75
     lcd_w = 34.00
     lcd_h = 8.50
     lcd_x = (W - lcd_w) / 2.0
     svg.append(f'  <rect x="{lcd_x:.3f}" y="{lcd_y:.3f}" width="{lcd_w:.3f}" height="{lcd_h:.3f}" rx="1.2" fill="#101412" stroke="#2c3530" stroke-width="0.3" />')
     
-    # Up/down arrows in LCD
-    # left arrows (integer BPM)
-    svg.append(f'  <path d="M 5.5 {lcd_y+3.0} L 6.5 {lcd_y+1.4} L 7.5 {lcd_y+3.0} Z" fill="#38f870" />')
-    svg.append(f'  <path d="M 5.5 {lcd_y+5.5} L 6.5 {lcd_y+7.1} L 7.5 {lcd_y+5.5} Z" fill="#38f870" />')
-    # right arrows (decimal BPM)
-    svg.append(f'  <path d="M {W-7.5} {lcd_y+3.0} L {W-6.5} {lcd_y+1.4} L {W-5.5} {lcd_y+3.0} Z" fill="#38f870" />')
-    svg.append(f'  <path d="M {W-7.5} {lcd_y+5.5} L {W-6.5} {lcd_y+7.1} L {W-5.5} {lcd_y+5.5} Z" fill="#38f870" />')
-    
-    # Controls row: BPM Knob, Start button, Reset button at Y = 26.50mm
+    # Controls row: BPM Trimpot, Start button, Reset button at Y = 26.50mm
     ctrl_y = 26.50
     
-    # BPM Knob label
-    svg.append(render_text(ddin_cond_bold, 'BPM', col0, ctrl_y - 5.75, 8.0, label_color))
+    # BPM Trimpot label
+    svg.append(render_text(ddin_cond_bold, 'BPM', col0, ctrl_y - 4.50, 7.5, label_color))
     # Start button label
     svg.append(render_text(ddin_cond_bold, 'START', col1, ctrl_y - 4.50, 7.5, label_color))
     # Reset button label
     svg.append(render_text(ddin_cond_bold, 'RESET', col2, ctrl_y - 4.50, 7.5, label_color))
     
-    # Delineator line above Row 1 jacks (10.0mm above Row 1 center: 39.0 - 10.0 = 29.0mm)
+    # Delineator line above Row 1 jacks (32.00mm)
     # Span 80% of width: x_start = 0.20 * W = 8.128mm, x_end = W
-    delineator_y = jack_rows[0] - 7.0 # 32.00mm, cleanly between controls and jacks
+    delineator_y = 32.00
     delin_x_start = 0.20 * W
     delin_w = W - delin_x_start
     svg.append(f'  <rect x="{delin_x_start:.3f}" y="{delineator_y:.3f}" width="{delin_w:.3f}" height="0.150" fill="{hi_color}" />')
@@ -206,6 +200,7 @@ skins = [
         'bg_color': '#6e6e6e',
         'title_color': '#ffffff',
         'label_color': '#222222',
+        'version_color': '#aaaaaa',
         'hi_color': '#999999',
         'sh_color': '#5e5e5e'
     },
@@ -215,6 +210,7 @@ skins = [
         'bg_color': '#c6c6c6',
         'title_color': '#333333',
         'label_color': '#222222',
+        'version_color': '#666666',
         'hi_color': '#e4e4e4',
         'sh_color': '#a8a8a8'
     },
@@ -224,6 +220,7 @@ skins = [
         'bg_color': '#333333',
         'title_color': '#c6c6c6',
         'label_color': '#ffffff',
+        'version_color': '#888888',
         'hi_color': '#585858',
         'sh_color': '#202020'
     }

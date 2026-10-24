@@ -764,71 +764,93 @@ static void appendBeatriceMenuItems(ui::Menu* menu, Beatrice* module) {
 	linItem->mode = Beatrice::BPM_CV_LINEAR;
 	linItem->rightText = (module->bpmCvMode == Beatrice::BPM_CV_LINEAR) ? "✔" : "";
 	menu->addChild(linItem);
-
-	menu->addChild(new MenuSeparator());
-	menu->addChild(createMenuLabel("Theme"));
-
-	struct ThemeItem : MenuItem {
-		Beatrice* module;
-		Beatrice::SkinTheme theme;
-		void onAction(const ActionEvent& e) override {
-			module->skinTheme = theme;
-		}
-	};
-
-	const char* themeLabels[] = {"Medium (Default)", "Light", "Dark"};
-	for (int t = 0; t < 3; ++t) {
-		ThemeItem* tItem = createMenuItem<ThemeItem>(themeLabels[t]);
-		tItem->module = module;
-		tItem->theme = (Beatrice::SkinTheme)t;
-		tItem->rightText = (module->skinTheme == t) ? "✔" : "";
-		menu->addChild(tItem);
-	}
 }
 
-// Module Widget with Triple Skin support
+// Module Widget with Triple Skin support per AGENTS.md Section 7.7
 struct BeatriceWidget : ModuleWidget {
 	SvgPanel* panel = nullptr;
-	Beatrice::SkinTheme lastTheme = Beatrice::THEME_MEDIUM;
+	Beatrice::SkinTheme currentTheme = Beatrice::THEME_MEDIUM;
+
+	void setTheme(Beatrice::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Beatrice::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Beatrice_Light.svg");
+					break;
+				case Beatrice::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Beatrice_Dark.svg");
+					break;
+				case Beatrice::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Beatrice.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
 
 	void step() override {
 		ModuleWidget::step();
 		Beatrice* module = dynamic_cast<Beatrice*>(this->module);
-		if (module && panel) {
-			if (module->skinTheme != lastTheme) {
-				lastTheme = module->skinTheme;
-				switch (lastTheme) {
-					case Beatrice::THEME_LIGHT:
-						panel->setBackground(Svg::load(asset::plugin(pluginInstance, "res/Beatrice_Light.svg")));
-						break;
-					case Beatrice::THEME_DARK:
-						panel->setBackground(Svg::load(asset::plugin(pluginInstance, "res/Beatrice_Dark.svg")));
-						break;
-					default:
-						panel->setBackground(Svg::load(asset::plugin(pluginInstance, "res/Beatrice.svg")));
-						break;
-				}
-			}
+		if (module && module->skinTheme != currentTheme) {
+			setTheme(module->skinTheme);
 		}
 	}
 
 	void appendContextMenu(ui::Menu* menu) override {
 		Beatrice* module = dynamic_cast<Beatrice*>(this->module);
 		if (!module) return;
+
 		appendBeatriceMenuItems(menu, module);
+
+		menu->addChild(new MenuSeparator());
+		menu->addChild(createMenuLabel("Skin"));
+
+		const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; i++) {
+			Beatrice::SkinTheme theme = (Beatrice::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 
 	BeatriceWidget(Beatrice* module) {
 		setModule(module);
-		setPanel(createPanel(
-			asset::plugin(pluginInstance, "res/Beatrice.svg"),
-			asset::plugin(pluginInstance, "res/Beatrice.svg")
-		));
-		panel = dynamic_cast<SvgPanel*>(this->panel);
+		panel = new SvgPanel();
+		Beatrice::SkinTheme initTheme = module ? module->skinTheme : Beatrice::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Beatrice::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Beatrice_Light.svg");
+				break;
+			case Beatrice::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Beatrice_Dark.svg");
+				break;
+			case Beatrice::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Beatrice.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
-		float col0 = 11.50f;
+		// Standard Garmire 8 HP columns: 7.00mm, 20.32mm, 33.64mm
+		float col0 = 7.00f;
 		float col1 = 20.32f;
-		float col2 = 29.14f;
+		float col2 = 33.64f;
 
 		// LCD Display (34.00 x 8.50 mm) at Y = 10.75mm, centered horizontally at X = 20.32mm
 		BeatriceDisplayWidget* display = new BeatriceDisplayWidget();
