@@ -135,9 +135,9 @@ def generate_panel(skin_dict):
     svg.append('    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none" />')
     svg.append('  </g>')
     
-    # Title & Version (v1.0.1)
+    # Title & Version (v1.0.2)
     svg.append(render_text(ddin_bold, 'BEATRICE', W / 2.0, 6.8, 14.0, title_color))
-    svg.append(render_text(quicksand, 'v1.0.1', W - 2.15, 6.8, 4.5, '#aaaaaa'))
+    svg.append(render_text(quicksand, 'v1.0.2', W - 2.15, 6.8, 4.5, '#aaaaaa'))
     
     # LCD Display Frame (34.00 x 8.50 mm, centered vertically at Y = 15.00mm, spanning 10.75 - 19.25mm)
     lcd_y = 10.75

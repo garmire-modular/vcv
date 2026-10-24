@@ -405,6 +405,13 @@ struct GarmireKnob : RoundKnob {
 	}
 };
 
+struct GarmireTrimpot : RoundKnob {
+	GarmireTrimpot() {
+		setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob.svg")));
+		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob_bg.svg")));
+	}
+};
+
 struct GarmireButton : app::SvgSwitch {
 	GarmireButton() {
 		momentary = true;
@@ -831,7 +838,7 @@ struct BeatriceWidget : ModuleWidget {
 
 		// Controls Row at Y = 26.50mm
 		float ctrlY = 26.50f;
-		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(col0, ctrlY)), module, Beatrice::BPM_PARAM));
+		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col0, ctrlY)), module, Beatrice::BPM_PARAM));
 		addParam(createParamCentered<GarmireButton>(mm2px(Vec(col1, ctrlY)), module, Beatrice::START_PARAM));
 		addParam(createParamCentered<GarmireButton>(mm2px(Vec(col2, ctrlY)), module, Beatrice::RESET_PARAM));
 
