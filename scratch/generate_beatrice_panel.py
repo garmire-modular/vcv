@@ -15,7 +15,6 @@ from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
 import pathops
 import cairosvg
-from PIL import Image
 
 def clean_svg_path_numbers(d_str):
     d_str = re.sub(r'([MLHVCSQTAZmlhvcsqtaz])', r' \1 ', d_str)
@@ -59,7 +58,7 @@ def render_text(font, text, x_center, y_baseline, pt_size, color='#222222'):
         cur_x += w
     return ''.join(paths)
 
-def render_note(cp, x_center, y_baseline, scale=0.0028, dotted=False, triplet=False, color='#222222'):
+def render_note_label(cp, x_center, y_baseline, scale=0.0028, dotted=False, triplet=False, color='#222222'):
     cmap = music_font.getBestCmap()
     gset = music_font.getGlyphSet()
     gname = cmap[cp]
@@ -76,19 +75,35 @@ def render_note(cp, x_center, y_baseline, scale=0.0028, dotted=False, triplet=Fa
     glyph_w = (bounds[2] - bounds[0]) * scale
     glyph_h = (bounds[3] - bounds[1]) * scale
     
-    x_pos = x_center - glyph_w / 2.0
-    elements = [f'<path d="{d_clean}" fill="{color}" transform="translate({x_pos:.3f},{y_baseline:.3f}) scale({scale:.6f},{-scale:.6f})" />']
+    elements = []
     
-    if dotted:
-        dot_x = x_pos + glyph_w + 0.6
-        dot_y = y_baseline - 0.5
-        elements.append(f'<circle cx="{dot_x:.3f}" cy="{dot_y:.3f}" r="0.35" fill="{color}" />')
-        
     if triplet:
-        trip_x = x_pos + glyph_w + 0.5
-        trip_y = y_baseline - glyph_h + 1.2
-        trip_svg = render_text(ddin_cond_bold, '3', trip_x, trip_y, 4.8, color)
-        elements.append(trip_svg)
+        # Prepend a '3' in front of the note glyph
+        t_scale = (7.5 * 25.4) / (72.0 * ddin_cond_bold['head'].unitsPerEm)
+        t_cmap = ddin_cond_bold.getBestCmap()
+        t_w = ddin_cond_bold['hmtx'][t_cmap[ord('3')]][0] * t_scale
+        gap = 0.5
+        total_w = t_w + gap + glyph_w
+        
+        start_x = x_center - total_w / 2.0
+        # Direct render '3'
+        t_svg = render_text(ddin_cond_bold, '3', start_x + t_w / 2.0, y_baseline, 7.5, color)
+        elements.append(t_svg)
+        
+        note_x = start_x + t_w + gap
+        elements.append(f'<path d="{d_clean}" fill="{color}" transform="translate({note_x:.3f},{y_baseline:.3f}) scale({scale:.6f},{-scale:.6f})" />')
+    elif dotted:
+        dot_r = 0.35
+        gap = 0.6
+        total_w = glyph_w + gap + dot_r * 2.0
+        start_x = x_center - total_w / 2.0
+        elements.append(f'<path d="{d_clean}" fill="{color}" transform="translate({start_x:.3f},{y_baseline:.3f}) scale({scale:.6f},{-scale:.6f})" />')
+        dot_x = start_x + glyph_w + gap + dot_r
+        dot_y = y_baseline - 0.5
+        elements.append(f'<circle cx="{dot_x:.3f}" cy="{dot_y:.3f}" r="{dot_r:.3f}" fill="{color}" />')
+    else:
+        start_x = x_center - glyph_w / 2.0
+        elements.append(f'<path d="{d_clean}" fill="{color}" transform="translate({start_x:.3f},{y_baseline:.3f}) scale({scale:.6f},{-scale:.6f})" />')
         
     return ''.join(elements)
 
@@ -99,8 +114,9 @@ def generate_panel(skin_dict):
     col1 = 20.32
     col2 = 29.14
     
-    bottom_y = 113.0
-    pitch = 11.5
+    # 7 rows of jacks with 13.0mm universal Garmire pitch, bottom anchor Y = 117.00mm
+    bottom_y = 117.00
+    pitch = 13.00
     jack_rows = [bottom_y - (6 - i) * pitch for i in range(7)]
     
     bg_color = skin_dict['bg_color']
@@ -119,27 +135,27 @@ def generate_panel(skin_dict):
     svg.append('    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none" />')
     svg.append('  </g>')
     
-    # Title & Version
-    svg.append(render_text(ddin_bold, 'BEATRICE', W / 2.0, 7.5, 15.0, title_color))
-    svg.append(render_text(quicksand, 'v1.0.0', W - 2.15, 7.5, 4.5, '#aaaaaa'))
+    # Title & Version (v1.0.1)
+    svg.append(render_text(ddin_bold, 'BEATRICE', W / 2.0, 6.8, 14.0, title_color))
+    svg.append(render_text(quicksand, 'v1.0.1', W - 2.15, 6.8, 4.5, '#aaaaaa'))
     
-    # LCD Display Frame
-    lcd_y = 13.50
+    # LCD Display Frame (34.00 x 8.50 mm, centered vertically at Y = 15.00mm, spanning 10.75 - 19.25mm)
+    lcd_y = 10.75
     lcd_w = 34.00
-    lcd_h = 7.50
+    lcd_h = 8.50
     lcd_x = (W - lcd_w) / 2.0
-    svg.append(f'  <rect x="{lcd_x:.3f}" y="{lcd_y:.3f}" width="{lcd_w:.3f}" height="{lcd_h:.3f}" rx="0.8" fill="#101412" stroke="#2c3530" stroke-width="0.3" />')
+    svg.append(f'  <rect x="{lcd_x:.3f}" y="{lcd_y:.3f}" width="{lcd_w:.3f}" height="{lcd_h:.3f}" rx="1.2" fill="#101412" stroke="#2c3530" stroke-width="0.3" />')
     
     # Up/down arrows in LCD
     # left arrows (integer BPM)
-    svg.append(f'  <path d="M 5.5 {lcd_y+2.8} L 6.5 {lcd_y+1.2} L 7.5 {lcd_y+2.8} Z" fill="#38d430" />')
-    svg.append(f'  <path d="M 5.5 {lcd_y+4.7} L 6.5 {lcd_y+6.3} L 7.5 {lcd_y+4.7} Z" fill="#38d430" />')
+    svg.append(f'  <path d="M 5.5 {lcd_y+3.0} L 6.5 {lcd_y+1.4} L 7.5 {lcd_y+3.0} Z" fill="#38f870" />')
+    svg.append(f'  <path d="M 5.5 {lcd_y+5.5} L 6.5 {lcd_y+7.1} L 7.5 {lcd_y+5.5} Z" fill="#38f870" />')
     # right arrows (decimal BPM)
-    svg.append(f'  <path d="M {W-7.5} {lcd_y+2.8} L {W-6.5} {lcd_y+1.2} L {W-5.5} {lcd_y+2.8} Z" fill="#38d430" />')
-    svg.append(f'  <path d="M {W-7.5} {lcd_y+4.7} L {W-6.5} {lcd_y+6.3} L {W-5.5} {lcd_y+4.7} Z" fill="#38d430" />')
+    svg.append(f'  <path d="M {W-7.5} {lcd_y+3.0} L {W-6.5} {lcd_y+1.4} L {W-5.5} {lcd_y+3.0} Z" fill="#38f870" />')
+    svg.append(f'  <path d="M {W-7.5} {lcd_y+5.5} L {W-6.5} {lcd_y+7.1} L {W-5.5} {lcd_y+5.5} Z" fill="#38f870" />')
     
-    # Controls row: BPM Knob, Start button, Reset button at Y = 30.50mm
-    ctrl_y = 30.50
+    # Controls row: BPM Knob, Start button, Reset button at Y = 26.50mm
+    ctrl_y = 26.50
     
     # BPM Knob label
     svg.append(render_text(ddin_cond_bold, 'BPM', col0, ctrl_y - 5.75, 8.0, label_color))
@@ -148,15 +164,15 @@ def generate_panel(skin_dict):
     # Reset button label
     svg.append(render_text(ddin_cond_bold, 'RESET', col2, ctrl_y - 4.50, 7.5, label_color))
     
-    # Delineator line above Row 1 jacks (10.0mm above Row 1 center: 44.0 - 10.0 = 34.0mm)
+    # Delineator line above Row 1 jacks (10.0mm above Row 1 center: 39.0 - 10.0 = 29.0mm)
     # Span 80% of width: x_start = 0.20 * W = 8.128mm, x_end = W
-    delineator_y = jack_rows[0] - 8.0 # 36.00mm, nicely placed between controls and jacks
+    delineator_y = jack_rows[0] - 7.0 # 32.00mm, cleanly between controls and jacks
     delin_x_start = 0.20 * W
     delin_w = W - delin_x_start
     svg.append(f'  <rect x="{delin_x_start:.3f}" y="{delineator_y:.3f}" width="{delin_w:.3f}" height="0.150" fill="{hi_color}" />')
     svg.append(f'  <rect x="{delin_x_start:.3f}" y="{delineator_y + 0.150:.3f}" width="{delin_w:.3f}" height="0.150" fill="{sh_color}" />')
     
-    # Row 1 Jack labels (BPM CV, START, RESET)
+    # Row 1 Jack labels (BPM CV, START, RESET) at Y = jack_rows[0] - 5.0mm = 34.00mm
     r1_y = jack_rows[0]
     svg.append(render_text(ddin_cond_bold, 'BPM', col0, r1_y - 5.0, 7.5, label_color))
     svg.append(render_text(ddin_cond_bold, 'START', col1, r1_y - 5.0, 7.5, label_color))
@@ -170,11 +186,11 @@ def generate_panel(skin_dict):
         cp = notes_cp[row_idx]
         
         # Col 0: Straight note
-        svg.append(render_note(cp, col0, jy - 5.0, scale=0.0028, dotted=False, triplet=False, color=label_color))
+        svg.append(render_note_label(cp, col0, jy - 5.0, scale=0.0028, dotted=False, triplet=False, color=label_color))
         # Col 1: Dotted note
-        svg.append(render_note(cp, col1, jy - 5.0, scale=0.0028, dotted=True, triplet=False, color=label_color))
-        # Col 2: Triplet note
-        svg.append(render_note(cp, col2, jy - 5.0, scale=0.0028, dotted=False, triplet=True, color=label_color))
+        svg.append(render_note_label(cp, col1, jy - 5.0, scale=0.0028, dotted=True, triplet=False, color=label_color))
+        # Col 2: Triplet note with '3' in front of symbol
+        svg.append(render_note_label(cp, col2, jy - 5.0, scale=0.0028, dotted=False, triplet=True, color=label_color))
         
     svg.append('</svg>')
     

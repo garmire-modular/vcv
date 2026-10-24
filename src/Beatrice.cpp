@@ -82,6 +82,12 @@ struct Beatrice : Module {
 	};
 	OutputMode outputMode = OUTPUT_MODE_TRIGGER;
 
+	enum BpmInputMode {
+		BPM_INPUT_CV = 0,
+		BPM_INPUT_TAP = 1
+	};
+	BpmInputMode bpmInputMode = BPM_INPUT_CV;
+
 	enum BpmCvMode {
 		BPM_CV_CURVED = 0,
 		BPM_CV_LINEAR = 1
@@ -112,6 +118,12 @@ struct Beatrice : Module {
 	dsp::BooleanTrigger resetButtonTrigger;
 	dsp::SchmittTrigger resetCvTrigger;
 
+	// Tap tempo tracking
+	dsp::SchmittTrigger tapTrigger;
+	float tapTimer = 10.0f;
+	float tapIntervals[4] = {};
+	int tapCount = 0;
+
 	// Invertible non-linear BPM mapping prioritizing 30-180 across center 80%
 	static float uToBpm(float u) {
 		u = clamp(u, 0.0f, 1.0f);
@@ -139,11 +151,28 @@ struct Beatrice : Module {
 		}
 	}
 
+	struct BpmParamQuantity : ParamQuantity {
+		float getDisplayValue() override {
+			return Beatrice::uToBpm(getValue());
+		}
+		void setDisplayValue(float displayValue) override {
+			setValue(Beatrice::bpmToU(displayValue));
+		}
+		std::string getDisplayValueString() override {
+			return string::f("%.2f", getDisplayValue());
+		}
+		void setDisplayValueString(std::string s) override {
+			try {
+				setDisplayValue(std::stof(s));
+			} catch (...) {}
+		}
+	};
+
 	Beatrice() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-		// Default: u = 0.58 corresponds to exactly 120.00 BPM
-		configParam(BPM_PARAM, 0.0f, 1.0f, 0.58f, "BPM");
+		// Config BPM param with custom ParamQuantity so tooltip and direct typing show/set the BPM!
+		configParam<BpmParamQuantity>(BPM_PARAM, 0.0f, 1.0f, 0.58f, "BPM", " bpm");
 		configParam(START_PARAM, 0.0f, 1.0f, 0.0f, "Start");
 		configParam(RESET_PARAM, 0.0f, 1.0f, 0.0f, "Reset");
 
@@ -214,21 +243,54 @@ struct Beatrice : Module {
 		}
 		lights[RESET_LIGHT].setBrightness(resetLedPulse.process(args.sampleTime) ? 1.0f : 0.0f);
 
-		// 3. Compute effective BPM
+		// 3. Compute effective BPM and handle Tap-Tempo
 		float uKnob = params[BPM_PARAM].getValue();
 		float effBpm = 120.0f;
 
-		if (inputs[BPM_CV_INPUT].isConnected()) {
-			float cv = inputs[BPM_CV_INPUT].getVoltage();
-			if (bpmCvMode == BPM_CV_CURVED) {
-				float uMod = clamp(uKnob + cv * 0.1f, 0.0f, 1.0f);
-				effBpm = uToBpm(uMod);
-			} else {
-				float baseBpm = uToBpm(uKnob);
-				effBpm = clamp(baseBpm + cv * 20.0f, 1.0f, 400.0f);
+		if (bpmInputMode == BPM_INPUT_TAP) {
+			tapTimer += args.sampleTime;
+			if (tapTimer > 3.0f) {
+				tapCount = 0;
 			}
-		} else {
+			if (inputs[BPM_CV_INPUT].isConnected()) {
+				if (tapTrigger.process(inputs[BPM_CV_INPUT].getVoltage())) {
+					if (tapTimer >= 0.10f && tapTimer <= 3.0f) {
+						if (tapCount < 4) {
+							tapIntervals[tapCount++] = tapTimer;
+						} else {
+							for (int i = 0; i < 3; ++i) tapIntervals[i] = tapIntervals[i + 1];
+							tapIntervals[3] = tapTimer;
+						}
+
+						float sum = 0.0f;
+						for (int i = 0; i < tapCount; ++i) {
+							sum += tapIntervals[i];
+						}
+						float avgInterval = sum / (float)tapCount;
+						if (avgInterval > 0.0f) {
+							float tappedBpm = clamp(60.0f / avgInterval, 1.0f, 400.0f);
+							bpm = tappedBpm;
+							params[BPM_PARAM].setValue(bpmToU(tappedBpm));
+						}
+					}
+					tapTimer = 0.0f;
+				}
+			}
 			effBpm = uToBpm(uKnob);
+		} else {
+			// BPM_INPUT_CV
+			if (inputs[BPM_CV_INPUT].isConnected()) {
+				float cv = inputs[BPM_CV_INPUT].getVoltage();
+				if (bpmCvMode == BPM_CV_CURVED) {
+					float uMod = clamp(uKnob + cv * 0.1f, 0.0f, 1.0f);
+					effBpm = uToBpm(uMod);
+				} else {
+					float baseBpm = uToBpm(uKnob);
+					effBpm = clamp(baseBpm + cv * 20.0f, 1.0f, 400.0f);
+				}
+			} else {
+				effBpm = uToBpm(uKnob);
+			}
 		}
 
 		bpm = effBpm;
@@ -272,6 +334,7 @@ struct Beatrice : Module {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		json_object_set_new(rootJ, "outputMode", json_integer((int)outputMode));
+		json_object_set_new(rootJ, "bpmInputMode", json_integer((int)bpmInputMode));
 		json_object_set_new(rootJ, "bpmCvMode", json_integer((int)bpmCvMode));
 		json_object_set_new(rootJ, "running", json_boolean(running));
 		return rootJ;
@@ -286,6 +349,10 @@ struct Beatrice : Module {
 		if (modeJ) {
 			outputMode = (OutputMode)json_integer_value(modeJ);
 		}
+		json_t* inModeJ = json_object_get(rootJ, "bpmInputMode");
+		if (inModeJ) {
+			bpmInputMode = (BpmInputMode)json_integer_value(inModeJ);
+		}
 		json_t* cvModeJ = json_object_get(rootJ, "bpmCvMode");
 		if (cvModeJ) {
 			bpmCvMode = (BpmCvMode)json_integer_value(cvModeJ);
@@ -299,29 +366,29 @@ struct Beatrice : Module {
 
 const Beatrice::DivisionDef Beatrice::divisions[Beatrice::NUM_DIVS] = {
 	// Row 2: 1, 3/2, 2/3
-	{1, 1, "𝅝 (1)"},
-	{3, 2, "𝅝. (3/2)"},
-	{2, 3, "𝅝³ (2/3)"},
+	{1, 1, "Whole note (1)"},
+	{3, 2, "Dotted whole note (3/2)"},
+	{2, 3, "Triplet whole note (2/3)"},
 	// Row 3: 1/2, 3/4, 1/3
-	{1, 2, "𝅗𝅥 (1/2)"},
-	{3, 4, "𝅗𝅥. (3/4)"},
-	{1, 3, "𝅗𝅥³ (1/3)"},
+	{1, 2, "Half note (1/2)"},
+	{3, 4, "Dotted half note (3/4)"},
+	{1, 3, "Triplet half note (1/3)"},
 	// Row 4: 1/4, 3/8, 1/6
-	{1, 4, "𝅘𝅥 (1/4)"},
-	{3, 8, "𝅘𝅥. (3/8)"},
-	{1, 6, "𝅘𝅥³ (1/6)"},
+	{1, 4, "Quarter note (1/4)"},
+	{3, 8, "Dotted quarter note (3/8)"},
+	{1, 6, "Triplet quarter note (1/6)"},
 	// Row 5: 1/8, 3/16, 1/12
-	{1, 8, "𝅘𝅥𝅮 (1/8)"},
-	{3, 16, "𝅘𝅥𝅮. (3/16)"},
-	{1, 12, "𝅘𝅥𝅮³ (1/12)"},
+	{1, 8, "Eighth note (1/8)"},
+	{3, 16, "Dotted eighth note (3/16)"},
+	{1, 12, "Triplet eighth note (1/12)"},
 	// Row 6: 1/16, 3/32, 1/24
-	{1, 16, "𝅘𝅥𝅯 (1/16)"},
-	{3, 32, "𝅘𝅥𝅯. (3/32)"},
-	{1, 24, "𝅘𝅥𝅯³ (1/24)"},
+	{1, 16, "Sixteenth note (1/16)"},
+	{3, 32, "Dotted sixteenth note (3/32)"},
+	{1, 24, "Triplet sixteenth note (1/24)"},
 	// Row 7: 1/32, 3/64, 1/48
-	{1, 32, "𝅘𝅥𝅰 (1/32)"},
-	{3, 64, "𝅘𝅥𝅰. (3/64)"},
-	{1, 48, "𝅘𝅥𝅰³ (1/48)"}
+	{1, 32, "Thirty-second note (1/32)"},
+	{3, 64, "Dotted thirty-second note (3/64)"},
+	{1, 48, "Triplet thirty-second note (1/48)"}
 };
 
 // Garmire Custom Hardware Widgets
@@ -383,140 +450,104 @@ struct BeatriceBpmTextField : ui::TextField {
 
 static void appendBeatriceMenuItems(ui::Menu* menu, Beatrice* module);
 
-// Beatrice LCD Display Widget
+// ── 7-Segment Digit Lookup & Rendering (Matching Aiona Quality) ──
+static const uint8_t gSegmentTableBeatrice[10] = {
+	0b00111111, // 0
+	0b00000110, // 1
+	0b01011011, // 2
+	0b01001111, // 3
+	0b01100110, // 4
+	0b01101101, // 5
+	0b01111101, // 6
+	0b00000111, // 7
+	0b01111111, // 8
+	0b01101111  // 9
+};
+
+static void drawSegmentBeatrice(NVGcontext* vg, float x, float y, float w, float h, bool on, NVGcolor onCol, NVGcolor offCol) {
+	nvgBeginPath(vg);
+	nvgRoundedRect(vg, x, y, w, h, 0.3f);
+	nvgFillColor(vg, on ? onCol : offCol);
+	nvgFill(vg);
+}
+
+static void draw7SegmentBeatrice(NVGcontext* vg, float dx, float dy, float dw, float dh, float st, int digit, NVGcolor onCol, NVGcolor offCol) {
+	if (digit < 0 || digit > 9) digit = 0;
+	uint8_t mask = gSegmentTableBeatrice[digit];
+	float halfH = dh * 0.5f;
+
+	// a: top horizontal
+	drawSegmentBeatrice(vg, dx + st * 0.7f, dy, dw - st * 1.4f, st, (mask & 0x01), onCol, offCol);
+	// b: top right vertical
+	drawSegmentBeatrice(vg, dx + dw - st, dy + st * 0.7f, st, halfH - st * 0.9f, (mask & 0x02), onCol, offCol);
+	// c: bottom right vertical
+	drawSegmentBeatrice(vg, dx + dw - st, dy + halfH + st * 0.2f, st, halfH - st * 0.9f, (mask & 0x04), onCol, offCol);
+	// d: bottom horizontal
+	drawSegmentBeatrice(vg, dx + st * 0.7f, dy + dh - st, dw - st * 1.4f, st, (mask & 0x08), onCol, offCol);
+	// e: bottom left vertical
+	drawSegmentBeatrice(vg, dx, dy + halfH + st * 0.2f, st, halfH - st * 0.9f, (mask & 0x10), onCol, offCol);
+	// f: top left vertical
+	drawSegmentBeatrice(vg, dx, dy + st * 0.7f, st, halfH - st * 0.9f, (mask & 0x20), onCol, offCol);
+	// g: middle horizontal
+	drawSegmentBeatrice(vg, dx + st * 0.7f, dy + halfH - st * 0.5f, dw - st * 1.4f, st, (mask & 0x40), onCol, offCol);
+}
+
+// ── Beatrice Primary LCD Display Widget (34.0 x 8.5 mm, matching Aiona) ──
 struct BeatriceDisplayWidget : OpaqueWidget {
 	Beatrice* module = nullptr;
 
 	BeatriceDisplayWidget() {
-		box.size = mm2px(Vec(34.0f, 7.5f));
+		box.size = mm2px(Vec(34.0f, 8.5f));
 	}
 
-	static void draw7Segment(NVGcontext* vg, float x, float y, float w, float h, float s, int digit, NVGcolor onColor, NVGcolor offColor) {
-		static const uint8_t segs[10] = {
-			0b00111111, // 0
-			0b00000110, // 1
-			0b01011011, // 2
-			0b01001111, // 3
-			0b01100110, // 4
-			0b01101101, // 5
-			0b01111101, // 6
-			0b00000111, // 7
-			0b01111111, // 8
-			0b01101111  // 9
-		};
-
-		uint8_t mask = (digit >= 0 && digit <= 9) ? segs[digit] : 0;
-		float halfH = h * 0.5f;
-
-		// a: top horizontal
+	void drawArrow(NVGcontext* vg, float cx, float cy, bool up, NVGcolor col) {
 		nvgBeginPath(vg);
-		nvgMoveTo(vg, x + s, y);
-		nvgLineTo(vg, x + w - s, y);
-		nvgStrokeColor(vg, (mask & 0x01) ? onColor : offColor);
-		nvgStrokeWidth(vg, s);
-		nvgStroke(vg);
-
-		// b: top right vertical
-		nvgBeginPath(vg);
-		nvgMoveTo(vg, x + w, y + s);
-		nvgLineTo(vg, x + w, y + halfH - s * 0.5f);
-		nvgStrokeColor(vg, (mask & 0x02) ? onColor : offColor);
-		nvgStrokeWidth(vg, s);
-		nvgStroke(vg);
-
-		// c: bottom right vertical
-		nvgBeginPath(vg);
-		nvgMoveTo(vg, x + w, y + halfH + s * 0.5f);
-		nvgLineTo(vg, x + w, y + h - s);
-		nvgStrokeColor(vg, (mask & 0x04) ? onColor : offColor);
-		nvgStrokeWidth(vg, s);
-		nvgStroke(vg);
-
-		// d: bottom horizontal
-		nvgBeginPath(vg);
-		nvgMoveTo(vg, x + s, y + h);
-		nvgLineTo(vg, x + w - s, y + h);
-		nvgStrokeColor(vg, (mask & 0x08) ? onColor : offColor);
-		nvgStrokeWidth(vg, s);
-		nvgStroke(vg);
-
-		// e: bottom left vertical
-		nvgBeginPath(vg);
-		nvgMoveTo(vg, x, y + halfH + s * 0.5f);
-		nvgLineTo(vg, x, y + h - s);
-		nvgStrokeColor(vg, (mask & 0x10) ? onColor : offColor);
-		nvgStrokeWidth(vg, s);
-		nvgStroke(vg);
-
-		// f: top left vertical
-		nvgBeginPath(vg);
-		nvgMoveTo(vg, x, y + s);
-		nvgLineTo(vg, x, y + halfH - s * 0.5f);
-		nvgStrokeColor(vg, (mask & 0x20) ? onColor : offColor);
-		nvgStrokeWidth(vg, s);
-		nvgStroke(vg);
-
-		// g: middle horizontal
-		nvgBeginPath(vg);
-		nvgMoveTo(vg, x + s, y + halfH);
-		nvgLineTo(vg, x + w - s, y + halfH);
-		nvgStrokeColor(vg, (mask & 0x40) ? onColor : offColor);
-		nvgStrokeWidth(vg, s);
-		nvgStroke(vg);
+		if (up) {
+			nvgMoveTo(vg, cx, cy - 2.6f);
+			nvgLineTo(vg, cx + 3.0f, cy + 1.8f);
+			nvgLineTo(vg, cx - 3.0f, cy + 1.8f);
+		} else {
+			nvgMoveTo(vg, cx, cy + 2.6f);
+			nvgLineTo(vg, cx + 3.0f, cy - 1.8f);
+			nvgLineTo(vg, cx - 3.0f, cy - 1.8f);
+		}
+		nvgClosePath(vg);
+		nvgFillColor(vg, col);
+		nvgFill(vg);
 	}
 
 	void draw(const DrawArgs& args) override {
+		nvgSave(args.vg);
+
 		float w = box.size.x;
 		float h = box.size.y;
 
-		nvgSave(args.vg);
-
 		// Frame background
 		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0.0f, 0.0f, w, h, 2.5f);
-		nvgFillColor(args.vg, nvgRGBA(16, 20, 18, 255));
+		nvgRoundedRect(args.vg, 0.0f, 0.0f, w, h, 2.0f);
+		nvgFillColor(args.vg, nvgRGBA(0x10, 0x14, 0x12, 0xff));
 		nvgFill(args.vg);
-		nvgStrokeColor(args.vg, nvgRGBA(44, 53, 48, 255));
-		nvgStrokeWidth(args.vg, 1.0f);
+
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.5f, 0.5f, w - 1.0f, h - 1.0f, 1.6f);
+		nvgStrokeColor(args.vg, nvgRGBA(0x2c, 0x35, 0x30, 0xff));
+		nvgStrokeWidth(args.vg, 0.8f);
 		nvgStroke(args.vg);
 
-		// Arrows: Left (integer BPM)
-		float arrowXLeft = 19.0f;
-		float arrowXRight = w - 19.0f;
-		float arrowYMid = h * 0.5f;
+		NVGcolor onColor = nvgRGBA(0x38, 0xf8, 0x70, 0xff);
+		NVGcolor offColor = nvgRGBA(0x15, 0x27, 0x1a, 0x48);
+		NVGcolor btnColor = nvgRGBA(0x72, 0x8a, 0x7a, 0xff);
 
-		// Left Up Arrow
-		nvgBeginPath(args.vg);
-		nvgMoveTo(args.vg, arrowXLeft - 3.5f, arrowYMid - 2.0f);
-		nvgLineTo(args.vg, arrowXLeft, arrowYMid - 6.5f);
-		nvgLineTo(args.vg, arrowXLeft + 3.5f, arrowYMid - 2.0f);
-		nvgClosePath(args.vg);
-		nvgFillColor(args.vg, nvgRGBA(56, 212, 48, 220));
-		nvgFill(args.vg);
+		// Up/Down Arrows
+		float arrowLeftX = 14.0f;
+		float arrowRightX = w - 14.0f;
+		float arrowUpY = h * 0.32f;
+		float arrowDnY = h * 0.68f;
 
-		// Left Down Arrow
-		nvgBeginPath(args.vg);
-		nvgMoveTo(args.vg, arrowXLeft - 3.5f, arrowYMid + 2.0f);
-		nvgLineTo(args.vg, arrowXLeft, arrowYMid + 6.5f);
-		nvgLineTo(args.vg, arrowXLeft + 3.5f, arrowYMid + 2.0f);
-		nvgClosePath(args.vg);
-		nvgFill(args.vg);
-
-		// Right Up Arrow
-		nvgBeginPath(args.vg);
-		nvgMoveTo(args.vg, arrowXRight - 3.5f, arrowYMid - 2.0f);
-		nvgLineTo(args.vg, arrowXRight, arrowYMid - 6.5f);
-		nvgLineTo(args.vg, arrowXRight + 3.5f, arrowYMid - 2.0f);
-		nvgClosePath(args.vg);
-		nvgFill(args.vg);
-
-		// Right Down Arrow
-		nvgBeginPath(args.vg);
-		nvgMoveTo(args.vg, arrowXRight - 3.5f, arrowYMid + 2.0f);
-		nvgLineTo(args.vg, arrowXRight, arrowYMid + 6.5f);
-		nvgLineTo(args.vg, arrowXRight + 3.5f, arrowYMid + 2.0f);
-		nvgClosePath(args.vg);
-		nvgFill(args.vg);
+		drawArrow(args.vg, arrowLeftX, arrowUpY, true, btnColor);
+		drawArrow(args.vg, arrowLeftX, arrowDnY, false, btnColor);
+		drawArrow(args.vg, arrowRightX, arrowUpY, true, btnColor);
+		drawArrow(args.vg, arrowRightX, arrowDnY, false, btnColor);
 
 		// Digits display (e.g. 120.00)
 		float curBpm = module ? module->displayBpm : 120.0f;
@@ -532,36 +563,63 @@ struct BeatriceDisplayWidget : OpaqueWidget {
 		int c10 = centBpm / 10;
 		int c1 = centBpm % 10;
 
-		NVGcolor onColor = nvgRGBA(68, 255, 68, 255);
-		NVGcolor offColor = nvgRGBA(24, 48, 28, 120);
-
-		float dw = 4.8f;
+		float dw = 5.2f;
 		float dh = 11.5f;
-		float st = 1.3f;
-		float digitPitch = 7.0f;
+		float st = 1.35f;
+		float digitPitch = 7.6f;
 
 		// 3 integer digits + dot + 2 decimal digits
-		float contentW = 3.0f * digitPitch + 3.5f + 2.0f * digitPitch;
+		float contentW = 3.0f * digitPitch + 3.8f + 2.0f * digitPitch;
 		float startX = (w - contentW) * 0.5f;
 		float digitY = (h - dh) * 0.5f;
 
 		// Integer digits
-		draw7Segment(args.vg, startX, digitY, dw, dh, st, (d100 > 0 ? d100 : -1), onColor, offColor);
-		draw7Segment(args.vg, startX + digitPitch, digitY, dw, dh, st, (intBpm >= 10 ? d10 : -1), onColor, offColor);
-		draw7Segment(args.vg, startX + digitPitch * 2.0f, digitY, dw, dh, st, d1, onColor, offColor);
+		if (d100 > 0) {
+			draw7SegmentBeatrice(args.vg, startX, digitY, dw, dh, st, d100, onColor, offColor);
+		} else {
+			// Draw ghost segments when inactive
+			for (int seg = 0; seg < 7; ++seg) {
+				float halfH = dh * 0.5f;
+				if (seg == 0) drawSegmentBeatrice(args.vg, startX + st * 0.7f, digitY, dw - st * 1.4f, st, false, onColor, offColor);
+				if (seg == 1) drawSegmentBeatrice(args.vg, startX + dw - st, digitY + st * 0.7f, st, halfH - st * 0.9f, false, onColor, offColor);
+				if (seg == 2) drawSegmentBeatrice(args.vg, startX + dw - st, digitY + halfH + st * 0.2f, st, halfH - st * 0.9f, false, onColor, offColor);
+				if (seg == 3) drawSegmentBeatrice(args.vg, startX + st * 0.7f, digitY + dh - st, dw - st * 1.4f, st, false, onColor, offColor);
+				if (seg == 4) drawSegmentBeatrice(args.vg, startX, digitY + halfH + st * 0.2f, st, halfH - st * 0.9f, false, onColor, offColor);
+				if (seg == 5) drawSegmentBeatrice(args.vg, startX, digitY + st * 0.7f, st, halfH - st * 0.9f, false, onColor, offColor);
+				if (seg == 6) drawSegmentBeatrice(args.vg, startX + st * 0.7f, digitY + halfH - st * 0.5f, dw - st * 1.4f, st, false, onColor, offColor);
+			}
+		}
+
+		if (intBpm >= 10) {
+			draw7SegmentBeatrice(args.vg, startX + digitPitch, digitY, dw, dh, st, d10, onColor, offColor);
+		} else {
+			for (int seg = 0; seg < 7; ++seg) {
+				float halfH = dh * 0.5f;
+				float dx = startX + digitPitch;
+				if (seg == 0) drawSegmentBeatrice(args.vg, dx + st * 0.7f, digitY, dw - st * 1.4f, st, false, onColor, offColor);
+				if (seg == 1) drawSegmentBeatrice(args.vg, dx + dw - st, digitY + st * 0.7f, st, halfH - st * 0.9f, false, onColor, offColor);
+				if (seg == 2) drawSegmentBeatrice(args.vg, dx + dw - st, digitY + halfH + st * 0.2f, st, halfH - st * 0.9f, false, onColor, offColor);
+				if (seg == 3) drawSegmentBeatrice(args.vg, dx + st * 0.7f, digitY + dh - st, dw - st * 1.4f, st, false, onColor, offColor);
+				if (seg == 4) drawSegmentBeatrice(args.vg, dx, digitY + halfH + st * 0.2f, st, halfH - st * 0.9f, false, onColor, offColor);
+				if (seg == 5) drawSegmentBeatrice(args.vg, dx, digitY + st * 0.7f, st, halfH - st * 0.9f, false, onColor, offColor);
+				if (seg == 6) drawSegmentBeatrice(args.vg, dx + st * 0.7f, digitY + halfH - st * 0.5f, dw - st * 1.4f, st, false, onColor, offColor);
+			}
+		}
+
+		draw7SegmentBeatrice(args.vg, startX + digitPitch * 2.0f, digitY, dw, dh, st, d1, onColor, offColor);
 
 		// Decimal point
-		float dotX = startX + digitPitch * 3.0f + 0.8f;
-		float dotY = digitY + dh - 1.2f;
+		float dotX = startX + digitPitch * 3.0f + 0.6f;
+		float dotY = digitY + dh - st * 0.8f;
 		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, dotX, dotY, 1.1f);
+		nvgCircle(args.vg, dotX, dotY, st * 0.8f);
 		nvgFillColor(args.vg, onColor);
 		nvgFill(args.vg);
 
 		// Decimal digits
-		float centStartX = dotX + 3.5f;
-		draw7Segment(args.vg, centStartX, digitY, dw, dh, st, c10, onColor, offColor);
-		draw7Segment(args.vg, centStartX + digitPitch, digitY, dw, dh, st, c1, onColor, offColor);
+		float centStartX = dotX + 3.2f;
+		draw7SegmentBeatrice(args.vg, centStartX, digitY, dw, dh, st, c10, onColor, offColor);
+		draw7SegmentBeatrice(args.vg, centStartX + digitPitch, digitY, dw, dh, st, c1, onColor, offColor);
 
 		nvgRestore(args.vg);
 	}
@@ -586,8 +644,8 @@ struct BeatriceDisplayWidget : OpaqueWidget {
 			float h = box.size.y;
 			float halfH = h * 0.5f;
 
-			// Left arrows (Integer BPM, x < 28.0)
-			if (x < 28.0f) {
+			// Left arrows (Integer BPM, x < 26.0)
+			if (x < 26.0f) {
 				float step = (e.mods & GLFW_MOD_SHIFT) ? 10.0f : 1.0f;
 				if (y < halfH) {
 					module->stepBpm(+step);
@@ -598,8 +656,8 @@ struct BeatriceDisplayWidget : OpaqueWidget {
 				return;
 			}
 
-			// Right arrows (Decimal BPM, x > w - 28.0)
-			if (x > w - 28.0f) {
+			// Right arrows (Decimal BPM, x > w - 26.0)
+			if (x > w - 26.0f) {
 				float step = (e.mods & GLFW_MOD_SHIFT) ? 0.10f : 0.01f;
 				if (y < halfH) {
 					module->stepBpm(+step);
@@ -655,9 +713,32 @@ static void appendBeatriceMenuItems(ui::Menu* menu, Beatrice* module) {
 	menu->addChild(gateItem);
 
 	menu->addChild(new MenuSeparator());
-	menu->addChild(createMenuLabel("BPM CV Response"));
+	menu->addChild(createMenuLabel("BPM Jack Input Function"));
 
-	struct CvModeItem : MenuItem {
+	struct InputModeItem : MenuItem {
+		Beatrice* module;
+		Beatrice::BpmInputMode mode;
+		void onAction(const ActionEvent& e) override {
+			module->bpmInputMode = mode;
+		}
+	};
+
+	InputModeItem* cvInItem = createMenuItem<InputModeItem>("BPM CV (Pitch / Voltage Modulation)");
+	cvInItem->module = module;
+	cvInItem->mode = Beatrice::BPM_INPUT_CV;
+	cvInItem->rightText = (module->bpmInputMode == Beatrice::BPM_INPUT_CV) ? "✔" : "";
+	menu->addChild(cvInItem);
+
+	InputModeItem* tapInItem = createMenuItem<InputModeItem>("Tap Tempo (Intelligent Tap Detection)");
+	tapInItem->module = module;
+	tapInItem->mode = Beatrice::BPM_INPUT_TAP;
+	tapInItem->rightText = (module->bpmInputMode == Beatrice::BPM_INPUT_TAP) ? "✔" : "";
+	menu->addChild(tapInItem);
+
+	menu->addChild(new MenuSeparator());
+	menu->addChild(createMenuLabel("BPM CV Response Curve"));
+
+	struct CvCurveItem : MenuItem {
 		Beatrice* module;
 		Beatrice::BpmCvMode mode;
 		void onAction(const ActionEvent& e) override {
@@ -665,13 +746,13 @@ static void appendBeatriceMenuItems(ui::Menu* menu, Beatrice* module) {
 		}
 	};
 
-	CvModeItem* curveItem = createMenuItem<CvModeItem>("Curved (30-180 BPM prioritized)");
+	CvCurveItem* curveItem = createMenuItem<CvCurveItem>("Curved (30-180 BPM prioritized)");
 	curveItem->module = module;
 	curveItem->mode = Beatrice::BPM_CV_CURVED;
 	curveItem->rightText = (module->bpmCvMode == Beatrice::BPM_CV_CURVED) ? "✔" : "";
 	menu->addChild(curveItem);
 
-	CvModeItem* linItem = createMenuItem<CvModeItem>("Linear (20 BPM/V)");
+	CvCurveItem* linItem = createMenuItem<CvCurveItem>("Linear (20 BPM/V)");
 	linItem->module = module;
 	linItem->mode = Beatrice::BPM_CV_LINEAR;
 	linItem->rightText = (module->bpmCvMode == Beatrice::BPM_CV_LINEAR) ? "✔" : "";
@@ -742,27 +823,27 @@ struct BeatriceWidget : ModuleWidget {
 		float col1 = 20.32f;
 		float col2 = 29.14f;
 
-		// LCD Display at Y = 13.50mm, centered horizontally at X = 20.32mm
+		// LCD Display (34.00 x 8.50 mm) at Y = 10.75mm, centered horizontally at X = 20.32mm
 		BeatriceDisplayWidget* display = new BeatriceDisplayWidget();
 		display->module = module;
-		display->box.pos = mm2px(Vec(col1 - 17.0f, 13.50f));
+		display->box.pos = mm2px(Vec(col1 - 17.0f, 10.75f));
 		addChild(display);
 
-		// Controls Row at Y = 30.50mm
-		float ctrlY = 30.50f;
+		// Controls Row at Y = 26.50mm
+		float ctrlY = 26.50f;
 		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(col0, ctrlY)), module, Beatrice::BPM_PARAM));
 		addParam(createParamCentered<GarmireButton>(mm2px(Vec(col1, ctrlY)), module, Beatrice::START_PARAM));
 		addParam(createParamCentered<GarmireButton>(mm2px(Vec(col2, ctrlY)), module, Beatrice::RESET_PARAM));
 
-		// Jack Rows (Pitch: 11.50mm, bottom anchor: 113.00mm)
-		float pitch = 11.50f;
-		float bottomY = 113.00f;
+		// Jack Rows (Universal 13.00mm pitch, bottom anchor Y = 117.00mm)
+		float pitch = 13.00f;
+		float bottomY = 117.00f;
 		float jackRows[7];
 		for (int i = 0; i < 7; ++i) {
 			jackRows[i] = bottomY - (6 - i) * pitch;
 		}
 
-		// Row 1 Jacks: BPM, START, RESET at Y = 44.00mm
+		// Row 1 Jacks: BPM, START, RESET at Y = 39.00mm
 		float r1Y = jackRows[0];
 		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col0, r1Y)), module, Beatrice::BPM_CV_INPUT));
 		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col1, r1Y)), module, Beatrice::START_INPUT));
