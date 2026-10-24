@@ -713,6 +713,16 @@
         "Envelope generator",
         "Clock generator"
       ]
+    },
+    {
+      "slug": "Beatrice",
+      "name": "Beatrice",
+      "description": "Multi-division master clock and rhythm generator with 18 simultaneous straight, dotted, and triplet outputs, precision LCD BPM readout, and flexible CV response",
+      "tags": [
+        "Generate",
+        "Clock generator",
+        "Pattern generator"
+      ]
     }
   ]
 }

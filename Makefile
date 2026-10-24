@@ -59,6 +59,7 @@ SOURCES += src/Eris.cpp
 SOURCES += src/Aion.cpp
 SOURCES += src/Aionidion.cpp
 SOURCES += src/Aiona.cpp
+SOURCES += src/Beatrice.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res
