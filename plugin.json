@@ -723,6 +723,17 @@
         "Clock generator",
         "Pattern generator"
       ]
+    },
+    {
+      "slug": "Reverie",
+      "name": "Reverie",
+      "description": "Sync-locked 16-slot multitrack wavetable preset recorder and 2D morphing performance controller with 6-channel + sync routing",
+      "tags": [
+        "Control",
+        "Wavetable",
+        "Sampler",
+        "Preset manager"
+      ]
     }
   ]
 }
