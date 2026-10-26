@@ -18,7 +18,7 @@ from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
 import pathops
 import cairosvg
-from PIL import Image
+from PIL import Image, ImageDraw
 
 def get_simplified_glyph_path(font, char):
     cmap = font.getBestCmap()
@@ -92,136 +92,121 @@ def get_palette_badge_svg(module_name="Reverie"):
     <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>
   </g>'''
 
-def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, hi_color, sh_color, well_bg, well_border, fonts):
+def render_delineator(x_start, x_end, center_y, hi_color, sh_color, comment=""):
+    w = x_end - x_start
+    top_y = center_y - 0.150
+    bot_y = center_y
+    return f'''  <!-- {comment} -->
+  <g>
+    <rect x="{x_start:.3f}" y="{top_y:.3f}" width="{w:.3f}" height="0.150" fill="{hi_color}" stroke="none"/>
+    <rect x="{x_start:.3f}" y="{bot_y:.3f}" width="{w:.3f}" height="0.150" fill="{sh_color}" stroke="none"/>
+  </g>'''
+
+def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, hi_color, sh_color, ring_color, well_bg, well_border, fonts):
     d_din_bold = fonts['d_din_bold']
     d_din_cond_bold = fonts['d_din_cond_bold']
     d_din_cond = fonts['d_din_cond']
     qs_reg_font = fonts['qs_reg_font']
 
-    # Panel dimensions: 28 HP (142.24 mm x 128.50 mm)
-    panel_w = 142.24
+    # Panel dimensions: 20 HP (101.60 mm x 128.50 mm)
+    # Left 8 HP Controls (0.00 - 40.64 mm) + Right 12 HP 4x4 Matrix & Gate Grid (40.64 - 101.60 mm)
+    panel_w = 101.60
     panel_h = 128.50
 
-    # Scales
+    # Scales (AGENTS.md Section 7.5)
     scale_title = 0.005644       # 16 pt
     scale_version = 0.001600     # 4.5 pt
     scale_knob = 0.003528        # 10 pt
-    scale_trim = 0.002822        # 8 pt
     scale_jack = 0.002822        # 8 pt
-    scale_sub = 0.002400         # ~6.8 pt
 
     lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.2f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.2f}">',
-        f'  <!-- Panel Background: 28 HP ({theme_name} Theme) -->',
+        f'  <!-- Panel Background: 20 HP ({theme_name} Theme) -->',
         f'  <rect width="{panel_w:.2f}" height="{panel_h:.2f}" fill="{bg_color}"/>',
         '',
         get_palette_badge_svg("Reverie"),
         '',
         '  <!-- ZONE 1: HEADER & TITLE -->',
         render_text(d_din_bold, "REVERIE", panel_w / 2.0, 8.000, scale_title, title_color, "Module Title"),
-        render_text(qs_reg_font, "v1.0.0", panel_w - 2.15, 8.000, scale_version, "#aaaaaa" if theme_name != "Dark" else "#888888", "Version Tag", align="right"),
-        '',
-        '  <!-- ZONE 2: PRIMARY CONTROLS (Left Side) -->'
+        render_text(qs_reg_font, "v1.1.0", panel_w - 2.15, 8.000, scale_version, "#aaaaaa" if theme_name != "Dark" else "#888888", "v1.1.0", align="right"),
+        ''
     ]
 
-    # Row 1 Knobs: FREQ, FINE, RANGE
-    # Y = 20.00 mm (Label baseline Y = 14.250 mm)
-    y_knob_row1 = 20.000
-    y_knob_lbl1 = y_knob_row1 - 5.750
-    lines.append(render_text(d_din_cond_bold, "FREQ", 16.000, y_knob_lbl1, scale_knob, label_color, "Freq Knob Label"))
-    lines.append(render_text(d_din_cond_bold, "FINE", 39.000, y_knob_lbl1, scale_knob, label_color, "Fine Knob Label"))
-    lines.append(render_text(d_din_cond_bold, "RANGE", 62.000, y_knob_lbl1, scale_knob, label_color, "Range Button Label"))
+    # ── LEFT 8 HP SECTION (0.00 to 40.64 mm) ──
+    # Row 1: FREQ (10.82), RANGE (20.32), FINE (29.82) at Y = 21.00 mm (Label baseline Y = 15.25 mm)
+    lines.append('  <!-- Left 8 HP: Primary Parameters -->')
+    lines.append('  <!-- Range Button Indicator Ring Track (R = 4.12mm, Stroke = 1.40mm) -->')
+    lines.append(f'  <circle cx="20.320" cy="21.000" r="4.120" fill="none" stroke="{ring_color}" stroke-width="1.400"/>')
+    lines.append(render_text(d_din_cond_bold, "FREQ", 10.820, 15.250, scale_knob, label_color, "FREQ Knob Label"))
+    lines.append(render_text(d_din_cond_bold, "RANGE", 20.320, 15.250, scale_knob, label_color, "RANGE Button Label"))
+    lines.append(render_text(d_din_cond_bold, "FINE", 29.820, 15.250, scale_knob, label_color, "FINE Knob Label"))
 
-    # Range LED dots indication: Yellow, Orange, Purple
-    lines.append('  <!-- Range Mode Indicator Sockets -->')
-    lines.append(f'  <circle cx="58.500" cy="27.500" r="1.300" fill="{well_bg}" stroke="{well_border}" stroke-width="0.3"/>')
-    lines.append(f'  <circle cx="62.000" cy="27.500" r="1.300" fill="{well_bg}" stroke="{well_border}" stroke-width="0.3"/>')
-    lines.append(f'  <circle cx="65.500" cy="27.500" r="1.300" fill="{well_bg}" stroke="{well_border}" stroke-width="0.3"/>')
+    # Row 2: CYCLES (10.82), MORPH (29.82) at Y = 40.00 mm (Label baseline Y = 34.25 mm)
+    lines.append(render_text(d_din_cond_bold, "CYCLES", 10.820, 34.250, scale_knob, label_color, "CYCLES Knob Label"))
+    lines.append(render_text(d_din_cond_bold, "MORPH", 29.820, 34.250, scale_knob, label_color, "MORPH Knob Label"))
 
-    # Row 2 Knobs: MORPH, CYCLES
-    # Y = 42.000 mm (Label baseline Y = 36.250 mm)
-    y_knob_row2 = 42.000
-    y_knob_lbl2 = y_knob_row2 - 5.750
-    lines.append(render_text(d_din_cond_bold, "MORPH", 22.000, y_knob_lbl2, scale_knob, label_color, "Morph Knob Label"))
-    lines.append(render_text(d_din_cond_bold, "CYCLES", 52.000, y_knob_lbl2, scale_knob, label_color, "Cycles Knob Label"))
-
-    # ZONE 3: CV ATTENUVERTERS (Trimpots)
-    # Trimpot Row Center Y = 66.000 mm (Label baseline Y = 62.000 mm, offset -4.0 mm)
-    y_trim = 66.000
-    y_trim_lbl = y_trim - 4.000
+    # Delineator Line for Left 8 HP Section (10 mm above Row 1 Control Jacks at 65.00 mm -> Y = 55.00 mm)
     lines.append('')
-    lines.append('  <!-- ZONE 3: CV ATTENUVERTERS -->')
-    lines.append(render_text(d_din_cond, "FREQ", 12.000, y_trim_lbl, scale_trim, label_color, "Freq Atten Label"))
-    lines.append(render_text(d_din_cond, "MORPH", 28.373, y_trim_lbl, scale_trim, label_color, "Morph Atten Label"))
-    lines.append(render_text(d_din_cond, "SCAN X", 49.747, y_trim_lbl, scale_trim, label_color, "Scan X Atten Label"))
-    lines.append(render_text(d_din_cond, "SCAN Y", 71.120, y_trim_lbl, scale_trim, label_color, "Scan Y Atten Label"))
+    lines.append(render_delineator(40.64 * 0.20, 40.64, 55.000, hi_color, sh_color, "Left 8 HP Delineator at Y = 55.00mm"))
 
-    # ZONE 4: 4x4 PRESET GRID (Right Side)
-    # Center X = 108.000 mm, Center Y = 46.000 mm
-    # Spacing delta_x = 12.500 mm, delta_y = 12.500 mm
-    grid_cx = 108.000
-    grid_cy = 46.000
-    pitch = 12.500
+    # Left 8 HP Control Jacks (4 columns: 6.80, 16.00, 25.20, 34.40 mm; 5 rows: 65, 78, 91, 104, 117 mm)
+    ctrl_x = [6.800, 16.000, 25.200, 34.400]
+    ctrl_rows = [
+        (65.000, ["SYNC", "X", "Y", "FREQ"]),
+        (78.000, ["R", "G", "B", "MORPH"]),
+        (91.000, ["Z/I", "X OUT", "Y OUT", "X SCAN"]),
+        (104.000, ["R OUT", "G OUT", "B OUT", "Y SCAN"]),
+    ]
+
+    lines.append('')
+    lines.append('  <!-- Left 8 HP: 5-Row Control & Signal Jacks -->')
+    for ry, rlabels in ctrl_rows:
+        lbl_y = ry - 5.000
+        for cx, lbl in zip(ctrl_x, rlabels):
+            lines.append(render_text(d_din_cond, lbl, cx, lbl_y, scale_jack, label_color, f"Jack {lbl} at ({cx:.1f}, {ry:.1f})"))
+
+    # Row 5 (Y = 117.000 mm, Label baseline Y = 112.000 mm): Z Out (6.80), Sync Out (20.60), Record (34.40)
+    lines.append(render_text(d_din_cond, "Z OUT", 6.800, 112.000, scale_jack, label_color, "Jack Z OUT"))
+    lines.append(render_text(d_din_cond, "SYNC OUT", 20.600, 112.000, scale_jack, label_color, "Jack SYNC OUT"))
+    lines.append(render_text(d_din_cond, "RECORD", 34.400, 112.000, scale_jack, label_color, "Jack RECORD"))
+
+    # ── RIGHT 12 HP SECTION (40.64 to 101.60 mm, Center = 71.12 mm) ──
+    # 4 Columns centered in 12 HP at pitch 12.50 mm: [52.37, 64.87, 77.37, 89.87]
+    grid_x = [52.370, 64.870, 77.370, 89.870]
+    grid_btn_y = [19.500, 32.000, 44.500, 57.000]
     btn_size = 10.000
     half_btn = btn_size / 2.0
 
     lines.append('')
-    lines.append('  <!-- ZONE 4: PRESET MATRIX WELLS -->')
-    lines.append(render_text(d_din_cond_bold, "PRESET MATRIX", grid_cx, 15.500, scale_knob, label_color, "Matrix Title"))
-
-    # Outline frame enclosing the 4x4 matrix
-    frame_w = 4.0 * pitch + 3.000
-    frame_h = 4.0 * pitch + 3.000
-    frame_x = grid_cx - frame_w / 2.0
-    frame_y = grid_cy - frame_h / 2.0
-    lines.append(f'  <rect x="{frame_x:.3f}" y="{frame_y:.3f}" width="{frame_w:.3f}" height="{frame_h:.3f}" rx="3.0" fill="none" stroke="{well_border}" stroke-width="0.4"/>')
-
-    for r in range(4):
-        by = grid_cy + (r - 1.5) * pitch
-        for c in range(4):
-            bx = grid_cx + (c - 1.5) * pitch
+    lines.append('  <!-- Right 12 HP: 4x4 Preset Matrix Wells -->')
+    for r, by in enumerate(grid_btn_y):
+        for c, bx in enumerate(grid_x):
+            slot_num = r * 4 + c + 1
             rx = bx - half_btn
             ry = by - half_btn
-            lines.append(f'  <rect x="{rx:.3f}" y="{ry:.3f}" width="{btn_size:.3f}" height="{btn_size:.3f}" rx="2.0" fill="{well_bg}" stroke="{well_border}" stroke-width="0.35"/>')
+            # Render preset-empty style rounded square placeholder on SVG faceplate for standalone/browser preview
+            lines.append(f'  <rect x="{rx:.3f}" y="{ry:.3f}" width="{btn_size:.3f}" height="{btn_size:.3f}" rx="1.6" fill="#eaeaea" stroke="#a9a9a9" stroke-width="0.30"/>')
+            inner_s = btn_size - 1.600
+            lines.append(f'  <rect x="{rx + 0.800:.3f}" y="{ry + 0.800:.3f}" width="{inner_s:.3f}" height="{inner_s:.3f}" rx="1.1" fill="#ffffff" stroke="none"/>')
+            lines.append(render_text(d_din_cond_bold, str(slot_num), bx, by + 1.250, scale_jack, "#444444", f"Preset Slot {slot_num}"))
 
-    # DELINEATOR LINE 2
-    # Separating Zone 3 / Grid and Jack Section
-    # Center Y = 81.000 mm (10 mm above Jack Row 3 at 91.000 mm)
+    # Delineator Line for Right 12 HP Section (10 mm above Row 1 Gate Jacks at 78.00 mm -> Y = 68.00 mm)
     lines.append('')
-    lines.append('  <!-- DELINEATOR LINE 2 (Section 7.3: 10 mm above CV jack row) -->')
-    x_del_start = 0.20 * panel_w
-    del_w = panel_w - x_del_start
-    lines.append(f'  <rect x="{x_del_start:.3f}" y="80.850" width="{del_w:.3f}" height="0.150" fill="{hi_color}" stroke="none"/>')
-    lines.append(f'  <rect x="{x_del_start:.3f}" y="81.000" width="{del_w:.3f}" height="0.150" fill="{sh_color}" stroke="none"/>')
+    lines.append(render_delineator(44.000, panel_w, 68.000, hi_color, sh_color, "Right 12 HP Delineator at Y = 68.00mm"))
 
-    # ZONE 5: I/O PORTS & JACKS
-    # Row 3 (CV Inputs): Center Y = 91.000 mm (Label baseline Y = 86.000 mm)
+    # Right 12 HP: 4x4 Gate Input Grid of Jacks (Rows at 78, 91, 104, 117 mm)
+    grid_jack_y = [78.000, 91.000, 104.000, 117.000]
     lines.append('')
-    lines.append('  <!-- Row 3: CV Inputs (Center Y = 91.000 mm) -->')
-    lines.append(render_text(d_din_cond, "CV INPUTS", 41.560, 86.000, scale_jack, label_color, "CV Section Centered Label"))
-
-    # Row 2 (Signal Inputs): Center Y = 104.000 mm (Label baseline Y = 99.000 mm)
-    # 7 Columns: X, Y, R, G, B, Z/I, SYNC
-    cols = [7.000, 28.373, 49.747, 71.120, 92.493, 113.867, 135.240]
-    headers = ["X", "Y", "R", "G", "B", "Z/I", "SYNC"]
-
-    lines.append('')
-    lines.append('  <!-- Row 2: Signal Inputs (Center Y = 104.000 mm) -->')
-    for cx, h in zip(cols, headers):
-        lines.append(render_text(d_din_cond, h, cx, 99.000, scale_jack, label_color, f"{h} Input Header"))
-
-    # Small row indicator on far left
-    lines.append(render_text(d_din_cond, "IN", 1.800, 105.000, scale_sub, label_color, "In Row Indicator", align="left"))
-
-    # Row 1 (Signal Outputs): Center Y = 117.000 mm (Label baseline Y = 112.000 mm)
-    lines.append('')
-    lines.append('  <!-- Row 1: Signal Outputs (Center Y = 117.000 mm) -->')
-    lines.append(render_text(d_din_cond, "OUT", 1.800, 118.000, scale_sub, label_color, "Out Row Indicator", align="left"))
-    # Centered row label across the 7 output jacks (satisfies Section 7.5.3 single centered label directive)
-    lines.append(render_text(d_din_cond, "SIGNAL OUTPUTS", panel_w / 2.0, 112.000, scale_jack, label_color, "Outputs Single Centered Label"))
+    lines.append('  <!-- Right 12 HP: 4x4 Preset Gate Input Grid -->')
+    for r, jy in enumerate(grid_jack_y):
+        lbl_y = jy - 5.000
+        for c, jx in enumerate(grid_x):
+            slot_num = r * 4 + c + 1
+            lines.append(render_text(d_din_cond, str(slot_num), jx, lbl_y, scale_jack, label_color, f"Preset Gate {slot_num}"))
 
     lines.append('</svg>')
-    return '\n'.join(lines)
+    return '\n'.join(lines) + '\n'
 
 def main():
     fonts = {
@@ -241,6 +226,7 @@ def main():
             'line_color': '#222222',
             'hi_color': '#999999',
             'sh_color': '#5e5e5e',
+            'ring_color': '#484848',
             'well_bg': '#5a5a5a',
             'well_border': '#484848'
         },
@@ -253,6 +239,7 @@ def main():
             'line_color': '#222222',
             'hi_color': '#e4e4e4',
             'sh_color': '#a8a8a8',
+            'ring_color': '#9e9e9e',
             'well_bg': '#b4b4b4',
             'well_border': '#9e9e9e'
         },
@@ -265,6 +252,7 @@ def main():
             'line_color': '#ffffff',
             'hi_color': '#585858',
             'sh_color': '#202020',
+            'ring_color': '#222222',
             'well_bg': '#282828',
             'well_border': '#1f1f1f'
         }
@@ -279,6 +267,7 @@ def main():
             skin['line_color'],
             skin['hi_color'],
             skin['sh_color'],
+            skin['ring_color'],
             skin['well_bg'],
             skin['well_border'],
             fonts
@@ -288,17 +277,17 @@ def main():
         print(f"Generated {skin['filename']} ({skin['name']} skin)")
 
     # Render verification bitmaps
+    # 20 HP: 101.60 mm x 128.50 mm -> at 240px height = 190 px width
     os.makedirs('scratch', exist_ok=True)
     verify_png = 'scratch/reverie_verify.png'
-    # 28 HP: 142.24 mm x 128.50 mm -> at 240px height = 265.6 px width
-    out_w = int(240 * (142.24 / 128.50))
+    out_w = int(round(240 * (101.60 / 128.50)))
     cairosvg.svg2png(url='res/Reverie.svg', write_to=verify_png, output_width=out_w * 4, output_height=240 * 4)
-    print(f"Rendered {verify_png}")
+    print(f"Rendered {verify_png} ({out_w * 4}x{240 * 4})")
 
     os.makedirs('metamodule/assets', exist_ok=True)
     meta_png = 'metamodule/assets/Reverie.png'
     cairosvg.svg2png(url='res/Reverie.svg', write_to=meta_png, output_width=out_w, output_height=240)
-    print(f"Rendered {meta_png}")
+    print(f"Rendered {meta_png} ({out_w}x240)")
 
 if __name__ == '__main__':
     main()
