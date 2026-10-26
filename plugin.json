@@ -734,6 +734,29 @@
         "Sampler",
         "Preset manager"
       ]
+    },
+    {
+      "slug": "Octavia",
+      "name": "Octavia",
+      "description": "Octature polyphase oscillator featuring 24 simultaneous Sine, Ramp, and Saw outputs in 45-degree phase increments with selectable voltage ranges",
+      "tags": [
+        "Generate",
+        "Oscillator",
+        "Polyphonic",
+        "Visual"
+      ]
+    },
+    {
+      "slug": "Randi",
+      "name": "Randi",
+      "description": "Multichannel stochastic voltage generator featuring 8 unique stepped randoms, 8 paired slewed voltages, and 7 fixed-filter distributed random outputs",
+      "tags": [
+        "Generate",
+        "Noise",
+        "Random",
+        "Sample and hold",
+        "Visual"
+      ]
     }
   ]
 }

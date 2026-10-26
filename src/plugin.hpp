@@ -73,3 +73,5 @@ extern Model* modelAionidion;
 extern Model* modelAiona;
 extern Model* modelBeatrice;
 extern Model* modelReverie;
+extern Model* modelOctavia;
+extern Model* modelRandi;
