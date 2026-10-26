@@ -63,6 +63,7 @@ SOURCES += src/Beatrice.cpp
 SOURCES += src/Reverie.cpp
 SOURCES += src/Octavia.cpp
 SOURCES += src/Randi.cpp
+SOURCES += src/Grainne.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res

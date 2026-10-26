@@ -74,5 +74,6 @@ void init(Plugin* p) {
 	p->addModel(modelReverie);
 	p->addModel(modelOctavia);
 	p->addModel(modelRandi);
+	p->addModel(modelGrainne);
 }
 
