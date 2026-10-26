@@ -768,6 +768,17 @@
         "Polyphonic",
         "Visual"
       ]
+    },
+    {
+      "slug": "Lain",
+      "name": "Lain",
+      "description": "Repeating 3-segment RGB line generator with Coarse/Scale/Fine timebase, live RGB hue halo rings, proportional segment lengths, and bipolar frequency-divided/multiplied blink rates",
+      "tags": [
+        "Generate",
+        "Oscillator",
+        "Polyphonic",
+        "Visual"
+      ]
     }
   ]
 }
