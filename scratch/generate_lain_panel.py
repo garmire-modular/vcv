@@ -152,7 +152,7 @@ def generate_panel(skin):
         '',
         '  <!-- Zone 1: Header & Title -->',
         render_text_centered(ddin_bold, 'LAIN', panel_w / 2.0, 8.000, 0.005644, title_color, 'LAIN'),
-        render_text_right(quicksand, 'v1.0.0', panel_w - 2.150, 8.000, 0.001600, version_color, 'v1.0.0'),
+        render_text_right(quicksand, 'v1.0.1', panel_w - 2.150, 8.000, 0.001600, version_color, 'v1.0.1'),
         '',
         '  <!-- Zone 2: Primary Controls (4 Rows) -->',
         '  <!-- Row 1 (Center Y = 17.50 mm, Label Baseline = 12.00 mm): FREQ, SCALE, FINE -->',

@@ -123,7 +123,7 @@ struct Lain : Module {
 
 	// Live normalized segment fractions (sum to 1.0 when any length > 0)
 	float displaySegFracs[3] = {1.f / 3.f, 1.f / 3.f, 1.f / 3.f};
-	int displayBlinkSteps[3] = {255, 255, 255};
+	int displayBlinkSteps[3] = {0, 0, 0};
 	uint64_t displayCycleCount = 0;
 
 	struct VoiceState {
@@ -396,10 +396,10 @@ struct Lain : Module {
 		configParam(LEN_2_PARAM, 0.f, 1.f, 0.50f, "Length 2", "%", 0.f, 100.f);
 		configParam(LEN_3_PARAM, 0.f, 1.f, 0.50f, "Length 3", "%", 0.f, 100.f);
 
-		// Row 4: Blink Rates (-255 = Off, -254..-1 = /128../1.5, 0 = 1:1, +1..+254 = x1.5..x128, +255 = On)
+		// Row 4: Blink Rates (-255 = Off, -254..-1 = /128../1.5, 0 = 1:1 default, +1..+254 = x1.5..x128, +255 = On)
 		for (int i = 0; i < 3; ++i) {
 			std::string name = "Blink rate " + std::to_string(i + 1);
-			configParam<BlinkRateParamQuantity>(BLINK_1_PARAM + i, -255.f, 255.f, 255.f, name, "");
+			configParam<BlinkRateParamQuantity>(BLINK_1_PARAM + i, -255.f, 255.f, 0.f, name, "");
 			paramQuantities[BLINK_1_PARAM + i]->snapEnabled = true;
 		}
 
@@ -838,7 +838,7 @@ struct LainSegmentPreview : TransparentWidget {
 			{0.0f, 0.0f, 1.0f}
 		};
 		float defaultFracs[3] = {1.f / 3.f, 1.f / 3.f, 1.f / 3.f};
-		int defaultBlinks[3] = {255, 255, 255};
+		int defaultBlinks[3] = {0, 0, 0};
 
 		const float (*stops)[3] = module ? module->displayStopRgb : defaultStops;
 		const float* fracs = module ? module->displaySegFracs : defaultFracs;
