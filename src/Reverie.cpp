@@ -1,1427 +1,1333 @@
 #include "plugin.hpp"
-#include <cmath>
 #include <vector>
-#include <string>
+#include <cmath>
+#include <cstring>
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
-#include <cstdio>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 namespace {
 
-inline float clampf(float v, float lo, float hi) {
-	return (v < lo) ? lo : (v > hi) ? hi : v;
+struct ReveriePort : app::SvgPort {
+    ReveriePort() {
+        setSvg(Svg::load(asset::plugin(pluginInstance, "res/3_5mm_jacks.svg")));
+    }
+};
+
+struct ReverieKnob : RoundKnob {
+    ReverieKnob() {
+        setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob.svg")));
+        bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob_bg.svg")));
+    }
+};
+
+struct ReverieSnapKnob : ReverieKnob {
+    ReverieSnapKnob() {
+        snap = true;
+    }
+};
+
+struct ReverieTrimpot : RoundKnob {
+    ReverieTrimpot() {
+        setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob.svg")));
+        bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob_bg.svg")));
+    }
+};
+
+struct ReverieButton : app::SvgSwitch {
+    ReverieButton() {
+        momentary = true;
+        addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_0.svg")));
+        addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_1.svg")));
+    }
+};
+
+// Base64 helpers for JSON serialization of float wavetables
+static const char b64_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+std::string base64_encode(const uint8_t* data, size_t len) {
+    std::string out;
+    out.reserve(((len + 2) / 3) * 4);
+    for (size_t i = 0; i < len; i += 3) {
+        uint32_t n = ((uint32_t)data[i]) << 16;
+        if (i + 1 < len) n |= ((uint32_t)data[i + 1]) << 8;
+        if (i + 2 < len) n |= ((uint32_t)data[i + 2]);
+
+        out.push_back(b64_table[(n >> 18) & 63]);
+        out.push_back(b64_table[(n >> 12) & 63]);
+        out.push_back((i + 1 < len) ? b64_table[(n >> 6) & 63] : '=');
+        out.push_back((i + 2 < len) ? b64_table[n & 63] : '=');
+    }
+    return out;
 }
 
-// 4-point Hermite cubic interpolation for antialiased smooth wavetable read
-inline float hermiteInterp(float y0, float y1, float y2, float y3, float frac) {
-	float c0 = y1;
-	float c1 = 0.5f * (y2 - y0);
-	float c2 = y0 - 2.5f * y1 + 2.0f * y2 - 0.5f * y3;
-	float c3 = 0.5f * (y3 - y0) + 1.5f * (y1 - y2);
-	return ((c3 * frac + c2) * frac + c1) * frac + c0;
+std::vector<uint8_t> base64_decode(const char* str) {
+    std::vector<uint8_t> out;
+    if (!str) return out;
+    size_t len = std::strlen(str);
+    out.reserve((len * 3) / 4);
+
+    int val = 0, valb = -8;
+    for (size_t i = 0; i < len; ++i) {
+        unsigned char c = (unsigned char)str[i];
+        int d = -1;
+        if (c >= 'A' && c <= 'Z') d = c - 'A';
+        else if (c >= 'a' && c <= 'z') d = c - 'a' + 26;
+        else if (c >= '0' && c <= '9') d = c - '0' + 52;
+        else if (c == '+') d = 62;
+        else if (c == '/') d = 63;
+        else continue;
+
+        val = (val << 6) + d;
+        valb += 6;
+        if (valb >= 0) {
+            out.push_back((uint8_t)((val >> valb) & 0xFF));
+            valb -= 8;
+        }
+    }
+    return out;
 }
 
 static const int CYCLE_OPTIONS[7] = {1, 8, 16, 24, 48, 96, 128};
 
-} // namespace
+} // anonymous namespace
+
 
 struct Reverie : Module {
-	static constexpr int SAMPLES_PER_CYCLE = 4096;
-	static constexpr int NUM_CHANNELS = 6; // X, Y, R, G, B, Z/I
-	static constexpr int NUM_SLOTS = 16;
-
-	enum RangeMode {
-		RANGE_VERY_SLOW = 0, // 600s down to 0.1s
-		RANGE_LFO,            // 0.01 - 200 Hz
-		RANGE_VCO             // 150 Hz - 2 kHz
-	};
-
-	enum VoltageRange {
-		RANGE_BIPOLAR_1V = 0,
-		RANGE_UNIPOLAR_1V,
-		RANGE_BIPOLAR_5V,
-		RANGE_UNIPOLAR_5V,
-		RANGE_BIPOLAR_10V,
-		RANGE_UNIPOLAR_10V,
-		NUM_VOLTAGE_RANGES
-	};
-
-	enum SkinTheme {
-		THEME_MEDIUM = 0,
-		THEME_LIGHT = 1,
-		THEME_DARK = 2
-	};
-
-	enum RecordState {
-		REC_IDLE = 0,
-		REC_WAIT_SYNC,
-		REC_CAPTURING
-	};
-
-	enum ParamId {
-		FREQ_PARAM,
-		RANGE_PARAM,
-		FINE_PARAM,
-		CYCLES_PARAM,
-		MORPH_PARAM,
-		PARAMS_LEN
-	};
-
-	enum InputId {
-		SYNC_INPUT,
-		X_INPUT,
-		Y_INPUT,
-		FREQ_CV_INPUT,
-
-		R_INPUT,
-		G_INPUT,
-		B_INPUT,
-		MORPH_CV_INPUT,
-
-		ZI_INPUT,
-		SCAN_X_CV_INPUT,
-		SCAN_Y_CV_INPUT,
-		RECORD_INPUT,
-
-		ENUMS(PRESET_GATE_INPUT, 16),
-		INPUTS_LEN
-	};
-
-	enum OutputId {
-		X_OUTPUT,
-		Y_OUTPUT,
-		R_OUTPUT,
-		G_OUTPUT,
-		B_OUTPUT,
-		ZI_OUTPUT,
-		SYNC_OUTPUT,
-		OUTPUTS_LEN
-	};
-
-	enum LightId {
-		RANGE_LIGHT_YELLOW,
-		RANGE_LIGHT_ORANGE,
-		RANGE_LIGHT_PURPLE,
-		LIGHTS_LEN
-	};
-
-	struct PresetSlot {
-		bool hasData = false;
-		int numCycles = 16;
-		int totalSamples = 0;
-		float baseFreq = 60.0f;
-		std::vector<float> channels[NUM_CHANNELS];
-
-		PresetSlot() {
-			for (int c = 0; c < NUM_CHANNELS; c++) {
-				channels[c].resize(SAMPLES_PER_CYCLE, 0.0f);
-			}
-		}
-
-		void clear() {
-			hasData = false;
-			numCycles = 16;
-			totalSamples = 0;
-			baseFreq = 60.0f;
-			for (int c = 0; c < NUM_CHANNELS; c++) {
-				std::fill(channels[c].begin(), channels[c].end(), 0.0f);
-			}
-		}
-
-		// Reads sample at currentCyclePhase where 1.0 unit of currentCyclePhase = 1 single recorded cycle
-		float readSample(int channel, double currentCyclePhase) const {
-			if (!hasData || totalSamples <= 0 || numCycles <= 0 || channel < 0 || channel >= NUM_CHANNELS) {
-				return 0.0f;
-			}
-			const std::vector<float>& buf = channels[channel];
-			if ((int)buf.size() < totalSamples) return 0.0f;
-
-			double cycleInSlot = std::fmod(currentCyclePhase, (double)numCycles);
-			if (cycleInSlot < 0.0) cycleInSlot += (double)numCycles;
-
-			double pos = cycleInSlot * (double)SAMPLES_PER_CYCLE;
-			int idx1 = (int)std::floor(pos);
-			float frac = (float)(pos - (double)idx1);
-
-			int N = totalSamples;
-			int idx0 = (idx1 - 1 + N) % N;
-			idx1 = idx1 % N;
-			int idx2 = (idx1 + 1) % N;
-			int idx3 = (idx1 + 2) % N;
-
-			return hermiteInterp(buf[idx0], buf[idx1], buf[idx2], buf[idx3], frac);
-		}
-	};
-
-	PresetSlot slots[NUM_SLOTS];
-
-	SkinTheme skinTheme = THEME_MEDIUM;
-	RangeMode rangeMode = RANGE_LFO;
-	VoltageRange scanRange = RANGE_UNIPOLAR_10V;
-
-	// Recording state
-	RecordState recState = REC_IDLE;
-	int armedSlot = -1;
-	int targetCycles = 16;
-	int completedCycles = 0;
-	float timeSinceSync = 0.0f;
-	float lastMeasuredPeriod = 1.0f / 60.0f;
-
-	// Scratch capture buffer for current cycle (pre-allocated)
-	static constexpr int MAX_CYCLE_RAW_SAMPLES = 192000;
-	std::vector<float> rawCycleBuffer[NUM_CHANNELS];
-	int rawSampleCount = 0;
-
-	// Selection & Playback state
-	int selectedSlot = 0;   // Currently highlighted slot in the 4x4 grid (can be empty for live preview or stored)
-	int activeSlot = -1;    // Currently playing stored preset (-1 if previewing an empty slot)
-	int morphFromSlot = -1; // -1 means morphing from live input pass-through
-	int morphToSlot = -1;
-	float morphProgress = 1.0f;
-	double cyclePhase = 0.0; // 1.0 = 1 single cycle (wraps modulo 384 = LCM of all cycle counts)
-
-	dsp::BooleanTrigger rangeTrigger;
-	dsp::SchmittTrigger syncInTrigger;
-	dsp::SchmittTrigger recordGateTrigger;
-	dsp::SchmittTrigger presetGateTriggers[NUM_SLOTS];
-	dsp::PulseGenerator syncOutPulse;
-
-	// Standardized FreqParamQuantity matching Lisa / Daisy / Circe
-	struct FreqParamQuantity : ParamQuantity {
-		Reverie* getReverie() {
-			return dynamic_cast<Reverie*>(module);
-		}
-
-		float getDisplayValue() override {
-			Reverie* rev = getReverie();
-			if (!rev) return ParamQuantity::getDisplayValue();
-
-			float coarse = getValue();
-			float fine = (rev->paramQuantities.size() > Reverie::FINE_PARAM) ? rev->params[Reverie::FINE_PARAM].getValue() : 0.f;
-
-			if (rev->rangeMode == Reverie::RANGE_VERY_SLOW) {
-				// Period T in seconds: 600.0s to 0.1s
-				float tCoarse = 600.0f * std::pow(0.1f / 600.0f, coarse);
-				return clampf(tCoarse * (1.0f - fine * 0.10f), 0.05f, 1000.0f);
-			} else if (rev->rangeMode == Reverie::RANGE_LFO) {
-				// Frequency in Hz: 0.01 to 200.00 Hz
-				float fCoarse = 0.01f + 199.99f * coarse * coarse;
-				return clampf(fCoarse + fine * 20.0f, 0.01f, 250.0f);
-			} else {
-				// Frequency in Hz: 150.00 to 2000.00 Hz
-				float fCoarse = 150.0f * std::pow(2000.0f / 150.0f, coarse);
-				return clampf(fCoarse * (1.0f + fine * 0.10f), 100.0f, 2500.0f);
-			}
-		}
-
-		std::string getDisplayValueString() override {
-			Reverie* rev = getReverie();
-			if (!rev) return ParamQuantity::getDisplayValueString();
-
-			float val = getDisplayValue();
-			char buf[32];
-			if (rev->rangeMode == Reverie::RANGE_VERY_SLOW) {
-				std::snprintf(buf, sizeof(buf), "%.1f", val);
-			} else {
-				std::snprintf(buf, sizeof(buf), "%.2f", val);
-			}
-			return std::string(buf);
-		}
-
-		void setFrequencyValue(float rawVal, bool isPeriod) {
-			Reverie* rev = getReverie();
-			if (!rev) return;
-
-			float fine = (rev->paramQuantities.size() > Reverie::FINE_PARAM) ? rev->params[Reverie::FINE_PARAM].getValue() : 0.f;
-			float newCoarse = getValue();
-
-			if (rev->rangeMode == Reverie::RANGE_VERY_SLOW) {
-				float targetPeriodS = isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 1e6f);
-				if (targetPeriodS <= 1e-5f) targetPeriodS = 1e-5f;
-
-				float fineFactor = 1.0f - fine * 0.10f;
-				if (std::abs(fineFactor) < 1e-4f) fineFactor = 1e-4f;
-				float tCoarse = targetPeriodS / fineFactor;
-				if (tCoarse <= 1e-6f) tCoarse = 1e-6f;
-
-				float ratio = tCoarse / 600.0f;
-				if (ratio <= 0.f) ratio = 1e-6f;
-				newCoarse = std::log(ratio) / std::log(0.1f / 600.0f);
-			} else if (rev->rangeMode == Reverie::RANGE_LFO) {
-				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 0.01f);
-				float fCoarse = targetHz - fine * 20.0f;
-				if (fCoarse <= 0.01f) {
-					newCoarse = 0.0f;
-				} else {
-					newCoarse = std::sqrt((fCoarse - 0.01f) / 199.99f);
-				}
-			} else { // RANGE_VCO
-				float targetHz = !isPeriod ? rawVal : (rawVal > 1e-6f ? 1.0f / rawVal : 100.f);
-				float fineFactor = 1.0f + fine * 0.10f;
-				if (std::abs(fineFactor) < 1e-4f) fineFactor = 1e-4f;
-				float fCoarse = targetHz / fineFactor;
-				if (fCoarse <= 1.0f) fCoarse = 1.0f;
-
-				float ratio = fCoarse / 150.0f;
-				if (ratio <= 0.f) ratio = 1e-6f;
-				newCoarse = std::log(ratio) / std::log(2000.0f / 150.0f);
-			}
-
-			setValue(clampf(newCoarse, 0.0f, 1.0f));
-		}
-
-		void setDisplayValue(float displayValue) override {
-			Reverie* rev = getReverie();
-			if (!rev) {
-				ParamQuantity::setDisplayValue(displayValue);
-				return;
-			}
-			bool isPeriod = (rev->rangeMode == Reverie::RANGE_VERY_SLOW);
-			setFrequencyValue(displayValue, isPeriod);
-		}
-
-		void setDisplayValueString(std::string s) override {
-			Reverie* rev = getReverie();
-			if (!rev) {
-				ParamQuantity::setDisplayValueString(s);
-				return;
-			}
-
-			std::string str = s;
-			while (!str.empty() && std::isspace((unsigned char)str.front())) {
-				str.erase(str.begin());
-			}
-			while (!str.empty() && std::isspace((unsigned char)str.back())) {
-				str.pop_back();
-			}
-			if (str.empty()) return;
-
-			std::string lowerStr = str;
-			for (char& c : lowerStr) {
-				c = (char)std::tolower((unsigned char)c);
-			}
-
-			enum UnitType { UNIT_DEFAULT, UNIT_HZ, UNIT_KHZ, UNIT_MHZ, UNIT_SEC, UNIT_MS };
-			UnitType unitType = UNIT_DEFAULT;
-
-			if (lowerStr.length() >= 4 && lowerStr.substr(lowerStr.length() - 4) == "secs") {
-				unitType = UNIT_SEC;
-				str = str.substr(0, str.length() - 4);
-			} else if (lowerStr.length() >= 3 && lowerStr.substr(lowerStr.length() - 3) == "sec") {
-				unitType = UNIT_SEC;
-				str = str.substr(0, str.length() - 3);
-			} else if (lowerStr.length() >= 3 && lowerStr.substr(lowerStr.length() - 3) == "khz") {
-				unitType = UNIT_KHZ;
-				str = str.substr(0, str.length() - 3);
-			} else if (lowerStr.length() >= 3 && lowerStr.substr(lowerStr.length() - 3) == "mhz") {
-				unitType = UNIT_MHZ;
-				str = str.substr(0, str.length() - 3);
-			} else if (lowerStr.length() >= 2 && lowerStr.substr(lowerStr.length() - 2) == "hz") {
-				unitType = UNIT_HZ;
-				str = str.substr(0, str.length() - 2);
-			} else if (lowerStr.length() >= 2 && lowerStr.substr(lowerStr.length() - 2) == "ms") {
-				unitType = UNIT_MS;
-				str = str.substr(0, str.length() - 2);
-			} else if (!lowerStr.empty() && lowerStr.back() == 's') {
-				unitType = UNIT_SEC;
-				str.pop_back();
-			} else if (!lowerStr.empty() && lowerStr.back() == 'k') {
-				unitType = UNIT_KHZ;
-				str.pop_back();
-			}
-
-			while (!str.empty() && std::isspace((unsigned char)str.back())) {
-				str.pop_back();
-			}
-
-			char* endPtr = nullptr;
-			float rawVal = std::strtof(str.c_str(), &endPtr);
-			if (endPtr == str.c_str()) return;
-
-			bool isPeriod;
-			float finalVal;
-
-			if (unitType == UNIT_SEC) {
-				isPeriod = true;
-				finalVal = rawVal;
-			} else if (unitType == UNIT_MS) {
-				isPeriod = true;
-				finalVal = rawVal * 0.001f;
-			} else if (unitType == UNIT_HZ) {
-				isPeriod = false;
-				finalVal = rawVal;
-			} else if (unitType == UNIT_KHZ) {
-				isPeriod = false;
-				finalVal = rawVal * 1000.0f;
-			} else if (unitType == UNIT_MHZ) {
-				isPeriod = false;
-				finalVal = rawVal * 1000000.0f;
-			} else {
-				isPeriod = (rev->rangeMode == Reverie::RANGE_VERY_SLOW);
-				finalVal = rawVal;
-			}
-
-			setFrequencyValue(finalVal, isPeriod);
-		}
-
-		std::string getUnit() override {
-			Reverie* rev = getReverie();
-			if (!rev) return "";
-			return (rev->rangeMode == Reverie::RANGE_VERY_SLOW) ? " s" : " Hz";
-		}
-	};
-
-	struct CyclesParamQuantity : ParamQuantity {
-		std::string getDisplayValueString() override {
-			int idx = (int)std::round(getValue());
-			idx = std::max(0, std::min(6, idx));
-			return std::to_string(CYCLE_OPTIONS[idx]) + (CYCLE_OPTIONS[idx] == 1 ? " cycle" : " cycles");
-		}
-
-		void setDisplayValueString(std::string s) override {
-			char* endPtr = nullptr;
-			float val = std::strtof(s.c_str(), &endPtr);
-			if (endPtr != s.c_str()) {
-				int target = (int)std::round(val);
-				int bestIdx = 2;
-				int bestDiff = 999999;
-				for (int i = 0; i < 7; i++) {
-					int d = std::abs(CYCLE_OPTIONS[i] - target);
-					if (d < bestDiff) {
-						bestDiff = d;
-						bestIdx = i;
-					}
-				}
-				setValue((float)bestIdx);
-				return;
-			}
-			ParamQuantity::setDisplayValueString(s);
-		}
-	};
-
-	Reverie() {
-		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-
-		// Standardized Frequency Triple Controls (matching Lisa / Daisy / Circe)
-		configParam<FreqParamQuantity>(FREQ_PARAM, 0.f, 1.f, 0.5477f, "Frequency", "");
-		configButton(RANGE_PARAM, "Range time-scale");
-		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine frequency", "%", 0.f, 10.f);
-
-		// Cycles (default = index 2 -> 16 cycles) & Morph Time
-		configParam<CyclesParamQuantity>(CYCLES_PARAM, 0.f, 6.f, 2.f, "Cycles", "");
-		paramQuantities[CYCLES_PARAM]->snapEnabled = true;
-		configParam(MORPH_PARAM, 0.f, 10.f, 0.5f, "Morph time", " s");
-
-		// Control & Signal Inputs (no redundant "input"/"in" words per AGENTS.md Section 7.5.1)
-		configInput(SYNC_INPUT, "Sync");
-		configInput(X_INPUT, "X");
-		configInput(Y_INPUT, "Y");
-		configInput(FREQ_CV_INPUT, "Frequency CV");
-
-		configInput(R_INPUT, "R");
-		configInput(G_INPUT, "G");
-		configInput(B_INPUT, "B");
-		configInput(MORPH_CV_INPUT, "Morph time CV");
-
-		configInput(ZI_INPUT, "Z/I");
-		configInput(SCAN_X_CV_INPUT, "X scan CV");
-		configInput(SCAN_Y_CV_INPUT, "Y scan CV");
-		configInput(RECORD_INPUT, "Record gate");
-
-		for (int i = 0; i < NUM_SLOTS; i++) {
-			configInput(PRESET_GATE_INPUT + i, "Preset " + std::to_string(i + 1) + " gate");
-		}
-
-		// Signal & Sync Outputs (no redundant "output"/"out" words per AGENTS.md Section 7.5.1)
-		configOutput(X_OUTPUT, "X");
-		configOutput(Y_OUTPUT, "Y");
-		configOutput(R_OUTPUT, "R");
-		configOutput(G_OUTPUT, "G");
-		configOutput(B_OUTPUT, "B");
-		configOutput(ZI_OUTPUT, "Z/I");
-		configOutput(SYNC_OUTPUT, "Sync");
-
-		// Pre-allocate raw cycle capture buffers
-		for (int c = 0; c < NUM_CHANNELS; c++) {
-			rawCycleBuffer[c].resize(MAX_CYCLE_RAW_SAMPLES, 0.0f);
-		}
-	}
-
-	void onReset() override {
-		for (int s = 0; s < NUM_SLOTS; s++) {
-			slots[s].clear();
-		}
-		selectedSlot = 0;
-		activeSlot = -1;
-		morphFromSlot = -1;
-		morphToSlot = -1;
-		morphProgress = 1.0f;
-		recState = REC_IDLE;
-		armedSlot = -1;
-		cyclePhase = 0.0;
-	}
-
-	float calculateBaseFrequency(float coarse, float fine) const {
-		if (rangeMode == RANGE_VERY_SLOW) {
-			float tCoarse = 600.0f * std::pow(0.1f / 600.0f, coarse);
-			float t = clampf(tCoarse * (1.0f - fine * 0.10f), 0.05f, 1000.0f);
-			return 1.0f / t;
-		} else if (rangeMode == RANGE_LFO) {
-			float fCoarse = 0.01f + 199.99f * coarse * coarse;
-			return clampf(fCoarse + fine * 20.0f, 0.01f, 250.0f);
-		} else {
-			float fCoarse = 150.0f * std::pow(2000.0f / 150.0f, coarse);
-			return clampf(fCoarse * (1.0f + fine * 0.10f), 100.0f, 2500.0f);
-		}
-	}
-
-	void getRangeVoltages(float& vMin, float& vMax) const {
-		switch (scanRange) {
-			case RANGE_BIPOLAR_1V:   vMin = -1.0f; vMax = 1.0f;  break;
-			case RANGE_UNIPOLAR_1V:  vMin =  0.0f; vMax = 1.0f;  break;
-			case RANGE_BIPOLAR_5V:   vMin = -5.0f; vMax = 5.0f;  break;
-			case RANGE_UNIPOLAR_5V:  vMin =  0.0f; vMax = 5.0f;  break;
-			case RANGE_BIPOLAR_10V:  vMin = -10.0f; vMax = 10.0f; break;
-			case RANGE_UNIPOLAR_10V:
-			default:                 vMin =  0.0f; vMax = 10.0f; break;
-		}
-	}
-
-	float getEffectiveMorphTime() {
-		float morphSec = params[MORPH_PARAM].getValue();
-		if (inputs[MORPH_CV_INPUT].isConnected()) {
-			morphSec += inputs[MORPH_CV_INPUT].getVoltage();
-		}
-		return clampf(morphSec, 0.0f, 10.0f);
-	}
-
-	// Select an empty slot for live pass-through preview without recording
-	void selectEmptySlotForPreview(int slotIndex) {
-		if (slotIndex < 0 || slotIndex >= NUM_SLOTS) return;
-		if (recState == REC_WAIT_SYNC) {
-			armedSlot = -1;
-			recState = REC_IDLE;
-		}
-		selectedSlot = slotIndex;
-		activeSlot = -1;
-		morphFromSlot = -1;
-		morphToSlot = -1;
-		morphProgress = 1.0f;
-	}
-
-	// Arm a slot to record N cycles starting on the next Sync In rising edge
-	void armSlot(int slotIndex) {
-		if (slotIndex < 0 || slotIndex >= NUM_SLOTS) return;
-		int cycleOptIdx = (int)std::round(params[CYCLES_PARAM].getValue());
-		cycleOptIdx = std::max(0, std::min(6, cycleOptIdx));
-		targetCycles = CYCLE_OPTIONS[cycleOptIdx];
-		completedCycles = 0;
-		rawSampleCount = 0;
-
-		selectedSlot = slotIndex;
-		armedSlot = slotIndex;
-		recState = REC_WAIT_SYNC;
-	}
-
-	// Clear and arm a slot for overwrite recording
-	void overwriteSlot(int slotIndex) {
-		if (slotIndex < 0 || slotIndex >= NUM_SLOTS) return;
-		slots[slotIndex].clear();
-		if (activeSlot == slotIndex) {
-			activeSlot = -1;
-		}
-		armSlot(slotIndex);
-	}
-
-	// Select a stored preset slot and initiate morphing
-	void selectStoredSlot(int slotIndex) {
-		if (slotIndex < 0 || slotIndex >= NUM_SLOTS) return;
-		if (!slots[slotIndex].hasData) {
-			selectEmptySlotForPreview(slotIndex);
-			return;
-		}
-
-		selectedSlot = slotIndex;
-		if (activeSlot == slotIndex && morphProgress >= 1.0f) return;
-
-		float morphSec = getEffectiveMorphTime();
-		if (morphSec <= 0.001f) {
-			activeSlot = slotIndex;
-			morphFromSlot = slotIndex;
-			morphToSlot = slotIndex;
-			morphProgress = 1.0f;
-		} else {
-			// If activeSlot < 0 (was previewing an empty slot), morphFromSlot = -1 morphs smoothly from live input!
-			morphFromSlot = (activeSlot >= 0 && slots[activeSlot].hasData) ? activeSlot : -1;
-			morphToSlot = slotIndex;
-			activeSlot = slotIndex;
-			morphProgress = 0.0f;
-		}
-	}
-
-	// Record gate input handler: records into the next free slot (if all slots full, nothing overwritten)
-	void triggerRecordNextFreeSlot() {
-		if (recState != REC_IDLE) return;
-		int freeSlot = -1;
-		// Check if currently selected slot is empty first; otherwise scan 0..15 for the first free slot
-		for (int i = 0; i < NUM_SLOTS; i++) {
-			if (!slots[i].hasData) {
-				freeSlot = i;
-				break;
-			}
-		}
-		if (freeSlot >= 0) {
-			armSlot(freeSlot);
-		}
-	}
-
-	void finalizeCycle(int cycleIdx) {
-		if (armedSlot < 0 || armedSlot >= NUM_SLOTS || rawSampleCount <= 1) return;
-		PresetSlot& slot = slots[armedSlot];
-
-		int reqTotal = targetCycles * SAMPLES_PER_CYCLE;
-		for (int c = 0; c < NUM_CHANNELS; c++) {
-			if ((int)slot.channels[c].size() != reqTotal) {
-				slot.channels[c].resize(reqTotal, 0.0f);
-			}
-		}
-
-		int startOffset = cycleIdx * SAMPLES_PER_CYCLE;
-		int rawN = rawSampleCount;
-
-		for (int i = 0; i < SAMPLES_PER_CYCLE; i++) {
-			double pos = ((double)i / (double)SAMPLES_PER_CYCLE) * (double)rawN;
-			int idx1 = (int)std::floor(pos);
-			float frac = (float)(pos - (double)idx1);
-
-			int idx0 = (idx1 - 1 + rawN) % rawN;
-			idx1 = idx1 % rawN;
-			int idx2 = (idx1 + 1) % rawN;
-			int idx3 = (idx1 + 2) % rawN;
-
-			for (int c = 0; c < NUM_CHANNELS; c++) {
-				const std::vector<float>& src = rawCycleBuffer[c];
-				slot.channels[c][startOffset + i] = hermiteInterp(src[idx0], src[idx1], src[idx2], src[idx3], frac);
-			}
-		}
-	}
-
-	void process(const ProcessArgs& args) override {
-		// 1. Handle Range Button cycling (Very Slow -> LFO -> VCO)
-		if (rangeTrigger.process(params[RANGE_PARAM].getValue() > 0.5f)) {
-			rangeMode = (RangeMode)((rangeMode + 1) % 3);
-		}
-
-		// Update 3-Color Range LED Ring (Warm Gold = Very Slow, Teal = LFO, Magenta = VCO)
-		lights[RANGE_LIGHT_YELLOW].setBrightness(rangeMode == RANGE_VERY_SLOW ? 1.0f : 0.0f);
-		lights[RANGE_LIGHT_ORANGE].setBrightness(rangeMode == RANGE_LFO ? 1.0f : 0.0f);
-		lights[RANGE_LIGHT_PURPLE].setBrightness(rangeMode == RANGE_VCO ? 1.0f : 0.0f);
-
-		// 2. Check Record Gate Input (records into next free slot, never overwrites if full)
-		if (inputs[RECORD_INPUT].isConnected()) {
-			if (recordGateTrigger.process(inputs[RECORD_INPUT].getVoltage(), 0.1f, 2.0f)) {
-				triggerRecordNextFreeSlot();
-			}
-		}
-
-		// 3. Check 4x4 Preset Gate Input Grid
-		for (int s = 0; s < NUM_SLOTS; s++) {
-			if (inputs[PRESET_GATE_INPUT + s].isConnected()) {
-				if (presetGateTriggers[s].process(inputs[PRESET_GATE_INPUT + s].getVoltage(), 0.1f, 2.0f)) {
-					if (slots[s].hasData) {
-						selectStoredSlot(s);
-					} else {
-						selectEmptySlotForPreview(s);
-					}
-				}
-			}
-		}
-
-		// 4. Sync In edge detection & period measurement
-		timeSinceSync += args.sampleTime;
-		bool syncInPulse = false;
-		if (inputs[SYNC_INPUT].isConnected()) {
-			if (syncInTrigger.process(inputs[SYNC_INPUT].getVoltage(), 0.1f, 2.0f)) {
-				if (timeSinceSync > 0.0002f) {
-					lastMeasuredPeriod = timeSinceSync;
-				}
-				timeSinceSync = 0.0f;
-				syncInPulse = true;
-			}
-		}
-
-		// Read current live inputs (unpatched channels default to 0.0V)
-		float liveIn[NUM_CHANNELS] = {
-			inputs[X_INPUT].isConnected()  ? inputs[X_INPUT].getVoltage()  : 0.0f,
-			inputs[Y_INPUT].isConnected()  ? inputs[Y_INPUT].getVoltage()  : 0.0f,
-			inputs[R_INPUT].isConnected()  ? inputs[R_INPUT].getVoltage()  : 0.0f,
-			inputs[G_INPUT].isConnected()  ? inputs[G_INPUT].getVoltage()  : 0.0f,
-			inputs[B_INPUT].isConnected()  ? inputs[B_INPUT].getVoltage()  : 0.0f,
-			inputs[ZI_INPUT].isConnected() ? inputs[ZI_INPUT].getVoltage() : 0.0f
-		};
-
-		// 5. Sync-Locked Recording State Machine
-		if (recState == REC_WAIT_SYNC) {
-			if (syncInPulse) {
-				recState = REC_CAPTURING;
-				completedCycles = 0;
-				rawSampleCount = 0;
-				// Capture first sample immediately at the sync edge
-				for (int c = 0; c < NUM_CHANNELS; c++) {
-					rawCycleBuffer[c][0] = liveIn[c];
-				}
-				rawSampleCount = 1;
-			}
-		} else if (recState == REC_CAPTURING) {
-			if (syncInPulse && rawSampleCount > 2) {
-				finalizeCycle(completedCycles);
-				completedCycles++;
-				rawSampleCount = 0;
-
-				if (completedCycles >= targetCycles) {
-					PresetSlot& slot = slots[armedSlot];
-					slot.hasData = true;
-					slot.numCycles = targetCycles;
-					slot.totalSamples = targetCycles * SAMPLES_PER_CYCLE;
-					slot.baseFreq = (lastMeasuredPeriod > 1e-5f) ? (1.0f / lastMeasuredPeriod) : 60.0f;
-
-					selectedSlot = armedSlot;
-					activeSlot = armedSlot;
-					morphFromSlot = armedSlot;
-					morphToSlot = armedSlot;
-					morphProgress = 1.0f;
-					cyclePhase = 0.0;
-
-					armedSlot = -1;
-					recState = REC_IDLE;
-				}
-			}
-
-			if (recState == REC_CAPTURING) {
-				if (rawSampleCount < MAX_CYCLE_RAW_SAMPLES) {
-					for (int c = 0; c < NUM_CHANNELS; c++) {
-						rawCycleBuffer[c][rawSampleCount] = liveIn[c];
-					}
-					rawSampleCount++;
-				}
-			}
-		}
-
-		// 6. Pass-through during recording or when an empty slot is selected for preview
-		if (recState == REC_CAPTURING) {
-			// Sync Out is silent while capturing
-			outputs[SYNC_OUTPUT].setVoltage(0.0f);
-			for (int c = 0; c < NUM_CHANNELS; c++) {
-				outputs[X_OUTPUT + c].setVoltage(liveIn[c]);
-			}
-			return;
-		}
-
-		bool scanConnected = inputs[SCAN_X_CV_INPUT].isConnected() || inputs[SCAN_Y_CV_INPUT].isConnected();
-
-		if (!scanConnected && (activeSlot < 0 || !slots[activeSlot].hasData)) {
-			// Previewing an empty slot (or no preset active): live pass-through
-			for (int c = 0; c < NUM_CHANNELS; c++) {
-				outputs[X_OUTPUT + c].setVoltage(liveIn[c]);
-			}
-			outputs[SYNC_OUTPUT].setVoltage(inputs[SYNC_INPUT].getVoltage());
-			return;
-		}
-
-		// 7. Playback Frequency Calculation (1 cycle per 1/fPlay seconds, matching external generator rate 1:1)
-		float coarseParam = params[FREQ_PARAM].getValue();
-		float fineParam = params[FINE_PARAM].getValue();
-		float defaultF0 = calculateBaseFrequency(coarseParam, fineParam);
-
-		float fPlay = defaultF0;
-		if (inputs[FREQ_CV_INPUT].isConnected()) {
-			fPlay *= std::pow(2.0f, inputs[FREQ_CV_INPUT].getVoltage());
-		}
-		fPlay = clampf(fPlay, 0.0001f, 20000.0f);
-
-		// Advance cyclePhase (1.0 unit = 1 single recorded cycle)
-		double prevCyclePhase = cyclePhase;
-		cyclePhase += (double)fPlay * (double)args.sampleTime;
-		if (std::floor(cyclePhase) > std::floor(prevCyclePhase)) {
-			syncOutPulse.trigger(1e-4f);
-		}
-		// Wrap modulo 384.0 (exact LCM of 1, 8, 16, 24, 48, 96, 128)
-		if (cyclePhase >= 384.0) {
-			cyclePhase -= 384.0 * std::floor(cyclePhase / 384.0);
-		}
-		outputs[SYNC_OUTPUT].setVoltage(syncOutPulse.process(args.sampleTime) ? 10.0f : 0.0f);
-
-		// 8. Morph Progression
-		if (morphProgress < 1.0f) {
-			float morphSec = std::max(0.001f, getEffectiveMorphTime());
-			morphProgress += args.sampleTime / morphSec;
-			if (morphProgress >= 1.0f) {
-				morphProgress = 1.0f;
-				activeSlot = morphToSlot;
-				morphFromSlot = morphToSlot;
-			}
-		}
-
-		// 9. Output Waveform Evaluation (2D CV Scan or Timed Preset Morph)
-		if (scanConnected) {
-			// Manual 2D CV Scan across the 4x4 grid (morph time ignored)
-			float vMin = 0.0f, vMax = 10.0f;
-			getRangeVoltages(vMin, vMax);
-			float vRange = vMax - vMin;
-			if (vRange <= 1e-4f) vRange = 1.0f;
-
-			float scanX = 0.0f;
-			if (inputs[SCAN_X_CV_INPUT].isConnected()) {
-				float vx = inputs[SCAN_X_CV_INPUT].getVoltage();
-				scanX = clampf((vx - vMin) / vRange, 0.0f, 1.0f) * 3.0f;
-			}
-			float scanY = 0.0f;
-			if (inputs[SCAN_Y_CV_INPUT].isConnected()) {
-				float vy = inputs[SCAN_Y_CV_INPUT].getVoltage();
-				scanY = clampf((vy - vMin) / vRange, 0.0f, 1.0f) * 3.0f;
-			}
-
-			int col0 = std::min(2, (int)std::floor(scanX));
-			int col1 = col0 + 1;
-			float fracX = scanX - (float)col0;
-
-			int row0 = std::min(2, (int)std::floor(scanY));
-			int row1 = row0 + 1;
-			float fracY = scanY - (float)row0;
-
-			int s00 = row0 * 4 + col0;
-			int s10 = row0 * 4 + col1;
-			int s01 = row1 * 4 + col0;
-			int s11 = row1 * 4 + col1;
-
-			// Update selectedSlot to reflect nearest scanned cell
-			int nearestCol = (int)std::round(scanX);
-			int nearestRow = (int)std::round(scanY);
-			selectedSlot = clamp(nearestRow * 4 + nearestCol, 0, 15);
-
-			for (int c = 0; c < NUM_CHANNELS; c++) {
-				float v00 = slots[s00].hasData ? slots[s00].readSample(c, cyclePhase) : liveIn[c];
-				float v10 = slots[s10].hasData ? slots[s10].readSample(c, cyclePhase) : liveIn[c];
-				float v01 = slots[s01].hasData ? slots[s01].readSample(c, cyclePhase) : liveIn[c];
-				float v11 = slots[s11].hasData ? slots[s11].readSample(c, cyclePhase) : liveIn[c];
-
-				float top = (1.0f - fracX) * v00 + fracX * v10;
-				float bot = (1.0f - fracX) * v01 + fracX * v11;
-				float outVal = (1.0f - fracY) * top + fracY * bot;
-
-				outputs[X_OUTPUT + c].setVoltage(clampf(outVal, -12.0f, 12.0f));
-			}
-		} else {
-			for (int c = 0; c < NUM_CHANNELS; c++) {
-				float outVal = 0.0f;
-				if (morphProgress >= 1.0f || morphToSlot < 0 || !slots[morphToSlot].hasData) {
-					outVal = slots[activeSlot].readSample(c, cyclePhase);
-				} else {
-					float vFrom = (morphFromSlot >= 0 && slots[morphFromSlot].hasData)
-						? slots[morphFromSlot].readSample(c, cyclePhase)
-						: liveIn[c];
-					float vTo = slots[morphToSlot].readSample(c, cyclePhase);
-					outVal = (1.0f - morphProgress) * vFrom + morphProgress * vTo;
-				}
-				outputs[X_OUTPUT + c].setVoltage(clampf(outVal, -12.0f, 12.0f));
-			}
-		}
-	}
-
-	json_t* dataToJson() override {
-		json_t* rootJ = json_object();
-		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
-		json_object_set_new(rootJ, "rangeMode", json_integer((int)rangeMode));
-		json_object_set_new(rootJ, "scanRange", json_integer((int)scanRange));
-		json_object_set_new(rootJ, "selectedSlot", json_integer(selectedSlot));
-		json_object_set_new(rootJ, "activeSlot", json_integer(activeSlot));
-
-		json_t* slotsJ = json_array();
-		for (int s = 0; s < NUM_SLOTS; s++) {
-			const PresetSlot& slot = slots[s];
-			json_t* slotJ = json_object();
-			json_object_set_new(slotJ, "hasData", json_boolean(slot.hasData));
-			if (slot.hasData) {
-				json_object_set_new(slotJ, "numCycles", json_integer(slot.numCycles));
-				json_object_set_new(slotJ, "totalSamples", json_integer(slot.totalSamples));
-				json_object_set_new(slotJ, "baseFreq", json_real(slot.baseFreq));
-
-				json_t* channelsJ = json_array();
-				for (int c = 0; c < NUM_CHANNELS; c++) {
-					json_t* chJ = json_array();
-					for (float v : slot.channels[c]) {
-						json_array_append_new(chJ, json_real(v));
-					}
-					json_array_append_new(channelsJ, chJ);
-				}
-				json_object_set_new(slotJ, "channels", channelsJ);
-			}
-			json_array_append_new(slotsJ, slotJ);
-		}
-		json_object_set_new(rootJ, "slots", slotsJ);
-
-		return rootJ;
-	}
-
-	void dataFromJson(json_t* rootJ) override {
-		json_t* themeJ = json_object_get(rootJ, "skinTheme");
-		if (themeJ) skinTheme = (SkinTheme)json_integer_value(themeJ);
-
-		json_t* rmJ = json_object_get(rootJ, "rangeMode");
-		if (rmJ) rangeMode = (RangeMode)json_integer_value(rmJ);
-
-		json_t* rangeJ = json_object_get(rootJ, "scanRange");
-		if (rangeJ) scanRange = (VoltageRange)json_integer_value(rangeJ);
-
-		json_t* selJ = json_object_get(rootJ, "selectedSlot");
-		if (selJ) selectedSlot = (int)json_integer_value(selJ);
-
-		json_t* activeJ = json_object_get(rootJ, "activeSlot");
-		if (activeJ) activeSlot = (int)json_integer_value(activeJ);
-
-		json_t* slotsJ = json_object_get(rootJ, "slots");
-		if (slotsJ && json_is_array(slotsJ)) {
-			size_t slotIdx;
-			json_t* slotJ;
-			json_array_foreach(slotsJ, slotIdx, slotJ) {
-				if (slotIdx >= NUM_SLOTS) break;
-				PresetSlot& slot = slots[slotIdx];
-				json_t* hasDataJ = json_object_get(slotJ, "hasData");
-				if (hasDataJ && json_is_true(hasDataJ)) {
-					slot.hasData = true;
-					json_t* numCyclesJ = json_object_get(slotJ, "numCycles");
-					if (numCyclesJ) slot.numCycles = (int)json_integer_value(numCyclesJ);
-
-					json_t* totalSamplesJ = json_object_get(slotJ, "totalSamples");
-					if (totalSamplesJ) slot.totalSamples = (int)json_integer_value(totalSamplesJ);
-
-					json_t* baseFreqJ = json_object_get(slotJ, "baseFreq");
-					if (baseFreqJ) slot.baseFreq = (float)json_real_value(baseFreqJ);
-
-					json_t* channelsJ = json_object_get(slotJ, "channels");
-					if (channelsJ && json_is_array(channelsJ)) {
-						size_t chIdx;
-						json_t* chJ;
-						json_array_foreach(channelsJ, chIdx, chJ) {
-							if (chIdx >= NUM_CHANNELS) break;
-							slot.channels[chIdx].clear();
-							size_t smpIdx;
-							json_t* smpJ;
-							json_array_foreach(chJ, smpIdx, smpJ) {
-								slot.channels[chIdx].push_back((float)json_real_value(smpJ));
-							}
-						}
-					}
-				} else {
-					slot.clear();
-				}
-			}
-		}
-	}
+    enum ParamIds {
+        FREQ_PARAM,
+        RANGE_PARAM,
+        FINE_PARAM,
+        CYCLES_PARAM,
+        REC_BUTTON_PARAM,
+        MORPH_PARAM,
+        X_SCAN_PARAM,
+        Y_SCAN_PARAM,
+        MORPH_ATTEN_PARAM,
+        NUM_PARAMS
+    };
+    enum InputIds {
+        SYNC_INPUT,
+        X_INPUT,
+        Y_INPUT,
+        FREQ_CV_INPUT,
+        R_INPUT,
+        G_INPUT,
+        B_INPUT,
+        MORPH_CV_INPUT,
+        Z_INPUT,
+        X_SCAN_INPUT,
+        Y_SCAN_INPUT,
+        REC_GATE_INPUT,
+        RANDOM_GATE_INPUT,
+        ENUMS(PRESET_GATE_INPUT, 16),
+        NUM_INPUTS
+    };
+    enum OutputIds {
+        X_OUTPUT,
+        Y_OUTPUT,
+        R_OUTPUT,
+        G_OUTPUT,
+        B_OUTPUT,
+        Z_OUTPUT,
+        SYNC_OUTPUT,
+        NUM_OUTPUTS
+    };
+    enum LightIds {
+        NUM_LIGHTS
+    };
+
+    enum SkinTheme {
+        THEME_MEDIUM = 0,
+        THEME_LIGHT = 1,
+        THEME_DARK = 2
+    };
+    SkinTheme skinTheme = THEME_MEDIUM;
+
+    static constexpr int NUM_SLOTS = 16;
+    static constexpr int NUM_CHANNELS = 6; // X, Y, R, G, B, Z/I
+    static constexpr int SAMPLES_PER_CYCLE = 4096;
+    static constexpr int MAX_CYCLES = 128;
+    static constexpr int MAX_CAPTURE_SAMPLES = 32768; // per channel during capture (~0.68s @ 48kHz, resampled per cycle)
+
+    enum SlotState {
+        STATE_EMPTY = 0,
+        STATE_ARMED = 1,
+        STATE_RECORDING = 2,
+        STATE_RECORDED = 3
+    };
+
+    struct PresetSlot {
+        SlotState state = STATE_EMPTY;
+        int numCycles = 16;
+        float originalFreq = 60.0f;
+        // Downsampled/normalized wavetable: [channel][cycle * SAMPLES_PER_CYCLE + sampleIdx]
+        std::vector<float> wave[NUM_CHANNELS];
+
+        void allocate(int cycles) {
+            numCycles = clamp(cycles, 1, MAX_CYCLES);
+            size_t total = (size_t)numCycles * SAMPLES_PER_CYCLE;
+            for (int ch = 0; ch < NUM_CHANNELS; ++ch) {
+                wave[ch].assign(total, 0.f);
+            }
+        }
+
+        void clear() {
+            state = STATE_EMPTY;
+            for (int ch = 0; ch < NUM_CHANNELS; ++ch) {
+                wave[ch].clear();
+            }
+        }
+
+        // Read interpolated sample for a continuous cycle index `cyclePhase`
+        // where 1.0 unit of `cyclePhase` equals 1 single recorded cycle.
+        float readSample(int ch, double cyclePhase) const {
+            if (state != STATE_RECORDED || wave[ch].empty() || numCycles <= 0)
+                return 0.f;
+            size_t total = wave[ch].size();
+            double cycleInSlot = std::fmod(cyclePhase, (double)numCycles);
+            if (cycleInSlot < 0.0)
+                cycleInSlot += (double)numCycles;
+            double pos = cycleInSlot * (double)SAMPLES_PER_CYCLE;
+            size_t i0 = ((size_t)pos) % total;
+            size_t i1 = (i0 + 1) % total;
+            float frac = (float)(pos - std::floor(pos));
+            return wave[ch][i0] + frac * (wave[ch][i1] - wave[ch][i0]);
+        }
+    };
+
+    PresetSlot slots[NUM_SLOTS];
+
+    // Pre-allocated single-cycle scratch buffer for real-time capture
+    std::vector<float> cycleScratch[NUM_CHANNELS];
+    int captureWritePos = 0;
+    int activeCaptureSlot = -1;
+    int capturedCyclesCount = 0;
+    int targetCaptureCycles = 16;
+    float captureElapsedSeconds = 0.f;
+
+    // Sync edge detector and frequency estimator
+    dsp::SchmittTrigger syncTrigger;
+    dsp::SchmittTrigger rangeTrigger;
+    dsp::SchmittTrigger recButtonTrigger;
+    dsp::SchmittTrigger recGateTrigger;
+    dsp::SchmittTrigger randomGateTrigger;
+    dsp::SchmittTrigger presetGateTriggers[NUM_SLOTS];
+    dsp::PulseGenerator syncOutPulse;
+    float syncPeriodTimer = 0.f;
+    float measuredSyncFreq = 60.0f;
+    int rangeMode = 1; // 0: Slow, 1: LFO (default), 2: Audio
+
+    // Playback & Morphing state
+    int selectedSlot = 0;
+    float morphStartX = 0.f;
+    float morphStartY = 0.f;
+    float morphTargetX = 0.f;
+    float morphTargetY = 0.f;
+    float morphX = 0.f;
+    float morphY = 0.f;
+    float morphProgress = 1.0f;
+    bool isMorphing = false;
+    bool manualScanActive = false;
+    float lastXScanKnob = 0.f;
+    float lastYScanKnob = 0.f;
+
+    // Continuous cycle phase (1.0 = 1 single cycle; wraps modulo 384.0, the LCM of {1,8,16,24,48,96,128})
+    double cyclePhase = 0.0;
+
+    struct CyclesParamQuantity : ParamQuantity {
+        std::string getDisplayValueString() override {
+            int idx = clamp((int)std::round(getValue()), 0, 6);
+            return std::to_string(CYCLE_OPTIONS[idx]) + (CYCLE_OPTIONS[idx] == 1 ? " cycle" : " cycles");
+        }
+    };
+
+    struct RangeParamQuantity : ParamQuantity {
+        std::string getDisplayValueString() override {
+            Reverie* m = dynamic_cast<Reverie*>(module);
+            if (!m) return "Medium (0.01 - 200 Hz)";
+            if (m->rangeMode == 0) return "Slow (5 min - 2 Hz)";
+            if (m->rangeMode == 1) return "Medium (0.01 - 200 Hz)";
+            return "Audio (10 - 20,000 Hz)";
+        }
+    };
+
+    struct FreqParamQuantity : ParamQuantity {
+        float computeFreq(int mode, float normVal, float fineVal) const {
+            float fineMult = std::pow(2.f, (fineVal * 100.f) / 1200.f);
+            if (mode == 0) {
+                float p = (1.f / 300.f) * std::pow(600.f, normVal);
+                return clamp(p * fineMult, 1.f / 300.f, 2.0f);
+            } else if (mode == 1) {
+                float p = 0.01f * std::pow(20000.f, normVal);
+                return clamp(p * fineMult, 0.01f, 200.f);
+            } else {
+                float p = 10.f * std::pow(2000.f, normVal);
+                return clamp(p * fineMult, 10.f, 20000.f);
+            }
+        }
+
+        std::string getDisplayValueString() override {
+            Reverie* mod = dynamic_cast<Reverie*>(module);
+            int mode = mod ? mod->rangeMode : 1;
+            float fineVal = mod ? mod->params[FINE_PARAM].getValue() : 0.f;
+            float f = computeFreq(mode, getValue(), fineVal);
+            if (f < 1.0f) {
+                float period = 1.0f / std::max(f, 1e-6f);
+                if (period >= 60.0f) {
+                    return string::f("%.2f min (%.4f Hz)", period / 60.0f, f);
+                }
+                return string::f("%.2f s (%.3f Hz)", period, f);
+            } else if (f >= 1000.0f) {
+                return string::f("%.2f kHz", f / 1000.0f);
+            }
+            return string::f("%.2f Hz", f);
+        }
+
+        void setDisplayValueString(std::string s) override {
+            Reverie* mod = dynamic_cast<Reverie*>(module);
+            int mode = mod ? mod->rangeMode : 1;
+
+            std::string clean;
+            for (char c : s) {
+                if (!std::isspace((unsigned char)c))
+                    clean += (char)std::tolower((unsigned char)c);
+            }
+            if (clean.empty()) return;
+
+            char* endptr = nullptr;
+            float val = std::strtof(clean.c_str(), &endptr);
+            if (endptr == clean.c_str() || val <= 0.f) return;
+
+            std::string unit(endptr);
+            float targetHz = val;
+            if (unit == "ms" || unit == "msec" || unit == "millisecond" || unit == "milliseconds") {
+                targetHz = 1000.0f / val;
+            } else if (unit == "s" || unit == "sec" || unit == "secs" || unit == "second" || unit == "seconds") {
+                targetHz = 1.0f / val;
+            } else if (unit == "m" || unit == "min" || unit == "mins" || unit == "minute" || unit == "minutes") {
+                targetHz = 1.0f / (val * 60.0f);
+            } else if (unit == "khz") {
+                targetHz = val * 1000.0f;
+            } else if (unit == "hz" || unit.empty()) {
+                targetHz = val;
+            }
+
+            float norm = 0.5f;
+            if (mode == 0) {
+                targetHz = clamp(targetHz, 1.f / 300.f, 2.0f);
+                norm = std::log(targetHz * 300.f) / std::log(600.f);
+            } else if (mode == 1) {
+                targetHz = clamp(targetHz, 0.01f, 200.f);
+                norm = std::log(targetHz / 0.01f) / std::log(20000.f);
+            } else {
+                targetHz = clamp(targetHz, 10.f, 20000.f);
+                norm = std::log(targetHz / 10.f) / std::log(2000.f);
+            }
+            setValue(clamp(norm, 0.f, 1.f));
+        }
+
+        std::string getUnit() override {
+            return "";
+        }
+    };
+
+    Reverie() {
+        config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
+
+        // Default FREQ_PARAM = 0.878321f -> 60.00 Hz in Medium (LFO) range
+        configParam<FreqParamQuantity>(FREQ_PARAM, 0.f, 1.f, 0.878321f, "Frequency");
+        configParam<RangeParamQuantity>(RANGE_PARAM, 0.f, 1.f, 0.f, "Range time-scale");
+        configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine frequency", " cents", 0.f, 100.f);
+
+        // Default CYCLES_PARAM = 2.0f -> 16 cycles
+        configParam<CyclesParamQuantity>(CYCLES_PARAM, 0.f, 6.f, 2.f, "Capture cycles");
+        configParam(REC_BUTTON_PARAM, 0.f, 1.f, 0.f, "Record");
+        configParam(MORPH_PARAM, 0.f, 10.f, 0.5f, "Morph time", " s");
+
+        // Row 3 trimpot-sized knobs: X scan, Y scan, Morph time CV depth
+        configParam(X_SCAN_PARAM, 0.f, 1.f, 0.f, "X scan");
+        configParam(Y_SCAN_PARAM, 0.f, 1.f, 0.f, "Y scan");
+        configParam(MORPH_ATTEN_PARAM, -1.f, 1.f, 0.f, "Morph time CV depth");
+
+        configInput(SYNC_INPUT, "Sync");
+        configInput(X_INPUT, "X");
+        configInput(Y_INPUT, "Y");
+        configInput(FREQ_CV_INPUT, "Frequency CV");
+        configInput(R_INPUT, "R");
+        configInput(G_INPUT, "G");
+        configInput(B_INPUT, "B");
+        configInput(MORPH_CV_INPUT, "Morph time CV");
+        configInput(Z_INPUT, "Z/I");
+        configInput(X_SCAN_INPUT, "X scan CV");
+        configInput(Y_SCAN_INPUT, "Y scan CV");
+        configInput(REC_GATE_INPUT, "Record gate");
+        configInput(RANDOM_GATE_INPUT, "Random preset gate");
+
+        for (int i = 0; i < NUM_SLOTS; ++i) {
+            configInput(PRESET_GATE_INPUT + i, string::f("Preset %d gate", i + 1));
+        }
+
+        configOutput(X_OUTPUT, "X");
+        configOutput(Y_OUTPUT, "Y");
+        configOutput(R_OUTPUT, "R");
+        configOutput(G_OUTPUT, "G");
+        configOutput(B_OUTPUT, "B");
+        configOutput(Z_OUTPUT, "Z/I");
+        configOutput(SYNC_OUTPUT, "Sync");
+
+        for (int ch = 0; ch < NUM_CHANNELS; ++ch) {
+            cycleScratch[ch].assign(MAX_CAPTURE_SAMPLES, 0.f);
+        }
+        for (int s = 0; s < NUM_SLOTS; ++s) {
+            slots[s].allocate(16);
+            slots[s].state = STATE_EMPTY;
+        }
+    }
+
+    int getTargetCycles() {
+        int idx = clamp((int)std::round(params[CYCLES_PARAM].getValue()), 0, 6);
+        return CYCLE_OPTIONS[idx];
+    }
+
+    float computePlaybackFreq() {
+        float freqNorm = params[FREQ_PARAM].getValue();
+        float fineVal = params[FINE_PARAM].getValue();
+        float fineMult = std::pow(2.f, (fineVal * 100.f) / 1200.f);
+        float cvOct = inputs[FREQ_CV_INPUT].isConnected() ? clamp(inputs[FREQ_CV_INPUT].getVoltage(), -10.f, 10.f) : 0.f;
+        float cvMult = std::pow(2.f, cvOct);
+
+        if (rangeMode == 0) {
+            float p = (1.f / 300.f) * std::pow(600.f, freqNorm);
+            return clamp(p * fineMult * cvMult, 1.f / 300.f, 20.0f);
+        } else if (rangeMode == 1) {
+            float p = 0.01f * std::pow(20000.f, freqNorm);
+            return clamp(p * fineMult * cvMult, 0.01f, 2000.f);
+        } else {
+            float p = 10.f * std::pow(2000.f, freqNorm);
+            return clamp(p * fineMult * cvMult, 1.f, 24000.f);
+        }
+    }
+
+    // Request capture on a slot
+    void armSlotForCapture(int slotIdx) {
+        if (slotIdx < 0 || slotIdx >= NUM_SLOTS) return;
+        targetCaptureCycles = getTargetCycles();
+        slots[slotIdx].allocate(targetCaptureCycles);
+        slots[slotIdx].state = STATE_ARMED;
+        activeCaptureSlot = slotIdx;
+        capturedCyclesCount = 0;
+        captureWritePos = 0;
+        captureElapsedSeconds = 0.f;
+    }
+
+    // Trigger record (via RECORD button or RECORD gate input):
+    // If the currently selected slot is empty, record into it; otherwise find the first free slot.
+    // If all 16 slots are full, nothing gets overwritten.
+    void triggerRecordSlot() {
+        if (activeCaptureSlot >= 0) return; // already recording/armed
+        if (selectedSlot >= 0 && selectedSlot < NUM_SLOTS && slots[selectedSlot].state == STATE_EMPTY) {
+            armSlotForCapture(selectedSlot);
+            return;
+        }
+        for (int i = 0; i < NUM_SLOTS; ++i) {
+            if (slots[i].state == STATE_EMPTY) {
+                selectedSlot = i;
+                int col = i % 4;
+                int row = i / 4;
+                morphX = morphTargetX = morphStartX = col / 3.0f;
+                morphY = morphTargetY = morphStartY = row / 3.0f;
+                isMorphing = false;
+                manualScanActive = false;
+                armSlotForCapture(i);
+                return;
+            }
+        }
+    }
+
+    // Trigger random filled preset selection (via RANDOM gate input)
+    void triggerRandomRecordedSlot() {
+        int recordedIndices[NUM_SLOTS];
+        int count = 0;
+        for (int i = 0; i < NUM_SLOTS; ++i) {
+            if (slots[i].state == STATE_RECORDED) {
+                recordedIndices[count++] = i;
+            }
+        }
+        if (count == 0) return;
+        if (count == 1) {
+            selectRecordedSlot(recordedIndices[0]);
+            return;
+        }
+        // Pick a random filled slot different from selectedSlot if possible
+        int pick = recordedIndices[random::u32() % count];
+        if (pick == selectedSlot) {
+            for (int tries = 0; tries < 4; ++tries) {
+                int candidate = recordedIndices[random::u32() % count];
+                if (candidate != selectedSlot) {
+                    pick = candidate;
+                    break;
+                }
+            }
+        }
+        selectRecordedSlot(pick);
+    }
+
+    // Select an empty slot for live preview without recording
+    void selectEmptySlotForPreview(int slotIdx) {
+        if (slotIdx < 0 || slotIdx >= NUM_SLOTS) return;
+        selectedSlot = slotIdx;
+        int col = slotIdx % 4;
+        int row = slotIdx / 4;
+        morphX = morphTargetX = morphStartX = col / 3.0f;
+        morphY = morphTargetY = morphStartY = row / 3.0f;
+        morphProgress = 1.0f;
+        isMorphing = false;
+        manualScanActive = false;
+    }
+
+    // Select a recorded slot and start morphing to it
+    void selectRecordedSlot(int slotIdx) {
+        if (slotIdx < 0 || slotIdx >= NUM_SLOTS) return;
+        selectedSlot = slotIdx;
+        int col = slotIdx % 4;
+        int row = slotIdx / 4;
+        float tx = col / 3.0f;
+        float ty = row / 3.0f;
+
+        morphStartX = morphX;
+        morphStartY = morphY;
+        morphTargetX = tx;
+        morphTargetY = ty;
+        morphProgress = 0.0f;
+        isMorphing = true;
+        manualScanActive = false;
+    }
+
+    void clearSlot(int slotIdx) {
+        if (slotIdx < 0 || slotIdx >= NUM_SLOTS) return;
+        if (activeCaptureSlot == slotIdx) {
+            activeCaptureSlot = -1;
+        }
+        slots[slotIdx].clear();
+    }
+
+    void clearAllSlots() {
+        activeCaptureSlot = -1;
+        for (int i = 0; i < NUM_SLOTS; ++i) {
+            slots[i].clear();
+        }
+    }
+
+    // Resample single captured cycle of length `len` into slot's cycle index `cycleIdx`
+    void commitCapturedCycle(int slotIdx, int cycleIdx, int len) {
+        if (slotIdx < 0 || slotIdx >= NUM_SLOTS || len < 2) return;
+        PresetSlot& slot = slots[slotIdx];
+        if (cycleIdx < 0 || cycleIdx >= slot.numCycles) return;
+
+        size_t baseOffset = (size_t)cycleIdx * SAMPLES_PER_CYCLE;
+        for (int ch = 0; ch < NUM_CHANNELS; ++ch) {
+            if (slot.wave[ch].size() < baseOffset + SAMPLES_PER_CYCLE) continue;
+            const std::vector<float>& src = cycleScratch[ch];
+            for (int i = 0; i < SAMPLES_PER_CYCLE; ++i) {
+                float pos = ((float)i / (float)SAMPLES_PER_CYCLE) * (float)(len - 1);
+                int i0 = (int)pos;
+                int i1 = std::min(i0 + 1, len - 1);
+                float frac = pos - (float)i0;
+                slot.wave[ch][baseOffset + i] = src[i0] + frac * (src[i1] - src[i0]);
+            }
+        }
+    }
+
+    void process(const ProcessArgs& args) override {
+        // Range button
+        if (rangeTrigger.process(params[RANGE_PARAM].getValue() > 0.5f)) {
+            rangeMode = (rangeMode + 1) % 3;
+        }
+
+        // Record button or Record gate input
+        bool recBtnTrig = recButtonTrigger.process(params[REC_BUTTON_PARAM].getValue() > 0.5f);
+        bool recGateTrig = inputs[REC_GATE_INPUT].isConnected() && recGateTrigger.process(inputs[REC_GATE_INPUT].getVoltage());
+        if (recBtnTrig || recGateTrig) {
+            triggerRecordSlot();
+        }
+
+        // Random preset gate input
+        if (inputs[RANDOM_GATE_INPUT].isConnected() && randomGateTrigger.process(inputs[RANDOM_GATE_INPUT].getVoltage())) {
+            triggerRandomRecordedSlot();
+        }
+
+        // 4x4 Preset gate inputs: rising edge selects/morphs to that preset (or selects empty slot for preview)
+        for (int i = 0; i < NUM_SLOTS; ++i) {
+            if (inputs[PRESET_GATE_INPUT + i].isConnected()) {
+                if (presetGateTriggers[i].process(inputs[PRESET_GATE_INPUT + i].getVoltage())) {
+                    if (slots[i].state == STATE_RECORDED) {
+                        selectRecordedSlot(i);
+                    } else if (slots[i].state == STATE_EMPTY) {
+                        selectEmptySlotForPreview(i);
+                    }
+                }
+            }
+        }
+
+        // 1. Measure incoming Sync frequency and detect Sync trigger
+        syncPeriodTimer += args.sampleTime;
+        bool syncConnected = inputs[SYNC_INPUT].isConnected();
+        bool syncRising = false;
+        if (syncConnected) {
+            syncRising = syncTrigger.process(inputs[SYNC_INPUT].getVoltage());
+            if (syncRising) {
+                if (syncPeriodTimer > 0.00005f && syncPeriodTimer < 10.0f) {
+                    measuredSyncFreq = 1.0f / syncPeriodTimer;
+                }
+                syncPeriodTimer = 0.f;
+            }
+        } else {
+            // Internal fallback sync trigger for un-synced capture based on current playback frequency
+            float fPlay = computePlaybackFreq();
+            float fallbackPeriod = 1.0f / std::max(fPlay, 0.01f);
+            if (syncPeriodTimer >= fallbackPeriod) {
+                syncRising = true;
+                measuredSyncFreq = fPlay;
+                syncPeriodTimer = 0.f;
+            }
+        }
+
+        // Read live inputs
+        float inVals[NUM_CHANNELS];
+        inVals[0] = inputs[X_INPUT].getVoltage();
+        inVals[1] = inputs[Y_INPUT].getVoltage();
+        inVals[2] = inputs[R_INPUT].getVoltage();
+        inVals[3] = inputs[G_INPUT].getVoltage();
+        inVals[4] = inputs[B_INPUT].getVoltage();
+        inVals[5] = inputs[Z_INPUT].getVoltage();
+
+        // 2. Handle Capture State Machine
+        bool isCurrentlyCapturing = (activeCaptureSlot >= 0 && activeCaptureSlot < NUM_SLOTS);
+        if (isCurrentlyCapturing) {
+            PresetSlot& slot = slots[activeCaptureSlot];
+
+            if (slot.state == STATE_ARMED) {
+                if (syncRising) {
+                    slot.state = STATE_RECORDING;
+                    capturedCyclesCount = 0;
+                    captureWritePos = 0;
+                    captureElapsedSeconds = 0.f;
+                }
+            } else if (slot.state == STATE_RECORDING) {
+                captureElapsedSeconds += args.sampleTime;
+
+                if (syncRising && captureWritePos > 1) {
+                    commitCapturedCycle(activeCaptureSlot, capturedCyclesCount, captureWritePos);
+                    capturedCyclesCount++;
+                    captureWritePos = 0;
+
+                    if (capturedCyclesCount >= slot.numCycles) {
+                        slot.state = STATE_RECORDED;
+                        if (captureElapsedSeconds > 0.0001f) {
+                            slot.originalFreq = (float)slot.numCycles / captureElapsedSeconds;
+                        } else {
+                            slot.originalFreq = measuredSyncFreq;
+                        }
+                        int finishedSlot = activeCaptureSlot;
+                        activeCaptureSlot = -1;
+                        isCurrentlyCapturing = false;
+                        // Automatically snap morph coordinates to the newly recorded slot
+                        selectedSlot = finishedSlot;
+                        int col = finishedSlot % 4;
+                        int row = finishedSlot / 4;
+                        morphX = morphTargetX = morphStartX = col / 3.0f;
+                        morphY = morphTargetY = morphStartY = row / 3.0f;
+                        isMorphing = false;
+                        manualScanActive = false;
+                    }
+                }
+
+                if (isCurrentlyCapturing && slot.state == STATE_RECORDING) {
+                    if (captureWritePos < MAX_CAPTURE_SAMPLES) {
+                        for (int ch = 0; ch < NUM_CHANNELS; ++ch) {
+                            cycleScratch[ch][captureWritePos] = inVals[ch];
+                        }
+                        captureWritePos++;
+                    } else {
+                        commitCapturedCycle(activeCaptureSlot, capturedCyclesCount, captureWritePos);
+                        capturedCyclesCount++;
+                        captureWritePos = 0;
+                        if (capturedCyclesCount >= slot.numCycles) {
+                            slot.state = STATE_RECORDED;
+                            slot.originalFreq = measuredSyncFreq;
+                            int finishedSlot = activeCaptureSlot;
+                            activeCaptureSlot = -1;
+                            isCurrentlyCapturing = false;
+                            selectedSlot = finishedSlot;
+                            int col = finishedSlot % 4;
+                            int row = finishedSlot / 4;
+                            morphX = morphTargetX = morphStartX = col / 3.0f;
+                            morphY = morphTargetY = morphStartY = row / 3.0f;
+                            isMorphing = false;
+                            manualScanActive = false;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Silent outputs while capturing (armed or recording)
+        if (isCurrentlyCapturing) {
+            for (int ch = 0; ch < NUM_CHANNELS; ++ch) {
+                outputs[X_OUTPUT + ch].setVoltage(0.f);
+            }
+            outputs[SYNC_OUTPUT].setVoltage(0.f);
+            return;
+        }
+
+        // Check if any slot is recorded
+        bool anyRecorded = false;
+        for (int s = 0; s < NUM_SLOTS; ++s) {
+            if (slots[s].state == STATE_RECORDED) {
+                anyRecorded = true;
+                break;
+            }
+        }
+
+        // Check if user moved X or Y scan knobs
+        float xScanKnob = params[X_SCAN_PARAM].getValue();
+        float yScanKnob = params[Y_SCAN_PARAM].getValue();
+        if (std::fabs(xScanKnob - lastXScanKnob) > 1e-4f || std::fabs(yScanKnob - lastYScanKnob) > 1e-4f) {
+            lastXScanKnob = xScanKnob;
+            lastYScanKnob = yScanKnob;
+            manualScanActive = true;
+            isMorphing = false;
+        }
+
+        bool xScanCvConn = inputs[X_SCAN_INPUT].isConnected();
+        bool yScanCvConn = inputs[Y_SCAN_INPUT].isConnected();
+
+        // If an empty slot is currently selected for preview (and not morphing or scanning), pass through live inputs!
+        if (!anyRecorded || (!isMorphing && !manualScanActive && !xScanCvConn && !yScanCvConn &&
+            selectedSlot >= 0 && selectedSlot < NUM_SLOTS && slots[selectedSlot].state == STATE_EMPTY)) {
+            outputs[X_OUTPUT].setVoltage(inVals[0]);
+            outputs[Y_OUTPUT].setVoltage(inVals[1]);
+            outputs[R_OUTPUT].setVoltage(inVals[2]);
+            outputs[G_OUTPUT].setVoltage(inVals[3]);
+            outputs[B_OUTPUT].setVoltage(inVals[4]);
+            outputs[Z_OUTPUT].setVoltage(inVals[5]);
+            outputs[SYNC_OUTPUT].setVoltage(inputs[SYNC_INPUT].getVoltage());
+            return;
+        }
+
+        // 3. Determine 2D Morph/Scan Coordinates (morphX, morphY in [0, 1])
+        if (manualScanActive || xScanCvConn || yScanCvConn) {
+            isMorphing = false;
+            float xCv = xScanCvConn ? (inputs[X_SCAN_INPUT].getVoltage() / 10.0f) : 0.f;
+            float yCv = yScanCvConn ? (inputs[Y_SCAN_INPUT].getVoltage() / 10.0f) : 0.f;
+            if (manualScanActive || xScanCvConn) {
+                morphX = clamp(xScanKnob + xCv, 0.0f, 1.0f);
+            }
+            if (manualScanActive || yScanCvConn) {
+                morphY = clamp(yScanKnob + yCv, 0.0f, 1.0f);
+            }
+        } else if (isMorphing) {
+            float morphTime = params[MORPH_PARAM].getValue();
+            if (inputs[MORPH_CV_INPUT].isConnected()) {
+                morphTime += inputs[MORPH_CV_INPUT].getVoltage() * params[MORPH_ATTEN_PARAM].getValue();
+            }
+            morphTime = clamp(morphTime, 0.0f, 10.0f);
+
+            if (morphTime <= 0.001f) {
+                morphProgress = 1.0f;
+                morphX = morphTargetX;
+                morphY = morphTargetY;
+                isMorphing = false;
+            } else {
+                morphProgress += args.sampleTime / morphTime;
+                if (morphProgress >= 1.0f) {
+                    morphProgress = 1.0f;
+                    isMorphing = false;
+                }
+                // Smoothstep easing for organic transitions
+                float t = morphProgress * morphProgress * (3.0f - 2.0f * morphProgress);
+                morphX = morphStartX + t * (morphTargetX - morphStartX);
+                morphY = morphStartY + t * (morphTargetY - morphStartY);
+            }
+        }
+
+        // 4. Advance Playback Oscillator Phase
+        // 1.0 unit of cyclePhase = 1 single recorded cycle, so 60 Hz internal frequency plays back 60 cycles/sec
+        float fPlay = computePlaybackFreq();
+        double prevCycleFloor = std::floor(cyclePhase);
+        cyclePhase += (double)fPlay * (double)args.sampleTime;
+        if (std::floor(cyclePhase) > prevCycleFloor) {
+            syncOutPulse.trigger(1e-3f);
+        }
+        // Wrap modulo 384.0 (exact LCM of {1, 8, 16, 24, 48, 96, 128})
+        if (cyclePhase >= 384.0) {
+            cyclePhase -= 384.0 * std::floor(cyclePhase / 384.0);
+        }
+
+        // 5. 2D Bilinear Interpolation across the 4x4 Grid (skipping empty slots gracefully)
+        float gx = clamp(morphX * 3.0f, 0.0f, 3.0f);
+        float gy = clamp(morphY * 3.0f, 0.0f, 3.0f);
+        int c0 = std::min((int)std::floor(gx), 2);
+        int r0 = std::min((int)std::floor(gy), 2);
+        int c1 = c0 + 1;
+        int r1 = r0 + 1;
+        float fx = gx - (float)c0;
+        float fy = gy - (float)r0;
+
+        int idx00 = r0 * 4 + c0;
+        int idx10 = r0 * 4 + c1;
+        int idx01 = r1 * 4 + c0;
+        int idx11 = r1 * 4 + c1;
+
+        float w00 = (1.0f - fx) * (1.0f - fy) * (slots[idx00].state == STATE_RECORDED ? 1.0f : 0.0f);
+        float w10 = fx * (1.0f - fy) * (slots[idx10].state == STATE_RECORDED ? 1.0f : 0.0f);
+        float w01 = (1.0f - fx) * fy * (slots[idx01].state == STATE_RECORDED ? 1.0f : 0.0f);
+        float w11 = fx * fy * (slots[idx11].state == STATE_RECORDED ? 1.0f : 0.0f);
+        float wSum = w00 + w10 + w01 + w11;
+
+        float outVals[NUM_CHANNELS] = {0.f};
+
+        if (wSum > 1e-5f) {
+            w00 /= wSum;
+            w10 /= wSum;
+            w01 /= wSum;
+            w11 /= wSum;
+            for (int ch = 0; ch < NUM_CHANNELS; ++ch) {
+                float v = 0.f;
+                if (w00 > 0.f) v += w00 * slots[idx00].readSample(ch, cyclePhase);
+                if (w10 > 0.f) v += w10 * slots[idx10].readSample(ch, cyclePhase);
+                if (w01 > 0.f) v += w01 * slots[idx01].readSample(ch, cyclePhase);
+                if (w11 > 0.f) v += w11 * slots[idx11].readSample(ch, cyclePhase);
+                outVals[ch] = v;
+            }
+        } else {
+            // Fallback: inverse-distance weighted blend of all recorded slots
+            float totalWeight = 0.f;
+            for (int s = 0; s < NUM_SLOTS; ++s) {
+                if (slots[s].state != STATE_RECORDED) continue;
+                float sc = (float)(s % 4);
+                float sr = (float)(s / 4);
+                float distSq = (gx - sc) * (gx - sc) + (gy - sr) * (gy - sr);
+                float w = 1.0f / (distSq + 0.01f);
+                totalWeight += w;
+                for (int ch = 0; ch < NUM_CHANNELS; ++ch) {
+                    outVals[ch] += w * slots[s].readSample(ch, cyclePhase);
+                }
+            }
+            if (totalWeight > 0.f) {
+                for (int ch = 0; ch < NUM_CHANNELS; ++ch) {
+                    outVals[ch] /= totalWeight;
+                }
+            }
+        }
+
+        for (int ch = 0; ch < NUM_CHANNELS; ++ch) {
+            outputs[X_OUTPUT + ch].setVoltage(outVals[ch]);
+        }
+
+        bool syncPulse = syncOutPulse.process(args.sampleTime);
+        outputs[SYNC_OUTPUT].setVoltage(syncPulse ? 10.0f : 0.0f);
+    }
+
+    json_t* dataToJson() override {
+        json_t* rootJ = json_object();
+        json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+        json_object_set_new(rootJ, "rangeMode", json_integer(rangeMode));
+        json_object_set_new(rootJ, "selectedSlot", json_integer(selectedSlot));
+        json_object_set_new(rootJ, "morphX", json_real(morphX));
+        json_object_set_new(rootJ, "morphY", json_real(morphY));
+
+        json_t* slotsJ = json_array();
+        for (int s = 0; s < NUM_SLOTS; ++s) {
+            json_t* sJ = json_object();
+            bool recorded = (slots[s].state == STATE_RECORDED);
+            json_object_set_new(sJ, "recorded", json_boolean(recorded));
+            json_object_set_new(sJ, "numCycles", json_integer(slots[s].numCycles));
+            json_object_set_new(sJ, "originalFreq", json_real(slots[s].originalFreq));
+
+            if (recorded) {
+                json_t* chArr = json_array();
+                for (int ch = 0; ch < NUM_CHANNELS; ++ch) {
+                    const auto& vec = slots[s].wave[ch];
+                    std::string b64 = base64_encode(reinterpret_cast<const uint8_t*>(vec.data()), vec.size() * sizeof(float));
+                    json_array_append_new(chArr, json_string(b64.c_str()));
+                }
+                json_object_set_new(sJ, "wave", chArr);
+            }
+            json_array_append_new(slotsJ, sJ);
+        }
+        json_object_set_new(rootJ, "slots", slotsJ);
+        return rootJ;
+    }
+
+    void dataFromJson(json_t* rootJ) override {
+        json_t* themeJ = json_object_get(rootJ, "skinTheme");
+        if (themeJ) skinTheme = (SkinTheme)clamp((int)json_integer_value(themeJ), 0, 2);
+
+        json_t* rmJ = json_object_get(rootJ, "rangeMode");
+        if (rmJ) rangeMode = clamp((int)json_integer_value(rmJ), 0, 2);
+
+        json_t* selJ = json_object_get(rootJ, "selectedSlot");
+        if (selJ) selectedSlot = clamp((int)json_integer_value(selJ), 0, NUM_SLOTS - 1);
+
+        json_t* mxJ = json_object_get(rootJ, "morphX");
+        if (mxJ) morphX = morphTargetX = morphStartX = clamp((float)json_real_value(mxJ), 0.f, 1.f);
+
+        json_t* myJ = json_object_get(rootJ, "morphY");
+        if (myJ) morphY = morphTargetY = morphStartY = clamp((float)json_real_value(myJ), 0.f, 1.f);
+
+        json_t* slotsJ = json_object_get(rootJ, "slots");
+        if (slotsJ && json_is_array(slotsJ)) {
+            for (int s = 0; s < NUM_SLOTS; ++s) {
+                json_t* sJ = json_array_get(slotsJ, s);
+                if (!sJ) continue;
+                bool recorded = json_boolean_value(json_object_get(sJ, "recorded"));
+                int nc = (int)json_integer_value(json_object_get(sJ, "numCycles"));
+                float origF = (float)json_real_value(json_object_get(sJ, "originalFreq"));
+
+                if (recorded && nc > 0 && nc <= MAX_CYCLES) {
+                    slots[s].allocate(nc);
+                    slots[s].originalFreq = (origF > 0.f) ? origF : 60.0f;
+                    json_t* chArr = json_object_get(sJ, "wave");
+                    bool valid = true;
+                    if (chArr && json_is_array(chArr)) {
+                        for (int ch = 0; ch < NUM_CHANNELS; ++ch) {
+                            json_t* b64J = json_array_get(chArr, ch);
+                            if (b64J && json_is_string(b64J)) {
+                                std::vector<uint8_t> raw = base64_decode(json_string_value(b64J));
+                                size_t expectedBytes = slots[s].wave[ch].size() * sizeof(float);
+                                if (raw.size() == expectedBytes) {
+                                    std::memcpy(slots[s].wave[ch].data(), raw.data(), expectedBytes);
+                                } else {
+                                    valid = false;
+                                }
+                            } else {
+                                valid = false;
+                            }
+                        }
+                    } else {
+                        valid = false;
+                    }
+                    slots[s].state = valid ? STATE_RECORDED : STATE_EMPTY;
+                } else {
+                    slots[s].clear();
+                }
+            }
+        }
+    }
 };
 
-// ── Custom Garmire Hardware Widgets ──
-struct GarmirePort : app::SvgPort {
-	GarmirePort() {
-		setSvg(Svg::load(asset::plugin(pluginInstance, "res/3_5mm_jacks.svg")));
-	}
+
+// Custom 3-Color Concentric Range Light Ring around the RANGE button
+struct ReverieRangeLightRing : TransparentWidget {
+    Reverie* module = nullptr;
+
+    void drawLayer(const DrawArgs& args, int layer) override {
+        if (layer == 1) {
+            int mode = module ? module->rangeMode : 1;
+            NVGcolor c;
+            if (mode == 0) {
+                c = nvgRGBA(0x3a, 0x96, 0xff, 230); // Slow: Soft Cyan/Blue
+            } else if (mode == 1) {
+                c = nvgRGBA(0x38, 0xd8, 0x64, 230); // LFO: Crisp Green
+            } else {
+                c = nvgRGBA(0xff, 0x52, 0x38, 230); // Audio: Warm Red-Orange
+            }
+
+            Vec center = box.size.div(2.0f);
+            float innerR = mm2px(2.90f);
+            float outerR = mm2px(3.95f);
+
+            nvgBeginPath(args.vg);
+            nvgCircle(args.vg, center.x, center.y, outerR);
+            nvgCircle(args.vg, center.x, center.y, innerR);
+            nvgPathWinding(args.vg, NVG_HOLE);
+            nvgFillColor(args.vg, c);
+            nvgFill(args.vg);
+        }
+        TransparentWidget::drawLayer(args, layer);
+    }
 };
 
-struct GarmireKnob : RoundKnob {
-	GarmireKnob() {
-		setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob.svg")));
-		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob_bg.svg")));
-	}
-};
 
-struct GarmireButton : app::SvgSwitch {
-	GarmireButton() {
-		momentary = true;
-		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_0.svg")));
-		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_1.svg")));
-	}
-};
-
-// ── Standardized Concentric 3-Color Range Light Ring (matching Lisa / Daisy / Circe / Polly) ──
-struct ReverieRangeLightRing : ModuleLightWidget {
-	ReverieRangeLightRing() {
-		box.size = mm2px(Vec(11.0f, 11.0f));
-		this->addBaseColor(nvgRGBA(0xe1, 0xbe, 0x6a, 0xff)); // State 0: Warm Gold (Very Slow)
-		this->addBaseColor(nvgRGBA(0x40, 0xb0, 0xa6, 0xff)); // State 1: Teal (LFO)
-		this->addBaseColor(nvgRGBA(0xd3, 0x5f, 0xb7, 0xff)); // State 2: Magenta (VCO)
-	}
-
-	void drawBackground(const DrawArgs& args) override {
-		Vec c = box.size.div(2.f);
-		float r = mm2px(4.12f);
-		float w = mm2px(1.40f);
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, c.x, c.y, r);
-		nvgStrokeColor(args.vg, nvgRGBA(0x22, 0x22, 0x22, 0x99));
-		nvgStrokeWidth(args.vg, w);
-		nvgStroke(args.vg);
-	}
-
-	void drawLight(const DrawArgs& args) override {
-		if (color.a <= 0.0f) return;
-		Vec c = box.size.div(2.f);
-		float r = mm2px(4.12f);
-		float w = mm2px(1.40f);
-
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, c.x, c.y, r);
-		nvgStrokeColor(args.vg, color);
-		nvgStrokeWidth(args.vg, w);
-		nvgStroke(args.vg);
-	}
-
-	void drawHalo(const DrawArgs& args) override {
-		if (color.a <= 0.0f) return;
-		Vec c = box.size.div(2.f);
-		float r = mm2px(4.12f);
-		float haloW = mm2px(1.00f);
-		NVGcolor haloColor = color;
-		haloColor.a *= 0.175f;
-
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, c.x, c.y, r);
-		nvgStrokeColor(args.vg, haloColor);
-		nvgStrokeWidth(args.vg, mm2px(1.40f) + haloW);
-		nvgStroke(args.vg);
-	}
-};
-
-// ── 4x4 Preset Matrix Widget using res/preset-[empty|recording|stored|selected].png + Number Overlay ──
+// Custom 4x4 Interactive Preset Button Matrix Widget
+// Exact button column centers: 52.00, 66.20, 80.40, 94.60 mm (pitch 14.20 mm)
+// Exact button row centers:    18.00, 31.00, 44.00, 57.00 mm (pitch 13.00 mm)
 struct PresetGridWidget : OpaqueWidget {
-	Reverie* module = nullptr;
-	int pressedSlot = -1;
-	double pressStartTime = 0.0;
-	bool longPressTriggered = false;
+    Reverie* module = nullptr;
+    int heldSlot = -1;
+    double holdStartTime = 0.0;
+    bool holdTriggered = false;
 
-	PresetGridWidget() {
-		// 4 columns x 4 rows at 12.50 mm pitch (50.0 mm x 50.0 mm total box)
-		box.size = mm2px(Vec(50.0f, 50.0f));
-	}
+    static constexpr float BTN_SIZE_MM = 10.60f;
+    static constexpr float PITCH_X_MM = 14.20f;
+    static constexpr float PITCH_Y_MM = 13.00f;
+    static constexpr float MARGIN_MM = 5.30f; // half of BTN_SIZE_MM so col 0 is at left + 5.30 mm
 
-	int getSlotAtPos(Vec pos) const {
-		float pitchX = box.size.x / 4.0f;
-		float pitchY = box.size.y / 4.0f;
-		int col = clamp((int)std::floor(pos.x / pitchX), 0, 3);
-		int row = clamp((int)std::floor(pos.y / pitchY), 0, 3);
-		return row * 4 + col;
-	}
+    PresetGridWidget() {
+        // Span X: 3 * 14.20 + 10.60 = 53.20 mm (centered at X = 73.30 mm -> left edge at 46.70 mm)
+        // Span Y: 3 * 13.00 + 10.60 = 49.60 mm (centered at Y = 37.50 mm -> top edge at 12.70 mm)
+        box.size = mm2px(Vec(53.20f, 49.60f));
+    }
 
-	void step() override {
-		OpaqueWidget::step();
-		if (module && pressedSlot >= 0 && !longPressTriggered) {
-			double elapsed = glfwGetTime() - pressStartTime;
-			if (elapsed >= 0.45) {
-				longPressTriggered = true;
-				// Long-hold clears and arms slot for overwrite recording
-				module->overwriteSlot(pressedSlot);
-			}
-		}
-	}
+    Vec getSlotCenterPx(int col, int row) const {
+        float cx = MARGIN_MM + col * PITCH_X_MM;
+        float cy = MARGIN_MM + row * PITCH_Y_MM;
+        return mm2px(Vec(cx, cy));
+    }
 
-	void onButton(const ButtonEvent& e) override {
-		if (!module) {
-			OpaqueWidget::onButton(e);
-			return;
-		}
+    int getSlotAtPos(Vec pos) const {
+        float btnHalf = mm2px(BTN_SIZE_MM * 0.5f);
+        for (int r = 0; r < 4; ++r) {
+            for (int c = 0; c < 4; ++c) {
+                Vec center = getSlotCenterPx(c, r);
+                if (std::fabs(pos.x - center.x) <= btnHalf && std::fabs(pos.y - center.y) <= btnHalf) {
+                    return r * 4 + c;
+                }
+            }
+        }
+        return -1;
+    }
 
-		int slotIdx = getSlotAtPos(e.pos);
+    void step() override {
+        OpaqueWidget::step();
+        if (module && heldSlot >= 0 && !holdTriggered) {
+            double elapsed = system::getTime() - holdStartTime;
+            if (elapsed >= 0.45) {
+                // Long-hold (>0.45s) on any slot arms/overwrites it with a new capture
+                module->armSlotForCapture(heldSlot);
+                holdTriggered = true;
+            }
+        }
+    }
 
-		if (e.button == GLFW_MOUSE_BUTTON_LEFT) {
-			if (e.action == GLFW_PRESS) {
-				pressedSlot = slotIdx;
-				pressStartTime = glfwGetTime();
-				longPressTriggered = false;
-				e.consume(this);
-				return;
-			} else if (e.action == GLFW_RELEASE) {
-				if (pressedSlot >= 0 && !longPressTriggered) {
-					int s = pressedSlot;
-					if (e.mods & GLFW_MOD_SHIFT) {
-						module->overwriteSlot(s);
-					} else if (module->slots[s].hasData) {
-						// Click a recorded slot to morph to that one
-						module->selectStoredSlot(s);
-					} else {
-						// Empty slot workflow:
-						// 1st click selects empty slot for preview without recording;
-						// 2nd click on the same selected empty slot arms it to record.
-						if (module->selectedSlot != s) {
-							module->selectEmptySlotForPreview(s);
-						} else {
-							if (module->armedSlot == s) {
-								module->armedSlot = -1;
-								module->recState = Reverie::REC_IDLE;
-							} else {
-								module->armSlot(s);
-							}
-						}
-					}
-				}
-				pressedSlot = -1;
-				longPressTriggered = false;
-				e.consume(this);
-				return;
-			}
-		}
+    void onButton(const event::Button& e) override {
+        if (!module) return;
+        int slotIdx = getSlotAtPos(e.pos);
+        if (slotIdx < 0) return;
 
-		if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_RIGHT) {
-			int row = slotIdx / 4;
-			int col = slotIdx % 4;
-			ui::Menu* menu = createMenu();
-			char titleBuf[64];
-			std::snprintf(titleBuf, sizeof(titleBuf), "Preset Slot %d (Row %d, Col %d)", slotIdx + 1, row + 1, col + 1);
-			menu->addChild(createMenuLabel(titleBuf));
-			menu->addChild(new MenuSeparator());
+        if (e.button == GLFW_MOUSE_BUTTON_LEFT) {
+            if (e.action == GLFW_PRESS) {
+                heldSlot = slotIdx;
+                holdStartTime = system::getTime();
+                holdTriggered = false;
+                e.consume(this);
+            } else if (e.action == GLFW_RELEASE) {
+                if (heldSlot == slotIdx && !holdTriggered) {
+                    auto state = module->slots[slotIdx].state;
+                    if (state == Reverie::STATE_EMPTY) {
+                        if (module->selectedSlot == slotIdx) {
+                            // Second click on an already-selected empty slot -> arm/record!
+                            module->armSlotForCapture(slotIdx);
+                        } else {
+                            // First click on an empty slot -> select for live preview without recording
+                            module->selectEmptySlotForPreview(slotIdx);
+                        }
+                    } else if (state == Reverie::STATE_RECORDED) {
+                        module->selectRecordedSlot(slotIdx);
+                    } else if (state == Reverie::STATE_ARMED || state == Reverie::STATE_RECORDING) {
+                        // Cancel capture if clicked again while armed/recording
+                        module->clearSlot(slotIdx);
+                    }
+                }
+                heldSlot = -1;
+                e.consume(this);
+            }
+        } else if (e.button == GLFW_MOUSE_BUTTON_RIGHT && e.action == GLFW_PRESS) {
+            heldSlot = -1;
+            createSlotContextMenu(slotIdx);
+            e.consume(this);
+        }
+    }
 
-			menu->addChild(createMenuItem("Select Slot (Preview / Morph)", "", [=]() {
-				if (!module) return;
-				if (module->slots[slotIdx].hasData) {
-					module->selectStoredSlot(slotIdx);
-				} else {
-					module->selectEmptySlotForPreview(slotIdx);
-				}
-			}));
+    void onDragEnd(const event::DragEnd& e) override {
+        heldSlot = -1;
+    }
 
-			menu->addChild(createMenuItem(module->slots[slotIdx].hasData ? "Overwrite / Re-Record Slot" : "Record Slot", "Hold 0.5s", [=]() {
-				if (module) module->overwriteSlot(slotIdx);
-			}));
+    void createSlotContextMenu(int slotIdx) {
+        if (!module) return;
+        ui::Menu* menu = createMenu();
+        menu->addChild(createMenuLabel(string::f("Preset Slot %d", slotIdx + 1)));
+        if (module->slots[slotIdx].state == Reverie::STATE_RECORDED) {
+            menu->addChild(createMenuLabel(string::f("%d cycles @ %.1f Hz",
+                module->slots[slotIdx].numCycles, module->slots[slotIdx].originalFreq)));
+        }
+        menu->addChild(new ui::MenuSeparator());
+        menu->addChild(createMenuItem("Select slot", "", [=]() {
+            if (module->slots[slotIdx].state == Reverie::STATE_RECORDED) {
+                module->selectRecordedSlot(slotIdx);
+            } else {
+                module->selectEmptySlotForPreview(slotIdx);
+            }
+        }));
+        menu->addChild(createMenuItem("Record / Overwrite slot", "Long-press", [=]() {
+            module->armSlotForCapture(slotIdx);
+        }));
+        menu->addChild(createMenuItem("Clear slot", "", [=]() {
+            module->clearSlot(slotIdx);
+        }));
+    }
 
-			if (module->slots[slotIdx].hasData) {
-				menu->addChild(createMenuItem("Clear Slot", "", [=]() {
-					if (module) {
-						module->slots[slotIdx].clear();
-						if (module->activeSlot == slotIdx) {
-							module->activeSlot = -1;
-						}
-					}
-				}));
-			}
+    void drawButtonFallback(NVGcontext* vg, float x, float y, float sz, NVGcolor rimColor, NVGcolor midColor, NVGcolor faceColor) {
+        float rOuter = sz * 0.18f;
+        nvgBeginPath(vg);
+        nvgRoundedRect(vg, x, y, sz, sz, rOuter);
+        nvgFillColor(vg, rimColor);
+        nvgFill(vg);
 
-			e.consume(this);
-			return;
-		}
+        float pad1 = sz * 0.055f;
+        nvgBeginPath(vg);
+        nvgRoundedRect(vg, x + pad1, y + pad1, sz - 2.f * pad1, sz - 2.f * pad1, rOuter * 0.82f);
+        nvgFillColor(vg, midColor);
+        nvgFill(vg);
 
-		OpaqueWidget::onButton(e);
-	}
+        float pad2 = sz * 0.125f;
+        nvgBeginPath(vg);
+        nvgRoundedRect(vg, x + pad2, y + pad2, sz - 2.f * pad2, sz - 2.f * pad2, rOuter * 0.65f);
+        nvgFillColor(vg, faceColor);
+        nvgFill(vg);
+    }
 
-	void draw(const DrawArgs& args) override {
-		nvgSave(args.vg);
+    void draw(const DrawArgs& args) override {
+        float btnSz = mm2px(BTN_SIZE_MM);
+        float halfSz = btnSz * 0.5f;
 
-		float pitchX = box.size.x / 4.0f; // 12.50 mm in px
-		float pitchY = box.size.y / 4.0f; // 12.50 mm in px
-		float btnW = mm2px(10.0f);
-		float btnH = mm2px(10.0f);
+        std::shared_ptr<window::Image> imgEmpty = APP->window->loadImage(asset::plugin(pluginInstance, "res/preset-empty.png"));
+        std::shared_ptr<window::Image> imgRec   = APP->window->loadImage(asset::plugin(pluginInstance, "res/preset-recording.png"));
+        std::shared_ptr<window::Image> imgStore = APP->window->loadImage(asset::plugin(pluginInstance, "res/preset-stored.png"));
+        std::shared_ptr<window::Image> imgSel   = APP->window->loadImage(asset::plugin(pluginInstance, "res/preset-selected.png"));
+        std::shared_ptr<window::Font> font = APP->window->loadFont(asset::plugin(pluginInstance, "res/D-DINCondensed-Bold.otf"));
 
-		float curTime = (float)glfwGetTime();
+        for (int r = 0; r < 4; ++r) {
+            for (int c = 0; c < 4; ++c) {
+                int idx = r * 4 + c;
+                Vec center = getSlotCenterPx(c, r);
+                float bx = center.x - halfSz;
+                float by = center.y - halfSz;
 
-		for (int r = 0; r < 4; r++) {
-			for (int c = 0; c < 4; c++) {
-				int s = r * 4 + c;
-				float bx = c * pitchX + (pitchX - btnW) * 0.5f;
-				float by = r * pitchY + (pitchY - btnH) * 0.5f;
+                Reverie::SlotState state = module ? module->slots[idx].state : Reverie::STATE_EMPTY;
+                bool isSelected = module && (module->selectedSlot == idx);
 
-				bool hasData = module ? module->slots[s].hasData : false;
-				bool isArmed = module ? (module->armedSlot == s) : false;
-				bool isSelected = module ? (module->selectedSlot == s) : (s == 0);
-				bool isActiveStored = module ? (module->activeSlot == s && hasData) : false;
+                std::shared_ptr<window::Image> targetImg = imgEmpty;
+                if (state == Reverie::STATE_ARMED || state == Reverie::STATE_RECORDING) {
+                    targetImg = imgRec;
+                } else if (isSelected) {
+                    targetImg = imgSel;
+                } else if (state == Reverie::STATE_RECORDED) {
+                    targetImg = imgStore;
+                } else {
+                    targetImg = imgEmpty;
+                }
 
-				const char* assetName = "res/preset-empty.png";
-				NVGcolor edgeCol = nvgRGB(169, 169, 169);
-				NVGcolor rimCol  = nvgRGB(234, 234, 234);
-				NVGcolor capCol  = nvgRGB(255, 255, 255);
-				float alpha = 1.0f;
+                if (targetImg && targetImg->handle >= 0) {
+                    NVGpaint imgPaint = nvgImagePattern(args.vg, bx, by, btnSz, btnSz, 0.0f, targetImg->handle, 1.0f);
+                    nvgBeginPath(args.vg);
+                    nvgRect(args.vg, bx, by, btnSz, btnSz);
+                    nvgFillPaint(args.vg, imgPaint);
+                    nvgFill(args.vg);
+                } else {
+                    if (state == Reverie::STATE_ARMED || state == Reverie::STATE_RECORDING) {
+                        drawButtonFallback(args.vg, bx, by, btnSz,
+                            nvgRGB(108, 39, 39), nvgRGB(239, 108, 108), nvgRGB(209, 69, 69));
+                    } else if (isSelected) {
+                        drawButtonFallback(args.vg, bx, by, btnSz,
+                            nvgRGB(39, 108, 45), nvgRGB(108, 239, 117), nvgRGB(69, 209, 90));
+                    } else if (state == Reverie::STATE_RECORDED) {
+                        drawButtonFallback(args.vg, bx, by, btnSz,
+                            nvgRGB(39, 77, 108), nvgRGB(108, 198, 239), nvgRGB(69, 153, 209));
+                    } else {
+                        drawButtonFallback(args.vg, bx, by, btnSz,
+                            nvgRGB(106, 106, 106), nvgRGB(239, 239, 239), nvgRGB(209, 209, 209));
+                    }
+                }
 
-				if (isArmed) {
-					assetName = "res/preset-recording.png";
-					edgeCol = nvgRGB(185, 121, 121);
-					rimCol  = nvgRGB(212, 160, 160);
-					capCol  = nvgRGB(229, 193, 193);
-					alpha = 0.78f + 0.22f * (0.5f + 0.5f * std::sin(curTime * 8.0f));
-				} else if (hasData) {
-					assetName = "res/preset-stored.png";
-					edgeCol = nvgRGB(118, 142, 185);
-					rimCol  = nvgRGB(157, 177, 212);
-					capCol  = nvgRGB(190, 204, 229);
-				} else if (isSelected) {
-					assetName = "res/preset-selected.png";
-					edgeCol = nvgRGB(145, 145, 145);
-					rimCol  = nvgRGB(214, 214, 214);
-					capCol  = nvgRGB(244, 244, 244);
-				}
+                // If selected AND recorded, draw a subtle azure dot in the corner so you know it's stored vs empty-selected
+                if (isSelected && state == Reverie::STATE_RECORDED) {
+                    nvgBeginPath(args.vg);
+                    nvgCircle(args.vg, bx + btnSz * 0.78f, by + btnSz * 0.22f, mm2px(0.85f));
+                    nvgFillColor(args.vg, nvgRGB(39, 115, 185));
+                    nvgFill(args.vg);
+                }
 
-				bool drewPng = false;
-				if (APP && APP->window) {
-					std::shared_ptr<window::Image> img = APP->window->loadImage(asset::plugin(pluginInstance, assetName));
-					if (img && img->handle >= 0) {
-						NVGpaint paint = nvgImagePattern(args.vg, bx, by, btnW, btnH, 0.0f, img->handle, alpha);
-						nvgBeginPath(args.vg);
-						nvgRect(args.vg, bx, by, btnW, btnH);
-						nvgFillPaint(args.vg, paint);
-						nvgFill(args.vg);
-						drewPng = true;
-					}
-				}
+                // Recording progress bar along the bottom of the button
+                if (module && state == Reverie::STATE_RECORDING && module->slots[idx].numCycles > 0) {
+                    float prog = (float)module->capturedCyclesCount / (float)module->slots[idx].numCycles;
+                    prog = clamp(prog, 0.f, 1.f);
+                    float pad = btnSz * 0.14f;
+                    nvgBeginPath(args.vg);
+                    nvgRoundedRect(args.vg, bx + pad, by + btnSz - pad - mm2px(1.1f), (btnSz - 2.f * pad) * prog, mm2px(1.1f), mm2px(0.4f));
+                    nvgFillColor(args.vg, nvgRGBA(255, 255, 255, 225));
+                    nvgFill(args.vg);
+                }
 
-				if (!drewPng) {
-					// Fallback vector match if GL window image cache is unavailable
-					nvgBeginPath(args.vg);
-					nvgRoundedRect(args.vg, bx, by, btnW, btnH, mm2px(1.6f));
-					nvgFillColor(args.vg, rimCol);
-					nvgFill(args.vg);
-					nvgStrokeWidth(args.vg, 1.0f);
-					nvgStrokeColor(args.vg, edgeCol);
-					nvgStroke(args.vg);
+                // Slot Number Overlay (1..16)
+                if (font && font->handle >= 0) {
+                    nvgFontFaceId(args.vg, font->handle);
+                    nvgFontSize(args.vg, 11.5f);
+                    nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+                    NVGcolor txtCol = (state == Reverie::STATE_EMPTY && !isSelected)
+                        ? nvgRGBA(40, 40, 40, 215)
+                        : nvgRGBA(20, 25, 30, 220);
+                    nvgFillColor(args.vg, txtCol);
+                    std::string numStr = std::to_string(idx + 1);
+                    nvgText(args.vg, center.x, center.y, numStr.c_str(), nullptr);
+                }
+            }
+        }
 
-					float inset = mm2px(0.85f);
-					nvgBeginPath(args.vg);
-					nvgRoundedRect(args.vg, bx + inset, by + inset, btnW - 2.0f * inset, btnH - 2.0f * inset, mm2px(1.1f));
-					nvgFillColor(args.vg, capCol);
-					nvgFill(args.vg);
-				}
+        // Draw 2D Morph Position Indicator Crosshair across the 4x4 grid
+        if (module) {
+            Vec p00 = getSlotCenterPx(0, 0);
+            Vec p33 = getSlotCenterPx(3, 3);
+            float mx = p00.x + clamp(module->morphX, 0.f, 1.f) * (p33.x - p00.x);
+            float my = p00.y + clamp(module->morphY, 0.f, 1.f) * (p33.y - p00.y);
 
-				// Highlight border when a stored slot is currently active/selected
-				if (isActiveStored && !isArmed) {
-					nvgBeginPath(args.vg);
-					nvgRoundedRect(args.vg, bx + 0.5f, by + 0.5f, btnW - 1.0f, btnH - 1.0f, mm2px(1.5f));
-					nvgStrokeWidth(args.vg, 1.6f);
-					nvgStrokeColor(args.vg, nvgRGBA(55, 95, 160, 255));
-					nvgStroke(args.vg);
-				}
+            nvgBeginPath(args.vg);
+            nvgCircle(args.vg, mx, my, mm2px(2.1f));
+            nvgStrokeColor(args.vg, nvgRGBA(255, 255, 255, 215));
+            nvgStrokeWidth(args.vg, 1.4f);
+            nvgStroke(args.vg);
 
-				// Number Overlay (1..16)
-				char numStr[8];
-				std::snprintf(numStr, sizeof(numStr), "%d", s + 1);
-				nvgFontSize(args.vg, 10.5f);
-				nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-				if (isSelected || isActiveStored) {
-					nvgFillColor(args.vg, nvgRGB(20, 20, 20));
-				} else {
-					nvgFillColor(args.vg, nvgRGB(70, 70, 70));
-				}
-				nvgText(args.vg, bx + btnW * 0.5f, by + btnH * 0.5f, numStr, nullptr);
-			}
-		}
-
-		nvgRestore(args.vg);
-	}
+            nvgBeginPath(args.vg);
+            nvgCircle(args.vg, mx, my, mm2px(0.8f));
+            nvgFillColor(args.vg, nvgRGBA(255, 220, 90, 245));
+            nvgFill(args.vg);
+        }
+    }
 };
 
-// ── Context Menu Helper ──
-static void appendReverieMenuItems(ui::Menu* menu, Reverie* module) {
-	if (!module) return;
 
-	menu->addChild(new MenuSeparator());
-	menu->addChild(createMenuLabel("Oscillator Range"));
-
-	const char* oscRangeLabels[] = {
-		"Very Slow (600s - 0.1s)",
-		"LFO (0.01 - 200 Hz)",
-		"VCO (150 Hz - 2 kHz)"
-	};
-
-	for (int i = 0; i < 3; i++) {
-		Reverie::RangeMode mode = (Reverie::RangeMode)i;
-		menu->addChild(createCheckMenuItem(oscRangeLabels[i], "",
-			[=]() { return module ? module->rangeMode == mode : false; },
-			[=]() { if (module) module->rangeMode = mode; }
-		));
-	}
-
-	menu->addChild(new MenuSeparator());
-	menu->addChild(createMenuLabel("CV Scan Range"));
-
-	const char* scanRangeLabels[] = {
-		"+/-1V (-1V to +1V)",
-		"0-1V (0V to +1V)",
-		"+/-5V (-5V to +5V)",
-		"0-5V (0V to +5V)",
-		"+/-10V (-10V to +10V)",
-		"0-10V (0V to +10V)"
-	};
-
-	for (int i = 0; i < Reverie::NUM_VOLTAGE_RANGES; i++) {
-		Reverie::VoltageRange mode = (Reverie::VoltageRange)i;
-		menu->addChild(createCheckMenuItem(scanRangeLabels[i], "",
-			[=]() { return module ? module->scanRange == mode : false; },
-			[=]() { if (module) module->scanRange = mode; }
-		));
-	}
-
-	menu->addChild(new MenuSeparator());
-	menu->addChild(createMenuLabel("Preset Management"));
-
-	menu->addChild(createMenuItem("Record / Overwrite Selected Slot", "", [=]() {
-		if (module && module->selectedSlot >= 0) {
-			module->overwriteSlot(module->selectedSlot);
-		}
-	}));
-
-	menu->addChild(createMenuItem("Clear Selected Slot", "", [=]() {
-		if (module && module->selectedSlot >= 0) {
-			module->slots[module->selectedSlot].clear();
-			if (module->activeSlot == module->selectedSlot) {
-				module->activeSlot = -1;
-			}
-		}
-	}));
-
-	menu->addChild(createMenuItem("Clear All Presets", "", [=]() {
-		if (module) {
-			for (int s = 0; s < Reverie::NUM_SLOTS; s++) {
-				module->slots[s].clear();
-			}
-			module->activeSlot = -1;
-		}
-	}));
-}
-
-// ── Module Widget (20 HP = 8 HP Controls + 12 HP 4x4 Matrix & Gate Grid) ──
 struct ReverieWidget : ModuleWidget {
-	SvgPanel* panel = nullptr;
-	Reverie::SkinTheme currentTheme = Reverie::THEME_MEDIUM;
+    Reverie::SkinTheme lastTheme = Reverie::THEME_MEDIUM;
 
-	void setTheme(Reverie::SkinTheme theme) {
-		currentTheme = theme;
-		if (!panel) return;
-		std::string path;
-		switch (theme) {
-			case Reverie::THEME_LIGHT:
-				path = asset::plugin(pluginInstance, "res/Reverie_Light.svg");
-				break;
-			case Reverie::THEME_DARK:
-				path = asset::plugin(pluginInstance, "res/Reverie_Dark.svg");
-				break;
-			case Reverie::THEME_MEDIUM:
-			default:
-				path = asset::plugin(pluginInstance, "res/Reverie.svg");
-				break;
-		}
-		panel->setBackground(Svg::load(path));
-	}
+    ReverieWidget(Reverie* module) {
+        setModule(module);
+        setPanel(createPanel(asset::plugin(pluginInstance, "res/Reverie.svg")));
 
-	void step() override {
-		ModuleWidget::step();
-		Reverie* module = dynamic_cast<Reverie*>(this->module);
-		if (module && module->skinTheme != currentTheme) {
-			setTheme(module->skinTheme);
-		}
-	}
+        // =====================================================================
+        // LEFT CONTROLS (Columns: 7.00, 22.65, 38.30 mm)
+        // =====================================================================
+        // Row 1 (Y = 18.00 mm): FREQ, RANGE (Button + Light Ring), FINE
+        addParam(createParamCentered<ReverieKnob>(mm2px(Vec(7.00f, 18.00f)), module, Reverie::FREQ_PARAM));
+        addParam(createParamCentered<ReverieButton>(mm2px(Vec(22.65f, 18.00f)), module, Reverie::RANGE_PARAM));
+        {
+            ReverieRangeLightRing* ring = new ReverieRangeLightRing();
+            ring->module = module;
+            ring->box.size = mm2px(Vec(8.20f, 8.20f));
+            ring->box.pos = mm2px(Vec(22.65f, 18.00f)).minus(ring->box.size.div(2.0f));
+            addChild(ring);
+        }
+        addParam(createParamCentered<ReverieKnob>(mm2px(Vec(38.30f, 18.00f)), module, Reverie::FINE_PARAM));
 
-	ReverieWidget(Reverie* module) {
-		setModule(module);
-		panel = new SvgPanel();
-		Reverie::SkinTheme initTheme = module ? module->skinTheme : Reverie::THEME_MEDIUM;
-		currentTheme = initTheme;
-		std::string initPath;
-		switch (initTheme) {
-			case Reverie::THEME_LIGHT:
-				initPath = asset::plugin(pluginInstance, "res/Reverie_Light.svg");
-				break;
-			case Reverie::THEME_DARK:
-				initPath = asset::plugin(pluginInstance, "res/Reverie_Dark.svg");
-				break;
-			case Reverie::THEME_MEDIUM:
-			default:
-				initPath = asset::plugin(pluginInstance, "res/Reverie.svg");
-				break;
-		}
-		panel->setBackground(Svg::load(initPath));
-		setPanel(panel);
+        // Row 2 (Y = 34.00 mm): CYCLES, RECORD Button, MORPH
+        addParam(createParamCentered<ReverieSnapKnob>(mm2px(Vec(7.00f, 34.00f)), module, Reverie::CYCLES_PARAM));
+        addParam(createParamCentered<ReverieButton>(mm2px(Vec(22.65f, 34.00f)), module, Reverie::REC_BUTTON_PARAM));
+        addParam(createParamCentered<ReverieKnob>(mm2px(Vec(38.30f, 34.00f)), module, Reverie::MORPH_PARAM));
 
-		// Zero virtual screws (AGENTS.md Section 7.5.6)
+        // Row 3 (Y = 50.00 mm): X Scan, Y Scan, Morph Time CV Depth
+        addParam(createParamCentered<ReverieTrimpot>(mm2px(Vec(7.00f, 50.00f)), module, Reverie::X_SCAN_PARAM));
+        addParam(createParamCentered<ReverieTrimpot>(mm2px(Vec(22.65f, 50.00f)), module, Reverie::Y_SCAN_PARAM));
+        addParam(createParamCentered<ReverieTrimpot>(mm2px(Vec(38.30f, 50.00f)), module, Reverie::MORPH_ATTEN_PARAM));
 
-		// ── LEFT 8 HP SECTION: Primary Parameters ──
-		// Row 1 (Y = 21.00 mm): FREQ (10.82), RANGE Button + Light Ring (20.32), FINE (29.82)
-		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(10.820f, 21.000f)), module, Reverie::FREQ_PARAM));
-		addChild(createLightCentered<ReverieRangeLightRing>(mm2px(Vec(20.320f, 21.000f)), module, Reverie::RANGE_LIGHT_YELLOW));
-		addParam(createParamCentered<GarmireButton>(mm2px(Vec(20.320f, 21.000f)), module, Reverie::RANGE_PARAM));
-		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(29.820f, 21.000f)), module, Reverie::FINE_PARAM));
+        // =====================================================================
+        // LEFT CONTROL JACKS (4 columns: 7.00, 17.43, 27.87, 38.30 mm)
+        // 5 rows: 66.00, 78.75, 91.50, 104.25, 117.00 mm
+        // =====================================================================
+        const float lCols[4] = {7.00f, 17.43f, 27.87f, 38.30f};
+        const float lRows[5] = {66.00f, 78.75f, 91.50f, 104.25f, 117.00f};
 
-		// Row 2 (Y = 40.00 mm): CYCLES (10.82), MORPH (29.82)
-		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(10.820f, 40.000f)), module, Reverie::CYCLES_PARAM));
-		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(29.820f, 40.000f)), module, Reverie::MORPH_PARAM));
+        // Row 0 (Y = 66.00 mm): SYNC, X, Y, FREQ
+        addInput(createInputCentered<ReveriePort>(mm2px(Vec(lCols[0], lRows[0])), module, Reverie::SYNC_INPUT));
+        addInput(createInputCentered<ReveriePort>(mm2px(Vec(lCols[1], lRows[0])), module, Reverie::X_INPUT));
+        addInput(createInputCentered<ReveriePort>(mm2px(Vec(lCols[2], lRows[0])), module, Reverie::Y_INPUT));
+        addInput(createInputCentered<ReveriePort>(mm2px(Vec(lCols[3], lRows[0])), module, Reverie::FREQ_CV_INPUT));
 
-		// ── LEFT 8 HP SECTION: 5-Row Control & Signal Jacks ──
-		const float ctrl_x[4] = {6.800f, 16.000f, 25.200f, 34.400f};
+        // Row 1 (Y = 78.75 mm): R, G, B, MORPH
+        addInput(createInputCentered<ReveriePort>(mm2px(Vec(lCols[0], lRows[1])), module, Reverie::R_INPUT));
+        addInput(createInputCentered<ReveriePort>(mm2px(Vec(lCols[1], lRows[1])), module, Reverie::G_INPUT));
+        addInput(createInputCentered<ReveriePort>(mm2px(Vec(lCols[2], lRows[1])), module, Reverie::B_INPUT));
+        addInput(createInputCentered<ReveriePort>(mm2px(Vec(lCols[3], lRows[1])), module, Reverie::MORPH_CV_INPUT));
 
-		// Row 1 (Y = 65.00 mm): Sync In, X, Y, Frequency In
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(ctrl_x[0], 65.000f)), module, Reverie::SYNC_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(ctrl_x[1], 65.000f)), module, Reverie::X_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(ctrl_x[2], 65.000f)), module, Reverie::Y_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(ctrl_x[3], 65.000f)), module, Reverie::FREQ_CV_INPUT));
+        // Row 2 (Y = 91.50 mm): Z/I, X Out, Y Out, X SCAN
+        addInput(createInputCentered<ReveriePort>(mm2px(Vec(lCols[0], lRows[2])), module, Reverie::Z_INPUT));
+        addOutput(createOutputCentered<ReveriePort>(mm2px(Vec(lCols[1], lRows[2])), module, Reverie::X_OUTPUT));
+        addOutput(createOutputCentered<ReveriePort>(mm2px(Vec(lCols[2], lRows[2])), module, Reverie::Y_OUTPUT));
+        addInput(createInputCentered<ReveriePort>(mm2px(Vec(lCols[3], lRows[2])), module, Reverie::X_SCAN_INPUT));
 
-		// Row 2 (Y = 78.00 mm): R, G, B, Morph Time CV In
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(ctrl_x[0], 78.000f)), module, Reverie::R_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(ctrl_x[1], 78.000f)), module, Reverie::G_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(ctrl_x[2], 78.000f)), module, Reverie::B_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(ctrl_x[3], 78.000f)), module, Reverie::MORPH_CV_INPUT));
+        // Row 3 (Y = 104.25 mm): R Out, G Out, B Out, Y SCAN
+        addOutput(createOutputCentered<ReveriePort>(mm2px(Vec(lCols[0], lRows[3])), module, Reverie::R_OUTPUT));
+        addOutput(createOutputCentered<ReveriePort>(mm2px(Vec(lCols[1], lRows[3])), module, Reverie::G_OUTPUT));
+        addOutput(createOutputCentered<ReveriePort>(mm2px(Vec(lCols[2], lRows[3])), module, Reverie::B_OUTPUT));
+        addInput(createInputCentered<ReveriePort>(mm2px(Vec(lCols[3], lRows[3])), module, Reverie::Y_SCAN_INPUT));
 
-		// Row 3 (Y = 91.00 mm): Z/I In, X Out, Y Out, X Scan In
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(ctrl_x[0], 91.000f)), module, Reverie::ZI_INPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(ctrl_x[1], 91.000f)), module, Reverie::X_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(ctrl_x[2], 91.000f)), module, Reverie::Y_OUTPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(ctrl_x[3], 91.000f)), module, Reverie::SCAN_X_CV_INPUT));
+        // Row 4 (Y = 117.00 mm): Z/I Out, SYNC Out, RECORD Gate, RANDOM Gate
+        addOutput(createOutputCentered<ReveriePort>(mm2px(Vec(lCols[0], lRows[4])), module, Reverie::Z_OUTPUT));
+        addOutput(createOutputCentered<ReveriePort>(mm2px(Vec(lCols[1], lRows[4])), module, Reverie::SYNC_OUTPUT));
+        addInput(createInputCentered<ReveriePort>(mm2px(Vec(lCols[2], lRows[4])), module, Reverie::REC_GATE_INPUT));
+        addInput(createInputCentered<ReveriePort>(mm2px(Vec(lCols[3], lRows[4])), module, Reverie::RANDOM_GATE_INPUT));
 
-		// Row 4 (Y = 104.00 mm): R Out, G Out, B Out, Y Scan In
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(ctrl_x[0], 104.000f)), module, Reverie::R_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(ctrl_x[1], 104.000f)), module, Reverie::G_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(ctrl_x[2], 104.000f)), module, Reverie::B_OUTPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(ctrl_x[3], 104.000f)), module, Reverie::SCAN_Y_CV_INPUT));
+        // =====================================================================
+        // RIGHT 4x4 PRESET MATRIX & 4x4 GATE INPUT GRID
+        // Columns: 52.00, 66.20, 80.40, 94.60 mm
+        // =====================================================================
+        // Top 4x4 Preset Button Matrix (Rows: 18.00, 31.00, 44.00, 57.00 mm -> center (73.30, 37.50) mm)
+        PresetGridWidget* grid = new PresetGridWidget();
+        grid->module = module;
+        grid->box.pos = mm2px(Vec(73.30f, 37.50f)).minus(grid->box.size.div(2.0f));
+        addChild(grid);
 
-		// Row 5 (Y = 117.00 mm): Z Out (6.80), Sync Out (20.60), Record (34.40)
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(6.800f, 117.000f)), module, Reverie::ZI_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(20.600f, 117.000f)), module, Reverie::SYNC_OUTPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(34.400f, 117.000f)), module, Reverie::RECORD_INPUT));
+        // Bottom 4x4 Gate Input Grid (Rows: 78.00, 91.00, 104.00, 117.00 mm)
+        const float gCols[4] = {52.00f, 66.20f, 80.40f, 94.60f};
+        const float gRows[4] = {78.00f, 91.00f, 104.00f, 117.00f};
+        for (int r = 0; r < 4; ++r) {
+            for (int c = 0; c < 4; ++c) {
+                int idx = r * 4 + c;
+                addInput(createInputCentered<ReveriePort>(mm2px(Vec(gCols[c], gRows[r])), module, Reverie::PRESET_GATE_INPUT + idx));
+            }
+        }
+    }
 
-		// ── RIGHT 12 HP SECTION: 4x4 Preset Button Matrix (Centered at X = 71.12 mm, Y = 38.25 mm) ──
-		PresetGridWidget* gridWidget = new PresetGridWidget();
-		gridWidget->module = module;
-		gridWidget->box.pos = mm2px(Vec(71.120f - 25.000f, 38.250f - 25.000f));
-		addChild(gridWidget);
+    void updatePanelTheme(Reverie::SkinTheme theme) {
+        lastTheme = theme;
+        std::string svgFile = "res/Reverie.svg";
+        if (theme == Reverie::THEME_LIGHT) svgFile = "res/Reverie_Light.svg";
+        else if (theme == Reverie::THEME_DARK) svgFile = "res/Reverie_Dark.svg";
+        setPanel(createPanel(asset::plugin(pluginInstance, svgFile)));
+    }
 
-		// ── RIGHT 12 HP SECTION: 4x4 Preset Gate Input Grid (Rows at 78, 91, 104, 117 mm) ──
-		const float grid_x[4] = {52.370f, 64.870f, 77.370f, 89.870f};
-		const float grid_jack_y[4] = {78.000f, 91.000f, 104.000f, 117.000f};
-		for (int r = 0; r < 4; r++) {
-			for (int c = 0; c < 4; c++) {
-				int slotIdx = r * 4 + c;
-				addInput(createInputCentered<GarmirePort>(mm2px(Vec(grid_x[c], grid_jack_y[r])), module, Reverie::PRESET_GATE_INPUT + slotIdx));
-			}
-		}
-	}
+    void step() override {
+        Reverie* mod = dynamic_cast<Reverie*>(module);
+        if (mod && mod->skinTheme != lastTheme) {
+            updatePanelTheme(mod->skinTheme);
+        }
+        ModuleWidget::step();
+    }
 
-	void appendContextMenu(Menu* menu) override {
-		Reverie* module = dynamic_cast<Reverie*>(this->module);
-		if (!module) return;
+    void appendContextMenu(Menu* menu) override {
+        Reverie* mod = dynamic_cast<Reverie*>(module);
+        if (!mod) return;
 
-		menu->addChild(new MenuSeparator());
-		menu->addChild(createMenuLabel("Theme"));
+        menu->addChild(new MenuSeparator());
+        menu->addChild(createMenuLabel("Panel Theme"));
+        menu->addChild(createCheckMenuItem("Medium (Default)", "",
+            [=]() { return mod->skinTheme == Reverie::THEME_MEDIUM; },
+            [=]() { mod->skinTheme = Reverie::THEME_MEDIUM; }
+        ));
+        menu->addChild(createCheckMenuItem("Light", "",
+            [=]() { return mod->skinTheme == Reverie::THEME_LIGHT; },
+            [=]() { mod->skinTheme = Reverie::THEME_LIGHT; }
+        ));
+        menu->addChild(createCheckMenuItem("Dark", "",
+            [=]() { return mod->skinTheme == Reverie::THEME_DARK; },
+            [=]() { mod->skinTheme = Reverie::THEME_DARK; }
+        ));
 
-		menu->addChild(createCheckMenuItem("Medium Skin", "",
-			[=]() { return module->skinTheme == Reverie::THEME_MEDIUM; },
-			[=]() { module->skinTheme = Reverie::THEME_MEDIUM; }
-		));
-		menu->addChild(createCheckMenuItem("Light Skin", "",
-			[=]() { return module->skinTheme == Reverie::THEME_LIGHT; },
-			[=]() { module->skinTheme = Reverie::THEME_LIGHT; }
-		));
-		menu->addChild(createCheckMenuItem("Dark Skin", "",
-			[=]() { return module->skinTheme == Reverie::THEME_DARK; },
-			[=]() { module->skinTheme = Reverie::THEME_DARK; }
-		));
-
-		appendReverieMenuItems(menu, module);
-	}
+        menu->addChild(new MenuSeparator());
+        menu->addChild(createMenuItem("Clear all 16 preset slots", "", [=]() {
+            mod->clearAllSlots();
+        }));
+    }
 };
 
 Model* modelReverie = createModel<Reverie, ReverieWidget>("Reverie");

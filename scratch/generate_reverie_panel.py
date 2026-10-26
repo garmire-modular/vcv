@@ -1,293 +1,306 @@
-import json
 import os
-from pathlib import Path
 import re
-import sys
 
-# Ensure MSYS2 DLLs are found for cairosvg / libcairo
-msys_bin = r'C:\msys64\mingw64\bin'
-if os.path.exists(msys_bin):
-    os.environ['PATH'] = msys_bin + os.path.pathsep + os.environ.get('PATH', '')
-    if hasattr(os, 'add_dll_directory'):
-        try:
-            os.add_dll_directory(msys_bin)
-        except Exception:
-            pass
+if os.name == 'nt':
+    msys_bin = r'C:\msys64\mingw64\bin'
+    if os.path.isdir(msys_bin):
+        os.add_dll_directory(msys_bin)
+        os.environ['PATH'] = msys_bin + os.pathsep + os.environ.get('PATH', '')
 
+import cairosvg
 from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
 import pathops
-import cairosvg
-from PIL import Image, ImageDraw
 
-def get_simplified_glyph_path(font, char):
-    cmap = font.getBestCmap()
-    gname = cmap[ord(char)] if cmap and ord(char) in cmap else char
-    gset = font.getGlyphSet()
-    
-    path = pathops.Path()
-    pen = pathops.PathPen(path)
-    gset[gname].draw(pen)
-    
-    simplified = pathops.simplify(path)
-    svg_pen = SVGPathPen(None)
-    simplified.draw(svg_pen)
-    
-    path_d = svg_pen.getCommands()
-    path_d = re.sub(r'(\d+\.\d+)', lambda m: f'{float(m.group(1)):.1f}', path_d)
-    path_d = re.sub(r'([MLCQZHVmlcqzhv])', r' \1 ', path_d)
-    path_d = re.sub(r'\s+', ' ', path_d).strip()
-    return path_d
+MODULE_NAME = "Reverie"
+VERSION = "v1.1.1"
+HP = 20
+W = HP * 5.08  # 101.60 mm
+H = 128.50     # 3U height
 
-def render_text(font, text, x_pos, baseline_y, scale, fill, comment="", align="center"):
+FONT_TITLE = "res/D-DIN-Bold.otf"
+FONT_KNOB  = "res/D-DINCondensed-Bold.otf"
+FONT_LABEL = "res/D-DINCondensed.otf"
+FONT_VER   = "res/Quicksand-Regular.ttf"
+
+SCALE_16PT  = 0.005644
+SCALE_10PT  = 0.003528
+SCALE_8PT   = 0.002822
+SCALE_4_5PT = 0.001600
+
+
+def clean_svg_path_numbers(d: str) -> str:
+    if not d:
+        return ""
+    d = re.sub(r'([MCLZ])', r' \1 ', d)
+    tokens = d.split()
+    out = []
+    for t in tokens:
+        if t in ('M', 'C', 'L', 'Z'):
+            out.append(t)
+        else:
+            try:
+                val = float(t)
+                out.append(f"{val:.1f}")
+            except ValueError:
+                out.append(t)
+    return " ".join(out)
+
+
+def text_to_svg_path(text: str, font_path: str, scale: float, cx: float, baseline_y: float, align: str = 'center', tracking: float = 0.0) -> str:
+    font = TTFont(font_path)
+    glyph_set = font.getGlyphSet()
     cmap = font.getBestCmap()
     hmtx = font['hmtx']
-    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text]
-    total_w = sum(widths)
-    if align == "right":
-        start_x = x_pos - total_w
-    elif align == "left":
-        start_x = x_pos
+
+    glyphs = []
+    total_adv = 0.0
+    for i, ch in enumerate(text):
+        gid = cmap.get(ord(ch))
+        if not gid:
+            gid = cmap.get(ord(' '))
+        adv, _ = hmtx[gid]
+        glyphs.append((gid, adv))
+        total_adv += adv * scale
+        if i < len(text) - 1:
+            total_adv += tracking
+
+    if align == 'center':
+        start_x = cx - total_adv / 2.0
+    elif align == 'right':
+        start_x = cx - total_adv
     else:
-        start_x = x_pos - total_w / 2.0
-    res = []
-    if comment:
-        res.append(f'  <!-- Label: "{comment}" -->')
-    curr = start_x
-    for c, w in zip(text, widths):
-        if c != ' ':
-            pd = get_simplified_glyph_path(font, c)
-            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({scale:.6f}, {-scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
-        curr += w
-    return "\n".join(res)
+        start_x = cx
 
-def get_palette_badge_svg(module_name="Reverie"):
-    palette_path = Path("scratch/palette/palette.json")
-    if palette_path.exists():
-        try:
-            with open(palette_path, "r", encoding="utf-8") as f:
-                pal_data = json.load(f)
-            if module_name in pal_data:
-                entry = pal_data[module_name]
-                geom = entry.get("badgeGeometry", {})
-                bw = geom.get("widthMm", 2.54)
-                start_y = geom.get("y", 19.8)
-                start_x = geom.get("x", 0.0)
-                bands = entry.get("bands", [])
-                if bands:
-                    lines = ['  <!-- Left Edge Color Badge (from scratch/palette/palette.json) -->',
-                             '  <g id="palette-badge">']
-                    curr_y = start_y
-                    for b in bands:
-                        bh = b.get("heightMm", 0.0)
-                        hex_col = b.get("hex", "#5d5d5d")
-                        lines.append(f'    <rect x="{start_x:.3f}" y="{curr_y:.3f}" width="{bw:.3f}" height="{bh:.3f}" fill="{hex_col}" stroke="none"/>')
-                        curr_y += bh
-                    lines.append('  </g>')
-                    return "\n".join(lines)
-        except Exception as e:
-            print(f"Warning: could not load palette.json: {e}")
-    return '''  <!-- Left Edge Color Badge (Placeholder #5d5d5d) -->
-  <g id="palette-badge">
-    <rect x="0.000" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none"/>
-  </g>'''
+    combined = pathops.Path()
+    curr_x = start_x
 
-def render_delineator(x_start, x_end, center_y, hi_color, sh_color, comment=""):
-    w = x_end - x_start
-    top_y = center_y - 0.150
-    bot_y = center_y
-    return f'''  <!-- {comment} -->
-  <g>
-    <rect x="{x_start:.3f}" y="{top_y:.3f}" width="{w:.3f}" height="0.150" fill="{hi_color}" stroke="none"/>
-    <rect x="{x_start:.3f}" y="{bot_y:.3f}" width="{w:.3f}" height="0.150" fill="{sh_color}" stroke="none"/>
-  </g>'''
+    for i, (gid, adv) in enumerate(glyphs):
+        g = glyph_set[gid]
+        svg_pen = SVGPathPen(glyph_set)
+        t_pen = TransformPen(svg_pen, (scale, 0, 0, -scale, curr_x, baseline_y))
+        g.draw(t_pen)
+        cmds = svg_pen.getCommands()
+        if cmds:
+            p = pathops.Path()
+            svg_pen_pathops(g, (scale, 0, 0, -scale, curr_x, baseline_y), p)
+            combined.addPath(p)
+        curr_x += adv * scale + tracking
 
-def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, hi_color, sh_color, ring_color, well_bg, well_border, fonts):
-    d_din_bold = fonts['d_din_bold']
-    d_din_cond_bold = fonts['d_din_cond_bold']
-    d_din_cond = fonts['d_din_cond']
-    qs_reg_font = fonts['qs_reg_font']
+    simplified = pathops.simplify(combined)
+    svg_out = SVGPathPen(None)
+    simplified.draw(svg_out)
+    return clean_svg_path_numbers(svg_out.getCommands())
 
-    # Panel dimensions: 20 HP (101.60 mm x 128.50 mm)
-    # Left 8 HP Controls (0.00 - 40.64 mm) + Right 12 HP 4x4 Matrix & Gate Grid (40.64 - 101.60 mm)
-    panel_w = 101.60
-    panel_h = 128.50
 
-    # Scales (AGENTS.md Section 7.5)
-    scale_title = 0.005644       # 16 pt
-    scale_version = 0.001600     # 4.5 pt
-    scale_knob = 0.003528        # 10 pt
-    scale_jack = 0.002822        # 8 pt
+def svg_pen_pathops(glyph, transform, pathops_path):
+    pen = pathops_path.getPen()
+    t_pen = TransformPen(pen, transform)
+    glyph.draw(t_pen)
 
-    lines = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.2f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.2f}">',
-        f'  <!-- Panel Background: 20 HP ({theme_name} Theme) -->',
-        f'  <rect width="{panel_w:.2f}" height="{panel_h:.2f}" fill="{bg_color}"/>',
-        '',
-        get_palette_badge_svg("Reverie"),
-        '',
-        '  <!-- ZONE 1: HEADER & TITLE -->',
-        render_text(d_din_bold, "REVERIE", panel_w / 2.0, 8.000, scale_title, title_color, "Module Title"),
-        render_text(qs_reg_font, "v1.1.0", panel_w - 2.15, 8.000, scale_version, "#aaaaaa" if theme_name != "Dark" else "#888888", "v1.1.0", align="right"),
-        ''
+
+def render_skin(skin: dict):
+    bg_color    = skin['bg_color']
+    title_color = skin['title_color']
+    label_color = skin['label_color']
+    hi_color    = skin['hi_color']
+    sh_color    = skin['sh_color']
+    ring_color  = skin['ring_color']
+    out_box_fill = skin['out_box_fill']
+    out_box_text = skin['out_box_text']
+
+    svg = []
+    svg.append(f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.2f}mm" height="{H:.2f}mm" viewBox="0 0 {W:.3f} {H:.3f}">')
+
+    # Background
+    svg.append(f'  <rect x="0" y="0" width="{W:.3f}" height="{H:.3f}" fill="{bg_color}" />')
+
+    # Palette Badge
+    svg.append('  <g id="palette-badge">')
+    svg.append('    <rect x="0" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none" />')
+    svg.append('  </g>')
+
+    # Header: Module Title (centered at W/2 = 50.80 mm) & Version Tag
+    title_d = text_to_svg_path("REVERIE", FONT_TITLE, SCALE_16PT, W / 2.0, 8.000, align='center', tracking=0.35)
+    ver_d   = text_to_svg_path(VERSION, FONT_VER, SCALE_4_5PT, W - 2.15, 8.000, align='right')
+    svg.append(f'  <path d="{title_d}" fill="{title_color}" />')
+    svg.append(f'  <path d="{ver_d}" fill="#aaaaaa" />')
+
+    # =========================================================================
+    # LEFT CONTROLS (Columns: 7.00, 22.65, 38.30 mm)
+    # =========================================================================
+    X_K1, X_K2, X_K3 = 7.00, 22.65, 38.30
+
+    # Row 1 Knobs/Button (Y = 18.00 mm, Label baseline Y = 12.25 mm): FREQ, RANGE, FINE
+    Y_R1 = 18.00
+    Y_R1_LBL = Y_R1 - 5.75  # 12.25 mm
+    for x_pos, lbl in [(X_K1, "FREQ"), (X_K2, "RANGE"), (X_K3, "FINE")]:
+        d = text_to_svg_path(lbl, FONT_KNOB, SCALE_10PT, x_pos, Y_R1_LBL, align='center')
+        svg.append(f'  <path d="{d}" fill="{label_color}" />')
+
+    # Range button trim ring at (22.65, 18.00)
+    svg.append(f'  <circle cx="{X_K2:.3f}" cy="{Y_R1:.3f}" r="4.050" fill="{ring_color}" stroke="none" />')
+
+    # Row 2 Knobs/Button (Y = 34.00 mm, Label baseline Y = 28.25 mm): CYCLES, RECORD, MORPH
+    Y_R2 = 34.00
+    Y_R2_LBL = Y_R2 - 5.75  # 28.25 mm
+    for x_pos, lbl in [(X_K1, "CYCLES"), (X_K2, "RECORD"), (X_K3, "MORPH")]:
+        d = text_to_svg_path(lbl, FONT_KNOB, SCALE_10PT, x_pos, Y_R2_LBL, align='center')
+        svg.append(f'  <path d="{d}" fill="{label_color}" />')
+
+    # Record button trim ring at (22.65, 34.00)
+    svg.append(f'  <circle cx="{X_K2:.3f}" cy="{Y_R2:.3f}" r="4.050" fill="{ring_color}" stroke="none" />')
+
+    # Delineator Line 1 above Row 3 (Y = 41.20 mm, left control zone)
+    y_delin1 = 41.20
+    svg.append(f'  <rect x="5.000" y="{y_delin1 - 0.150:.3f}" width="37.500" height="0.150" fill="{hi_color}" />')
+    svg.append(f'  <rect x="5.000" y="{y_delin1:.3f}" width="37.500" height="0.150" fill="{sh_color}" />')
+
+    # Row 3 Trimpot-sized Knobs (Y = 50.00 mm, Label baseline Y = 46.00 mm):
+    # X above 7.00 mm, Y above 22.65 mm, MORPH above 38.30 mm, and SCAN between X and Y knobs (14.825, 51.00)
+    Y_R3 = 50.00
+    Y_R3_LBL = Y_R3 - 4.00  # 46.00 mm
+    for x_pos, lbl in [(X_K1, "X"), (X_K2, "Y"), (X_K3, "MORPH")]:
+        d = text_to_svg_path(lbl, FONT_LABEL, SCALE_8PT, x_pos, Y_R3_LBL, align='center')
+        svg.append(f'  <path d="{d}" fill="{label_color}" />')
+    d_scan = text_to_svg_path("SCAN", FONT_LABEL, SCALE_8PT, (X_K1 + X_K2) / 2.0, Y_R3 + 1.00, align='center')
+    svg.append(f'  <path d="{d_scan}" fill="{label_color}" />')
+
+    # Delineator Line 2 Left (above Left Jack Zone at Y = 66.00 - 10.00 = 56.00 mm)
+    y_delin2_left = 56.00
+    svg.append(f'  <rect x="5.000" y="{y_delin2_left - 0.150:.3f}" width="37.500" height="0.150" fill="{hi_color}" />')
+    svg.append(f'  <rect x="5.000" y="{y_delin2_left:.3f}" width="37.500" height="0.150" fill="{sh_color}" />')
+
+    # Delineator Line 2 Right (between 4x4 Preset Matrix and 4x4 Gate Grid at Y = 78.00 - 10.00 = 68.00 mm)
+    y_delin2_right = 68.00
+    svg.append(f'  <rect x="44.800" y="{y_delin2_right - 0.150:.3f}" width="{W - 44.800:.3f}" height="0.150" fill="{hi_color}" />')
+    svg.append(f'  <rect x="44.800" y="{y_delin2_right:.3f}" width="{W - 44.800:.3f}" height="0.150" fill="{sh_color}" />')
+
+    # =========================================================================
+    # LEFT CONTROL JACKS (4 columns: 7.00, 17.43, 27.87, 38.30 mm)
+    # 5 rows: 66.00, 78.75, 91.50, 104.25, 117.00 mm
+    # =========================================================================
+    L_COLS = [7.00, 17.43, 27.87, 38.30]
+    L_ROWS = [66.00, 78.75, 91.50, 104.25, 117.00]
+
+    # Subtle shaded backing pill for OUTPUT jacks (enclosing both label and jack cleanly):
+    # Row 2 (91.50): cols 1, 2 (X Out, Y Out)
+    # Row 3 (104.25): cols 0, 1, 2 (R Out, G Out, B Out)
+    # Row 4 (117.00): cols 0, 1 (Z/I Out, SYNC Out)
+    svg.append(f'  <rect x="12.600" y="83.400" width="20.100" height="12.750" rx="1.500" fill="{out_box_fill}" opacity="0.85" />')
+    svg.append(f'  <rect x="2.600" y="96.150" width="30.100" height="12.750" rx="1.500" fill="{out_box_fill}" opacity="0.85" />')
+    svg.append(f'  <rect x="2.600" y="108.900" width="19.700" height="13.000" rx="1.500" fill="{out_box_fill}" opacity="0.85" />')
+
+    left_jack_labels = [
+        # Row 0 (Y = 66.00 mm): SYNC, X, Y, FREQ
+        (L_COLS[0], L_ROWS[0], "SYNC", False),
+        (L_COLS[1], L_ROWS[0], "X", False),
+        (L_COLS[2], L_ROWS[0], "Y", False),
+        (L_COLS[3], L_ROWS[0], "FREQ", False),
+        # Row 1 (Y = 78.75 mm): R, G, B, MORPH
+        (L_COLS[0], L_ROWS[1], "R", False),
+        (L_COLS[1], L_ROWS[1], "G", False),
+        (L_COLS[2], L_ROWS[1], "B", False),
+        (L_COLS[3], L_ROWS[1], "MORPH", False),
+        # Row 2 (Y = 91.50 mm): Z/I, X (Out), Y (Out), X SCAN
+        (L_COLS[0], L_ROWS[2], "Z/I", False),
+        (L_COLS[1], L_ROWS[2], "X", True),
+        (L_COLS[2], L_ROWS[2], "Y", True),
+        (L_COLS[3], L_ROWS[2], "X SCAN", False),
+        # Row 3 (Y = 104.25 mm): R (Out), G (Out), B (Out), Y SCAN
+        (L_COLS[0], L_ROWS[3], "R", True),
+        (L_COLS[1], L_ROWS[3], "G", True),
+        (L_COLS[2], L_ROWS[3], "B", True),
+        (L_COLS[3], L_ROWS[3], "Y SCAN", False),
+        # Row 4 (Y = 117.00 mm): Z/I (Out), SYNC (Out), RECORD, RANDOM
+        (L_COLS[0], L_ROWS[4], "Z/I", True),
+        (L_COLS[1], L_ROWS[4], "SYNC", True),
+        (L_COLS[2], L_ROWS[4], "RECORD", False),
+        (L_COLS[3], L_ROWS[4], "RANDOM", False),
     ]
 
-    # ── LEFT 8 HP SECTION (0.00 to 40.64 mm) ──
-    # Row 1: FREQ (10.82), RANGE (20.32), FINE (29.82) at Y = 21.00 mm (Label baseline Y = 15.25 mm)
-    lines.append('  <!-- Left 8 HP: Primary Parameters -->')
-    lines.append('  <!-- Range Button Indicator Ring Track (R = 4.12mm, Stroke = 1.40mm) -->')
-    lines.append(f'  <circle cx="20.320" cy="21.000" r="4.120" fill="none" stroke="{ring_color}" stroke-width="1.400"/>')
-    lines.append(render_text(d_din_cond_bold, "FREQ", 10.820, 15.250, scale_knob, label_color, "FREQ Knob Label"))
-    lines.append(render_text(d_din_cond_bold, "RANGE", 20.320, 15.250, scale_knob, label_color, "RANGE Button Label"))
-    lines.append(render_text(d_din_cond_bold, "FINE", 29.820, 15.250, scale_knob, label_color, "FINE Knob Label"))
+    for jx, jy, jlbl, is_out in left_jack_labels:
+        col = out_box_text if is_out else label_color
+        d = text_to_svg_path(jlbl, FONT_LABEL, SCALE_8PT, jx, jy - 5.00, align='center')
+        svg.append(f'  <path d="{d}" fill="{col}" />')
 
-    # Row 2: CYCLES (10.82), MORPH (29.82) at Y = 40.00 mm (Label baseline Y = 34.25 mm)
-    lines.append(render_text(d_din_cond_bold, "CYCLES", 10.820, 34.250, scale_knob, label_color, "CYCLES Knob Label"))
-    lines.append(render_text(d_din_cond_bold, "MORPH", 29.820, 34.250, scale_knob, label_color, "MORPH Knob Label"))
+    # =========================================================================
+    # RIGHT 4x4 PRESET MATRIX & 4x4 GATE INPUT GRID
+    # Columns: 52.00, 66.20, 80.40, 94.60 mm
+    # =========================================================================
+    G_COLS = [52.00, 66.20, 80.40, 94.60]
+    BTN_ROWS = [18.00, 31.00, 44.00, 57.00]
+    GATE_ROWS = [78.00, 91.00, 104.00, 117.00]
 
-    # Delineator Line for Left 8 HP Section (10 mm above Row 1 Control Jacks at 65.00 mm -> Y = 55.00 mm)
-    lines.append('')
-    lines.append(render_delineator(40.64 * 0.20, 40.64, 55.000, hi_color, sh_color, "Left 8 HP Delineator at Y = 55.00mm"))
+    # Subtle recessed frame behind the 4x4 button matrix (for MetaModule/SVG preview)
+    svg.append(f'  <rect x="44.800" y="10.800" width="54.800" height="53.400" rx="2.400" fill="{sh_color}" opacity="0.28" />')
 
-    # Left 8 HP Control Jacks (4 columns: 6.80, 16.00, 25.20, 34.40 mm; 5 rows: 65, 78, 91, 104, 117 mm)
-    ctrl_x = [6.800, 16.000, 25.200, 34.400]
-    ctrl_rows = [
-        (65.000, ["SYNC", "X", "Y", "FREQ"]),
-        (78.000, ["R", "G", "B", "MORPH"]),
-        (91.000, ["Z/I", "X OUT", "Y OUT", "X SCAN"]),
-        (104.000, ["R OUT", "G OUT", "B OUT", "Y SCAN"]),
-    ]
-
-    lines.append('')
-    lines.append('  <!-- Left 8 HP: 5-Row Control & Signal Jacks -->')
-    for ry, rlabels in ctrl_rows:
-        lbl_y = ry - 5.000
-        for cx, lbl in zip(ctrl_x, rlabels):
-            lines.append(render_text(d_din_cond, lbl, cx, lbl_y, scale_jack, label_color, f"Jack {lbl} at ({cx:.1f}, {ry:.1f})"))
-
-    # Row 5 (Y = 117.000 mm, Label baseline Y = 112.000 mm): Z Out (6.80), Sync Out (20.60), Record (34.40)
-    lines.append(render_text(d_din_cond, "Z OUT", 6.800, 112.000, scale_jack, label_color, "Jack Z OUT"))
-    lines.append(render_text(d_din_cond, "SYNC OUT", 20.600, 112.000, scale_jack, label_color, "Jack SYNC OUT"))
-    lines.append(render_text(d_din_cond, "RECORD", 34.400, 112.000, scale_jack, label_color, "Jack RECORD"))
-
-    # ── RIGHT 12 HP SECTION (40.64 to 101.60 mm, Center = 71.12 mm) ──
-    # 4 Columns centered in 12 HP at pitch 12.50 mm: [52.37, 64.87, 77.37, 89.87]
-    grid_x = [52.370, 64.870, 77.370, 89.870]
-    grid_btn_y = [19.500, 32.000, 44.500, 57.000]
-    btn_size = 10.000
-    half_btn = btn_size / 2.0
-
-    lines.append('')
-    lines.append('  <!-- Right 12 HP: 4x4 Preset Matrix Wells -->')
-    for r, by in enumerate(grid_btn_y):
-        for c, bx in enumerate(grid_x):
+    # Gate input labels 1..16 (at Y - 5.00 mm above each gate jack)
+    for r in range(4):
+        gy = GATE_ROWS[r]
+        for c in range(4):
+            gx = G_COLS[c]
             slot_num = r * 4 + c + 1
-            rx = bx - half_btn
-            ry = by - half_btn
-            # Render preset-empty style rounded square placeholder on SVG faceplate for standalone/browser preview
-            lines.append(f'  <rect x="{rx:.3f}" y="{ry:.3f}" width="{btn_size:.3f}" height="{btn_size:.3f}" rx="1.6" fill="#eaeaea" stroke="#a9a9a9" stroke-width="0.30"/>')
-            inner_s = btn_size - 1.600
-            lines.append(f'  <rect x="{rx + 0.800:.3f}" y="{ry + 0.800:.3f}" width="{inner_s:.3f}" height="{inner_s:.3f}" rx="1.1" fill="#ffffff" stroke="none"/>')
-            lines.append(render_text(d_din_cond_bold, str(slot_num), bx, by + 1.250, scale_jack, "#444444", f"Preset Slot {slot_num}"))
+            d = text_to_svg_path(str(slot_num), FONT_LABEL, SCALE_8PT, gx, gy - 5.00, align='center')
+            svg.append(f'  <path d="{d}" fill="{label_color}" />')
 
-    # Delineator Line for Right 12 HP Section (10 mm above Row 1 Gate Jacks at 78.00 mm -> Y = 68.00 mm)
-    lines.append('')
-    lines.append(render_delineator(44.000, panel_w, 68.000, hi_color, sh_color, "Right 12 HP Delineator at Y = 68.00mm"))
+    svg.append('</svg>')
 
-    # Right 12 HP: 4x4 Gate Input Grid of Jacks (Rows at 78, 91, 104, 117 mm)
-    grid_jack_y = [78.000, 91.000, 104.000, 117.000]
-    lines.append('')
-    lines.append('  <!-- Right 12 HP: 4x4 Preset Gate Input Grid -->')
-    for r, jy in enumerate(grid_jack_y):
-        lbl_y = jy - 5.000
-        for c, jx in enumerate(grid_x):
-            slot_num = r * 4 + c + 1
-            lines.append(render_text(d_din_cond, str(slot_num), jx, lbl_y, scale_jack, label_color, f"Preset Gate {slot_num}"))
+    with open(skin['filename'], 'w', encoding='utf-8') as f:
+        f.write("\n".join(svg) + "\n")
+    print(f"Generated {skin['filename']}")
 
-    lines.append('</svg>')
-    return '\n'.join(lines) + '\n'
 
 def main():
-    fonts = {
-        'd_din_bold': TTFont('res/D-DIN-Bold.otf'),
-        'd_din_cond_bold': TTFont('res/D-DINCondensed-Bold.otf'),
-        'd_din_cond': TTFont('res/D-DINCondensed.otf'),
-        'qs_reg_font': TTFont('res/Quicksand-Regular.ttf')
-    }
-
     skins = [
         {
             'name': 'Medium',
-            'filename': 'res/Reverie.svg',
+            'filename': f'res/{MODULE_NAME}.svg',
             'bg_color': '#6e6e6e',
             'title_color': '#ffffff',
             'label_color': '#222222',
-            'line_color': '#222222',
             'hi_color': '#999999',
             'sh_color': '#5e5e5e',
             'ring_color': '#484848',
-            'well_bg': '#5a5a5a',
-            'well_border': '#484848'
+            'out_box_fill': '#525252',
+            'out_box_text': '#eeeeee'
         },
         {
             'name': 'Light',
-            'filename': 'res/Reverie_Light.svg',
+            'filename': f'res/{MODULE_NAME}_Light.svg',
             'bg_color': '#c6c6c6',
             'title_color': '#333333',
             'label_color': '#222222',
-            'line_color': '#222222',
             'hi_color': '#e4e4e4',
             'sh_color': '#a8a8a8',
             'ring_color': '#9e9e9e',
-            'well_bg': '#b4b4b4',
-            'well_border': '#9e9e9e'
+            'out_box_fill': '#a4a4a4',
+            'out_box_text': '#111111'
         },
         {
             'name': 'Dark',
-            'filename': 'res/Reverie_Dark.svg',
+            'filename': f'res/{MODULE_NAME}_Dark.svg',
             'bg_color': '#333333',
             'title_color': '#c6c6c6',
             'label_color': '#ffffff',
-            'line_color': '#ffffff',
             'hi_color': '#585858',
             'sh_color': '#202020',
             'ring_color': '#222222',
-            'well_bg': '#282828',
-            'well_border': '#1f1f1f'
+            'out_box_fill': '#222222',
+            'out_box_text': '#ffffff'
         }
     ]
 
-    for skin in skins:
-        svg_content = build_svg_panel(
-            skin['name'],
-            skin['bg_color'],
-            skin['title_color'],
-            skin['label_color'],
-            skin['line_color'],
-            skin['hi_color'],
-            skin['sh_color'],
-            skin['ring_color'],
-            skin['well_bg'],
-            skin['well_border'],
-            fonts
-        )
-        with open(skin['filename'], 'w', encoding='utf-8') as f:
-            f.write(svg_content)
-        print(f"Generated {skin['filename']} ({skin['name']} skin)")
+    for s in skins:
+        render_skin(s)
 
-    # Render verification bitmaps
-    # 20 HP: 101.60 mm x 128.50 mm -> at 240px height = 190 px width
-    os.makedirs('scratch', exist_ok=True)
-    verify_png = 'scratch/reverie_verify.png'
-    out_w = int(round(240 * (101.60 / 128.50)))
-    cairosvg.svg2png(url='res/Reverie.svg', write_to=verify_png, output_width=out_w * 4, output_height=240 * 4)
-    print(f"Rendered {verify_png} ({out_w * 4}x{240 * 4})")
+    os.makedirs("scratch", exist_ok=True)
+    os.makedirs("metamodule/assets", exist_ok=True)
+    cairosvg.svg2png(url=f"res/{MODULE_NAME}.svg", write_to="scratch/reverie_verify.png", output_height=720)
+    cairosvg.svg2png(url=f"res/{MODULE_NAME}.svg", write_to=f"metamodule/assets/{MODULE_NAME}.png", output_height=240)
+    print(f"Rendered scratch/reverie_verify.png and metamodule/assets/{MODULE_NAME}.png")
 
-    os.makedirs('metamodule/assets', exist_ok=True)
-    meta_png = 'metamodule/assets/Reverie.png'
-    cairosvg.svg2png(url='res/Reverie.svg', write_to=meta_png, output_width=out_w, output_height=240)
-    print(f"Rendered {meta_png} ({out_w}x240)")
 
 if __name__ == '__main__':
     main()
