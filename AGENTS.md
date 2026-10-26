@@ -22,6 +22,7 @@ Before writing or modifying any code, SVGs, or build configurations, you MUST ou
 ### Pre-Flight Invariant Verification
 - [ ] **Architecture Check:** DSP changes preserve real-time safety (no malloc, free, locks, or file I/O in `process()`).
 - [ ] **Functional Taxonomy:** Module class (Generate, Transform, Utility, or Control) confirmed via user prompt and tagged in `plugin.json`.
+- [ ] **Generator Output Voltage Standards:** If classified as Generate, right-click context menu options for `0-1V`, `+/-1V`, `0-5V`, `+/-5V`, `0-10V`, and `+/-10V` are implemented with JSON persistence.
 - [ ] **HP Sizing & Crowding Check:** Pre-flight component spacing verified against clearance tolerances; HP increase proposed to user if crowded.
 - [ ] **Custom Hardware Widgets:** ModuleWidget uses custom Garmire widgets (`res/knob.svg`, `res/tinyknob.svg`, `res/3_5mm_jacks.svg`, `res/button_gray_0.svg`).
 - [ ] **Triple Skin Architecture:** Panel script generates Medium, Light, and Dark SVG skins (`res/<Module>.svg`, `res/<Module>_Light.svg`, `res/<Module>_Dark.svg`) with context menu switching and JSON persistence.
@@ -107,6 +108,92 @@ Every Garmire module belongs to one of four functional classes:
 > Whenever designing, scaffolding, or adding a new module, you MUST explicitly prompt the user to confirm/assign which of the 4 classes the module belongs to:
 > *"Which functional class does this module belong to: Generate, Transform, Utility, or Control?"*
 > Once confirmed, record the classification in the pre-flight checklist and add the corresponding tag to the module's entry in `plugin.json`.
+
+---
+
+## 5.1. Generator Output Voltage Standards (Generate Class Mandate)
+
+All modules belonging to the **Generate** class (oscillators, chaos engines, function/pattern generators, CV/audio sources) MUST implement user-selectable output voltage range standards via the right-click context menu:
+
+- **Supported Standards**:
+  1. `0-1V` (Unipolar $0\text{ V}$ to $+1\text{ V}$)
+  2. `+/-1V` (Bipolar $-1\text{ V}$ to $+1\text{ V}$)
+  3. `0-5V` (Unipolar $0\text{ V}$ to $+5\text{ V}$)
+  4. `+/-5V` (Bipolar $-5\text{ V}$ to $+5\text{ V}$)
+  5. `0-10V` (Unipolar $0\text{ V}$ to $+10\text{ V}$)
+  6. `+/-10V` (Bipolar $-10\text{ V}$ to $+10\text{ V}$)
+
+- **Persistence & Architecture Requirements**:
+  - Store the selected standard as an enum (`VoltageStandard` / `VoltageRange`) in the module struct.
+  - Serialize and restore via `dataToJson()` and `dataFromJson()` under the key `"voltageRange"` or `"voltageStandard"`.
+  - Provide a helper method `getRangeVoltages(float& vMin, float& vMax)` or mapping function in the DSP engine so all generated outputs scale accurately to the active bounds.
+  - Expose the selection in `ModuleWidget::appendContextMenu()` under a `"Voltage Range"` label with checkmarks for each mode.
+
+*Implementation Reference Pattern*:
+```cpp
+// 1. In Module struct:
+enum VoltageRange {
+    RANGE_UNIPOLAR_1V = 0,
+    RANGE_BIPOLAR_1V,
+    RANGE_UNIPOLAR_5V,
+    RANGE_BIPOLAR_5V,
+    RANGE_UNIPOLAR_10V,
+    RANGE_BIPOLAR_10V,
+    NUM_RANGES
+};
+VoltageRange voltageRange = RANGE_BIPOLAR_5V; // or module-appropriate default
+
+void getRangeVoltages(float& vMin, float& vMax) const {
+    switch (voltageRange) {
+        case RANGE_UNIPOLAR_1V:  vMin =  0.0f; vMax =  1.0f; break;
+        case RANGE_BIPOLAR_1V:   vMin = -1.0f; vMax =  1.0f; break;
+        case RANGE_UNIPOLAR_5V:  vMin =  0.0f; vMax =  5.0f; break;
+        case RANGE_BIPOLAR_5V:   vMin = -5.0f; vMax =  5.0f; break;
+        case RANGE_UNIPOLAR_10V: vMin =  0.0f; vMax = 10.0f; break;
+        case RANGE_BIPOLAR_10V:
+        default:                 vMin = -10.0f; vMax = 10.0f; break;
+    }
+}
+
+json_t* dataToJson() override {
+    json_t* rootJ = json_object();
+    json_object_set_new(rootJ, "voltageRange", json_integer((int)voltageRange));
+    // ... other state ...
+    return rootJ;
+}
+
+void dataFromJson(json_t* rootJ) override {
+    json_t* vrJ = json_object_get(rootJ, "voltageRange");
+    if (vrJ) voltageRange = (VoltageRange)json_integer_value(vrJ);
+    // ... other state ...
+}
+
+// 2. In ModuleWidget::appendContextMenu:
+void appendContextMenu(Menu* menu) override {
+    auto* mod = dynamic_cast<MyModule*>(this->module);
+    if (!mod) return;
+
+    menu->addChild(new MenuSeparator());
+    menu->addChild(createMenuLabel("Voltage Range"));
+
+    const char* rangeLabels[] = {
+        "0-1V (0V to +1V)",
+        "+/-1V (-1V to +1V)",
+        "0-5V (0V to +5V)",
+        "+/-5V (-5V to +5V)",
+        "0-10V (0V to +10V)",
+        "+/-10V (-10V to +10V)"
+    };
+
+    for (int i = 0; i < MyModule::NUM_RANGES; i++) {
+        MyModule::VoltageRange mode = (MyModule::VoltageRange)i;
+        menu->addChild(createCheckMenuItem(rangeLabels[i], "",
+            [=]() { return mod->voltageRange == mode; },
+            [=]() { mod->voltageRange = mode; }
+        ));
+    }
+}
+```
 
 ---
 
