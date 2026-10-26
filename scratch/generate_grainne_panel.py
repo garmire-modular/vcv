@@ -1,5 +1,6 @@
 import os
 import re
+import colorsys
 from pathlib import Path
 
 # Ensure MSYS2 DLLs are found for cairosvg / libcairo
@@ -99,6 +100,30 @@ def render_section_divider(center_y, panel_w, hi_color='#999999', sh_color='#5e5
     <rect x="{x_start:.3f}" y="{bot_y:.3f}" width="{divider_w:.3f}" height="0.150" fill="{sh_color}" />
   </g>'''
 
+def render_gradient_preview_bar(center_y, panel_w, height_mm=1.500):
+    bar_w = panel_w * 0.80
+    x_start = panel_w - bar_w
+    y_top = center_y - height_mm / 2.0
+    stops = [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)]
+    num_slices = 48
+    slice_w = bar_w / num_slices
+    rects = [f'  <!-- Static Gradient Preview Bar at Center Y = {center_y:.2f}mm (X = {x_start:.3f}mm, W = {bar_w:.3f}mm, H = {height_mm:.3f}mm) -->', '  <g id="gradient-preview-bar">']
+    for i in range(num_slices):
+        p = (i + 0.5) / num_slices
+        scaled = p * 3.0
+        seg = min(int(scaled), 2)
+        u = scaled - seg
+        cA = stops[seg]
+        cB = stops[(seg + 1) % 3]
+        r = int(round(((1.0 - u) * cA[0] + u * cB[0]) * 255))
+        g = int(round(((1.0 - u) * cA[1] + u * cB[1]) * 255))
+        b = int(round(((1.0 - u) * cA[2] + u * cB[2]) * 255))
+        sx = x_start + i * slice_w
+        sw = slice_w + (0.05 if i < num_slices - 1 else 0.0)
+        rects.append(f'    <rect x="{sx:.3f}" y="{y_top:.3f}" width="{sw:.3f}" height="{height_mm:.3f}" fill="#{r:02x}{g:02x}{b:02x}" />')
+    rects.append('  </g>')
+    return '\n'.join(rects)
+
 def generate_panel(skin):
     panel_w = 40.64
     panel_h = 128.50
@@ -135,7 +160,7 @@ def generate_panel(skin):
         '',
         '  <!-- Zone 1: Header & Title -->',
         render_text_centered(ddin_bold, 'GRÁINNE', panel_w / 2.0, 8.000, 0.005644, title_color, 'GRÁINNE'),
-        render_text_right(quicksand, 'v1.0.0', panel_w - 2.150, 8.000, 0.001600, version_color, 'v1.0.0'),
+        render_text_right(quicksand, 'v1.0.1', panel_w - 2.150, 8.000, 0.001600, version_color, 'v1.0.1'),
         '',
         '  <!-- Zone 2: Primary Controls -->',
         '  <!-- Row 1 (Center Y = 18.00 mm, Label Baseline = 12.25 mm): FREQ, SCALE, FINE -->',
@@ -159,7 +184,7 @@ def generate_panel(skin):
         render_text_centered(ddin_cond_bold, '2-3', col1, 42.500, 0.003100, label_color, '2-3 Midpoint'),
         render_text_centered(ddin_cond_bold, '3-1', col2, 42.500, 0.003100, label_color, '3-1 Midpoint'),
         '',
-        render_section_divider(52.50, panel_w, hi_color, sh_color),
+        render_gradient_preview_bar(52.50, panel_w, 1.500),
         '',
         '  <!-- Zone 3: CV Attenuverters (Center Y = 62.50 mm, Label Baseline = 58.50 mm): FREQ, FM, HUE -->',
         render_text_centered(ddin_cond, 'FREQ', col0, 58.500, 0.002822, label_color, 'FREQ CV Depth'),

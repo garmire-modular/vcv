@@ -6,13 +6,13 @@
 #include <cstdlib>
 
 // ─────────────────────────────────────────────────────────────────────
-//  Gráinne — Cyclic 3-Stop RGB Gradient Generator (8 HP)
+//  Gráinne — Cyclic 3-Stop RGB Gradient Generator (8 HP, v1.0.1)
 //  Generate class module producing smooth, continuous 3-stop RGB color
 //  gradients driven by the standardized Garmire Coarse/Scale/Fine
-//  oscillator timebase (Very Slow / LFO / VCO), carrier-normalized or
-//  external linear FM, bidirectional hard sync, 3 Hue stops with live
-//  RGB halo rings (100% saturation & value), and 3 midpoint skew
-//  controls with CV modulation.
+//  oscillator timebase (Very Slow / LFO / VCO), external linear FM,
+//  bidirectional hard sync, 3 Hue stops with live RGB halo rings
+//  (100% saturation & value), 3 midpoint skew controls with CV
+//  modulation, and a live 1.50 mm RGB gradient preview bar.
 // ─────────────────────────────────────────────────────────────────────
 
 #ifndef M_PI
@@ -104,16 +104,19 @@ struct Grainne : Module {
 	};
 
 	RangeMode rangeMode = RANGE_LFO;
-	VoltageRange voltageRange = RANGE_0_5V;
+	VoltageRange voltageRange = RANGE_0_10V;
 	SkinTheme skinTheme = THEME_MEDIUM;
 	dsp::BooleanTrigger rangeTrigger;
 
-	// Live RGB values for the 3 Hue stop halo rings (default Red 0°, Green 120°, Blue 240°)
+	// Live RGB values for the 3 Hue stop halo rings & gradient preview bar
 	float displayStopRgb[3][3] = {
 		{1.0f, 0.0f, 0.0f},
 		{0.0f, 1.0f, 0.0f},
 		{0.0f, 0.0f, 1.0f}
 	};
+
+	// Live modulated midpoint values for the 3 segments ([0.05, 0.95])
+	float displayMidpoints[3] = {0.50f, 0.50f, 0.50f};
 
 	struct VoiceState {
 		float basePhase = 0.f;
@@ -281,8 +284,8 @@ struct Grainne : Module {
 	Grainne() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-		// Row 1: Coarse Frequency, Scale Range Button, Fine Frequency
-		configParam<FreqParamQuantity>(FREQ_PARAM, 0.f, 1.f, 0.2236f, "Frequency", "");
+		// Row 1: Coarse Frequency (default 0.5477f matching Circe: 60.00 Hz LFO / 5.1s Very Slow / 619.22 Hz VCO)
+		configParam<FreqParamQuantity>(FREQ_PARAM, 0.f, 1.f, 0.5477f, "Frequency", "");
 		configButton(RANGE_PARAM, "Range time-scale");
 		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine frequency", "%", 0.f, 10.f);
 
@@ -345,15 +348,42 @@ struct Grainne : Module {
 			case RANGE_BIPOLAR_1V:
 				return b * 1.0f;
 			case RANGE_0_5V:
-			default:
 				return u * 5.0f;
 			case RANGE_BIPOLAR_5V:
 				return b * 5.0f;
 			case RANGE_0_10V:
+			default:
 				return u * 10.0f;
 			case RANGE_BIPOLAR_10V:
 				return b * 10.0f;
 		}
+	}
+
+	static inline void interpolateSegment(
+		float phase01,
+		const float stopRgb[3][3],
+		const float midpoints[3],
+		float& outR,
+		float& outG,
+		float& outB
+	) {
+		float p = phase01 - std::floor(phase01);
+		float scaledPhase = p * 3.0f;
+		int seg = (int)scaledPhase;
+		if (seg > 2) seg = 2;
+		float u = scaledPhase - (float)seg;
+
+		int idxA = seg;
+		int idxB = (seg + 1) % 3;
+		float m = midpoints[seg];
+
+		float denom = (1.0f - 2.0f * m) * u + m;
+		float t = (std::abs(denom) > 1e-6f) ? (((1.0f - m) * u) / denom) : u;
+		t = clampf(t, 0.0f, 1.0f);
+
+		outR = (1.0f - t) * stopRgb[idxA][0] + t * stopRgb[idxB][0];
+		outG = (1.0f - t) * stopRgb[idxA][1] + t * stopRgb[idxB][1];
+		outB = (1.0f - t) * stopRgb[idxA][2] + t * stopRgb[idxB][2];
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -424,13 +454,9 @@ struct Grainne : Module {
 			float freqCv = inputs[FREQ_CV_INPUT].getPolyVoltage(c);
 			float fCarrier = f0 * std::pow(2.f, freqCv * fTrim);
 
-			// Linear FM modulation (matches Circe standard)
-			float fActual;
-			if (!fmConnected) {
-				float carrierSelfMod = std::sin(2.f * (float)M_PI * vs.basePhase);
-				float deltaF = fCarrier * carrierSelfMod * fmTrim;
-				fActual = std::max(0.0001f, fCarrier + deltaF);
-			} else {
+			// Linear FM modulation (only applied when FM CV input is connected)
+			float fActual = fCarrier;
+			if (fmConnected) {
 				float extFmCv = inputs[FM_CV_INPUT].getPolyVoltage(c);
 				float scaleHz = (rangeMode == RANGE_VERY_SLOW) ? (fCarrier * 2.f) : (rangeMode == RANGE_LFO ? 100.f : 500.f);
 				float deltaF = (extFmCv / 5.f) * fmTrim * scaleHz;
@@ -457,45 +483,29 @@ struct Grainne : Module {
 			h3 -= std::floor(h3);
 
 			// Convert 3 Hue stops to RGB (100% Saturation, 100% Value)
-			float rStop[3], gStop[3], bStop[3];
-			garmire::color::hsvToRgb(h1 * 360.f, 1.f, 1.f, rStop[0], gStop[0], bStop[0]);
-			garmire::color::hsvToRgb(h2 * 360.f, 1.f, 1.f, rStop[1], gStop[1], bStop[1]);
-			garmire::color::hsvToRgb(h3 * 360.f, 1.f, 1.f, rStop[2], gStop[2], bStop[2]);
+			float stopRgb[3][3];
+			garmire::color::hsvToRgb(h1 * 360.f, 1.f, 1.f, stopRgb[0][0], stopRgb[0][1], stopRgb[0][2]);
+			garmire::color::hsvToRgb(h2 * 360.f, 1.f, 1.f, stopRgb[1][0], stopRgb[1][1], stopRgb[1][2]);
+			garmire::color::hsvToRgb(h3 * 360.f, 1.f, 1.f, stopRgb[2][0], stopRgb[2][1], stopRgb[2][2]);
 
-			// Update halo ring display from voice 0
+			// Compute modulated midpoints for the 3 segments ([0.05, 0.95])
+			float midpoints[3];
+			midpoints[0] = clampf(mid12Param + (inputs[MID_12_CV_INPUT].getPolyVoltage(c) / 5.f) * 0.45f, 0.05f, 0.95f);
+			midpoints[1] = clampf(mid23Param + (inputs[MID_23_CV_INPUT].getPolyVoltage(c) / 5.f) * 0.45f, 0.05f, 0.95f);
+			midpoints[2] = clampf(mid31Param + (inputs[MID_31_CV_INPUT].getPolyVoltage(c) / 5.f) * 0.45f, 0.05f, 0.95f);
+
+			// Update halo rings & gradient preview bar from voice 0
 			if (c == 0) {
 				for (int s = 0; s < 3; ++s) {
-					displayStopRgb[s][0] = rStop[s];
-					displayStopRgb[s][1] = gStop[s];
-					displayStopRgb[s][2] = bStop[s];
+					displayStopRgb[s][0] = stopRgb[s][0];
+					displayStopRgb[s][1] = stopRgb[s][1];
+					displayStopRgb[s][2] = stopRgb[s][2];
+					displayMidpoints[s] = midpoints[s];
 				}
 			}
 
-			// Compute modulated midpoints for the 3 segments ([0.05, 0.95])
-			float m12 = clampf(mid12Param + (inputs[MID_12_CV_INPUT].getPolyVoltage(c) / 5.f) * 0.45f, 0.05f, 0.95f);
-			float m23 = clampf(mid23Param + (inputs[MID_23_CV_INPUT].getPolyVoltage(c) / 5.f) * 0.45f, 0.05f, 0.95f);
-			float m31 = clampf(mid31Param + (inputs[MID_31_CV_INPUT].getPolyVoltage(c) / 5.f) * 0.45f, 0.05f, 0.95f);
-
-			// Determine active segment (0: Stop 1->2, 1: Stop 2->3, 2: Stop 3->1)
-			float scaledPhase = vs.basePhase * 3.0f;
-			int seg = (int)scaledPhase;
-			if (seg > 2) seg = 2;
-			float u = scaledPhase - (float)seg; // local phase in [0, 1)
-
-			int idxA = seg;
-			int idxB = (seg + 1) % 3;
-			float m = (seg == 0) ? m12 : ((seg == 1) ? m23 : m31);
-
-			// Smooth rational Mobius midpoint skew:
-			// t(0, m) = 0, t(m, m) = 0.5, t(1, m) = 1
-			float denom = (1.0f - 2.0f * m) * u + m;
-			float t = (std::abs(denom) > 1e-6f) ? (((1.0f - m) * u) / denom) : u;
-			t = clampf(t, 0.0f, 1.0f);
-
-			// Interpolate RGB between Stop A and Stop B
-			float outR = (1.0f - t) * rStop[idxA] + t * rStop[idxB];
-			float outG = (1.0f - t) * gStop[idxA] + t * gStop[idxB];
-			float outB = (1.0f - t) * bStop[idxA] + t * bStop[idxB];
+			float outR, outG, outB;
+			interpolateSegment(vs.basePhase, stopRgb, midpoints, outR, outG, outB);
 
 			outputs[R_OUTPUT].setVoltage(scaleVoltage(outR), c);
 			outputs[G_OUTPUT].setVoltage(scaleVoltage(outG), c);
@@ -660,6 +670,74 @@ struct GrainneHueLightRing : LightWidget {
 	}
 };
 
+// ── Live 1.50 mm RGB Gradient Preview Bar (Replaces Delineator Line 1 at Y = 52.50 mm) ──
+struct GrainneGradientPreview : TransparentWidget {
+	Grainne* module = nullptr;
+
+	GrainneGradientPreview() {
+		// Width = 80% of 40.64 mm = 32.512 mm, Height = 1.50 mm
+		box.size = mm2px(Vec(32.512f, 1.500f));
+	}
+
+	void renderGradientBar(const DrawArgs& args) {
+		float defaultStops[3][3] = {
+			{1.0f, 0.0f, 0.0f},
+			{0.0f, 1.0f, 0.0f},
+			{0.0f, 0.0f, 1.0f}
+		};
+		float defaultMids[3] = {0.50f, 0.50f, 0.50f};
+
+		const float (*stops)[3] = module ? module->displayStopRgb : defaultStops;
+		const float* mids = module ? module->displayMidpoints : defaultMids;
+
+		const int numSlices = 96;
+		float w = box.size.x;
+		float h = box.size.y;
+		float sliceW = w / (float)numSlices;
+
+		float prevR = stops[0][0];
+		float prevG = stops[0][1];
+		float prevB = stops[0][2];
+
+		for (int i = 0; i < numSlices; ++i) {
+			float p1 = (float)(i + 1) / (float)numSlices;
+			float nextR, nextG, nextB;
+			Grainne::interpolateSegment(p1, stops, mids, nextR, nextG, nextB);
+
+			float x0 = i * sliceW;
+			float x1 = (i + 1) * sliceW;
+			float drawW = sliceW + ((i < numSlices - 1) ? 0.5f : 0.0f);
+
+			NVGpaint paint = nvgLinearGradient(
+				args.vg,
+				x0, 0.0f,
+				x1, 0.0f,
+				nvgRGBAf(prevR, prevG, prevB, 1.0f),
+				nvgRGBAf(nextR, nextG, nextB, 1.0f)
+			);
+			nvgBeginPath(args.vg);
+			nvgRect(args.vg, x0, 0.0f, drawW, h);
+			nvgFillPaint(args.vg, paint);
+			nvgFill(args.vg);
+
+			prevR = nextR;
+			prevG = nextG;
+			prevB = nextB;
+		}
+	}
+
+	void draw(const DrawArgs& args) override {
+		renderGradientBar(args);
+	}
+
+	void drawLayer(const DrawArgs& args, int layer) override {
+		if (layer == 1) {
+			renderGradientBar(args);
+		}
+		TransparentWidget::drawLayer(args, layer);
+	}
+};
+
 struct GrainneWidget : ModuleWidget {
 	SvgPanel* panel = nullptr;
 	Grainne::SkinTheme currentTheme = Grainne::THEME_MEDIUM;
@@ -719,9 +797,9 @@ struct GrainneWidget : ModuleWidget {
 		static const char* voltRangeLabels[] = {
 			"0V to 1V",
 			"±1V",
-			"0V to 5V (Default)",
+			"0V to 5V",
 			"±5V",
-			"0V to 10V",
+			"0V to 10V (Default)",
 			"±10V"
 		};
 
@@ -801,6 +879,12 @@ struct GrainneWidget : ModuleWidget {
 		addParam(createParamCentered<GrainneTrimpot>(mm2px(Vec(col0, 46.50f)), module, Grainne::MID_12_PARAM));
 		addParam(createParamCentered<GrainneTrimpot>(mm2px(Vec(col1, 46.50f)), module, Grainne::MID_23_PARAM));
 		addParam(createParamCentered<GrainneTrimpot>(mm2px(Vec(col2, 46.50f)), module, Grainne::MID_31_PARAM));
+
+		// Live 1.50 mm RGB Gradient Preview Bar at Center Y = 52.50 mm (X = 8.128 mm, W = 32.512 mm, H = 1.500 mm)
+		GrainneGradientPreview* gradPreview = new GrainneGradientPreview();
+		gradPreview->module = module;
+		gradPreview->box.pos = mm2px(Vec(8.128f, 51.750f));
+		addChild(gradPreview);
 
 		// Zone 3 (Y = 62.50 mm): FREQ, FM, HUE CV Attenuverter Trimpots
 		addParam(createParamCentered<GrainneTrimpot>(mm2px(Vec(col0, 62.50f)), module, Grainne::FREQ_TRIM_PARAM));
