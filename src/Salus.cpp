@@ -237,10 +237,10 @@ struct Salus : Module {
 		float inX = clampf(inputs[X_INPUT].getVoltage(), -maxTrajV, maxTrajV);
 		float inY = clampf(inputs[Y_INPUT].getVoltage(), -maxTrajV, maxTrajV);
 
-		// Thermal throttle scaling (backs off trajectory amplitude if coils overheat)
+		// Thermal throttle scaling (backs off trajectory amplitude gently if coils overheat)
 		float thermalScale = 1.0f;
 		if (thermalStress > 1.0f) {
-			thermalScale = 1.0f / std::sqrt(thermalStress);
+			thermalScale = clampf(1.0f - 0.3f * (thermalStress - 1.0f), 0.6f, 1.0f);
 		}
 		inX *= thermalScale;
 		inY *= thermalScale;
@@ -277,63 +277,63 @@ struct Salus : Module {
 		float outX = clampf(filterX2, -maxTrajV, maxTrajV);
 		float outY = clampf(filterY2, -maxTrajV, maxTrajV);
 
-		// 6. Instantaneous velocity and stationary beam (scan-fail) safety
+		// 6. Galvo velocity and stationary beam safety (scan-fail protection)
 		float stepX = outX - galvoVx;
 		float stepY = outY - galvoVy;
 		galvoVx = outX;
 		galvoVy = outY;
 		float instVelocity = std::sqrt(stepX * stepX + stepY * stepY) * args.sampleRate;
 
-		// Smooth velocity with a 10ms leaky integrator for warning stability
-		float alphaScan = 1.0f - std::exp(-dt / 0.010f);
-		smoothedVelocity += alphaScan * (instVelocity - smoothedVelocity);
+		// Filter velocity with 25ms time constant (smooths turning points, Lissajous lobes, and sample noise)
+		float alphaVel = 1.0f - std::exp(-dt / 0.025f);
+		smoothedVelocity += alphaVel * (instVelocity - smoothedVelocity);
 
 		bool isPatched = inputs[X_INPUT].isConnected() || inputs[Y_INPUT].isConnected();
 		float dwellTimeout = getDwellTimeout();
 
+		// Stationary cutoff threshold: 1.0 V/s (traversing full scale in 10s is effectively stationary)
+		// Or parked in center zone (|r| < 0.05V) with low velocity
+		bool isStationary = (smoothedVelocity <= 1.0f) || 
+		                    (std::fabs(outX) < 0.05f && std::fabs(outY) < 0.05f && smoothedVelocity <= 2.0f);
+
 		if (scanFailMode == SCANFAIL_DISABLED) {
 			scanFailTripped = false;
 			stationaryTimer = 0.0f;
-		} else {
+		} else if (!isPatched) {
+			// Scanner inputs not connected: laser firing without motion is an immediate burn hazard
 			float laserSum = std::fabs(inputs[R_INPUT].getVoltage()) +
 			                 std::fabs(inputs[G_INPUT].getVoltage()) +
 			                 std::fabs(inputs[B_INPUT].getVoltage());
-
-			if (!isPatched) {
-				// Scanner inputs not connected
-				if (laserSum > 0.05f) {
-					// Danger: lasers firing with unpatched scanners (stationary center hot spot)
-					scanFailTripped = true;
-				} else {
-					// Normal unpatched standby
-					scanFailTripped = false;
-					stationaryTimer = 0.0f;
+			if (laserSum > 0.02f) {
+				scanFailTripped = true;
+			} else {
+				scanFailTripped = false;
+				stationaryTimer = 0.0f;
+			}
+		} else {
+			// Scanners patched
+			if (isStationary) {
+				stationaryTimer += dt;
+				if (stationaryTimer >= dwellTimeout) {
+					scanFailTripped = true; // Safety cutoff tripped!
 				}
 			} else {
-				// Scanners patched: check for stationary beam
-				// Truly stationary beam: velocity < 0.25 V/s, OR beam parked at center (0,0) with velocity < 1.0 V/s
-				bool isParkedAtZero = (std::fabs(outX) < 0.05f && std::fabs(outY) < 0.05f && instVelocity < 1.0f);
-				bool isStationary = (instVelocity < 0.25f) || isParkedAtZero;
-
-				if (isStationary) {
-					stationaryTimer += dt;
-					if (stationaryTimer >= dwellTimeout) {
-						scanFailTripped = true;
+				if (scanFailTripped) {
+					// Strong recovery hysteresis: must achieve sustained safe motion > 3.0 V/s for >= 15ms
+					if (smoothedVelocity > 3.0f) {
+						scanFailRecoveryTimer++;
+						if (scanFailRecoveryTimer > (int)(0.015f * args.sampleRate)) {
+							scanFailTripped = false; // Successfully recovered
+							scanFailRecoveryTimer = 0;
+							stationaryTimer = 0.0f;
+						}
+					} else {
+						scanFailRecoveryTimer = 0;
 					}
 				} else {
-					// Beam is moving (active scanning)
 					if (stationaryTimer > 0.0f) {
-						stationaryTimer -= 4.0f * dt;
+						stationaryTimer -= dt;
 						if (stationaryTimer < 0.0f) stationaryTimer = 0.0f;
-					}
-
-					if (scanFailTripped) {
-						// Recover once beam has sustained motion for a few samples
-						scanFailRecoveryTimer++;
-						if (scanFailRecoveryTimer > (int)(0.002f * args.sampleRate)) {
-							scanFailTripped = false;
-							scanFailRecoveryTimer = 0;
-						}
 					}
 				}
 			}
@@ -344,41 +344,36 @@ struct Salus : Module {
 			float jumpThreshold = 0.08f * vpp;
 			if (dist > jumpThreshold && slewActive) {
 				jumpActive = true;
-			} else if (jumpActive) {
-				if (dist < 0.02f * vpp) {
-					jumpActive = false;
-				}
+			} else if (!slewActive || dist < 0.02f * vpp) {
+				jumpActive = false;
 			}
 		} else {
 			jumpActive = false;
 		}
 
-		// 8. Thermal coil stress integrator
-		float instAccel = std::fabs(instVelocity - prevVelocity) * args.sampleRate;
-		prevVelocity = instVelocity;
-
-		float maxAccelRef = maxSlewRate * pps * 0.15f;
-		float normStress = (instAccel / (maxAccelRef + 1e-4f));
-		normStress = normStress * normStress;
-
-		float tauThermal = 0.5f;
+		// 8. Physical coil thermal dissipation model
+		// Kinetic coil power is proportional to (velocity / maxSafeVelocity)^2
+		float normSpeed = clampf(smoothedVelocity / (maxSlewRate * 0.5f + 1e-4f), 0.0f, 2.0f);
+		float kineticPower = normSpeed * normSpeed;
+		float tauThermal = 2.0f; // 2.0 second thermal mass cooling
 		float alphaThermal = dt / tauThermal;
-		thermalStress += alphaThermal * (normStress - thermalStress);
-		if (thermalStress < 0.0f) thermalStress = 0.0f;
+		thermalStress += alphaThermal * (kineticPower - thermalStress);
+		thermalStress = clampf(thermalStress, 0.0f, 1.5f);
 
 		// 9. Dual-Column LED State Determination (0=SCAN, 1=GALVO, 2=TEMP)
-		// Col 1 (Status): Green -> Yellow -> Amber with cooldown smoothing
-		// Col 2 (Trip): Red latch while tripped + 2.0s slow fade release
+		// Col 1 (Status): Green -> Yellow -> Amber (turns OFF when tripped / red)
+		// Col 2 (Trip): Red latch while tripped + 2.0s slow fade release to red_0
 		StatusLedColor targetStatus[3] = {STATUS_LED_GREEN, STATUS_LED_GREEN, STATUS_LED_GREEN};
-		bool tripActive[3] = {false, false, false};
+		bool tripCondition[3] = {false, false, false};
 
 		// --- Channel 0: SCAN ---
-		tripActive[0] = scanFailTripped || eStopped;
-		if (scanFailMode != SCANFAIL_DISABLED) {
-			float dwellRatio = (dwellTimeout > 1e-5f) ? (stationaryTimer / dwellTimeout) : 0.0f;
-			if (dwellRatio >= 0.90f || (isPatched && smoothedVelocity < 0.50f)) {
+		tripCondition[0] = scanFailTripped || eStopped;
+		if (scanFailMode != SCANFAIL_DISABLED && isPatched) {
+			if (scanFailTripped || smoothedVelocity <= 1.0f || stationaryTimer > 0.0f) {
 				targetStatus[0] = STATUS_LED_AMBER;
-			} else if (dwellRatio >= 0.80f || (isPatched && smoothedVelocity < 1.00f)) {
+			} else if (smoothedVelocity <= 3.0f) {
+				targetStatus[0] = STATUS_LED_AMBER;
+			} else if (smoothedVelocity <= 6.0f) {
 				targetStatus[0] = STATUS_LED_YELLOW;
 			} else {
 				targetStatus[0] = STATUS_LED_GREEN;
@@ -386,20 +381,20 @@ struct Salus : Module {
 		}
 
 		// --- Channel 1: GALVO ---
-		tripActive[1] = slewActive || (galvoRatio >= 1.0f) || eStopped;
-		if (galvoRatio >= 0.90f) {
+		tripCondition[1] = slewActive || (galvoRatio >= 1.0f) || eStopped;
+		if (slewActive || galvoRatio >= 0.90f) {
 			targetStatus[1] = STATUS_LED_AMBER;
-		} else if (galvoRatio >= 0.80f) {
+		} else if (galvoRatio >= 0.75f) {
 			targetStatus[1] = STATUS_LED_YELLOW;
 		} else {
 			targetStatus[1] = STATUS_LED_GREEN;
 		}
 
 		// --- Channel 2: TEMP ---
-		tripActive[2] = (thermalStress >= 1.0f) || eStopped;
-		if (thermalStress >= 0.90f) {
+		tripCondition[2] = (thermalStress >= 1.0f) || eStopped;
+		if (thermalStress >= 0.85f) {
 			targetStatus[2] = STATUS_LED_AMBER;
-		} else if (thermalStress >= 0.80f) {
+		} else if (thermalStress >= 0.70f) {
 			targetStatus[2] = STATUS_LED_YELLOW;
 		} else {
 			targetStatus[2] = STATUS_LED_GREEN;
@@ -407,6 +402,8 @@ struct Salus : Module {
 
 		// Apply Cooldown Smoothing on Status LEDs and 2.0s Release Fade on Trip LEDs
 		for (int ch = 0; ch < 3; ++ch) {
+			tripActive[ch] = tripCondition[ch];
+
 			StatusLedColor tgt = targetStatus[ch];
 			if (tgt > statusLedState[ch]) {
 				// Immediate warning upgrade
@@ -425,8 +422,8 @@ struct Salus : Module {
 				}
 			}
 
-			// Red Trip LED: latches full red when active, then 2.0s linear fade release
-			if (tripActive[ch]) {
+			// Red Trip LED: latches full red (1.0) while active, then 2.0s linear fade release
+			if (tripCondition[ch]) {
 				tripLedBrightness[ch] = 1.0f;
 			} else if (tripLedBrightness[ch] > 0.0f) {
 				tripLedBrightness[ch] -= dt / 2.0f; // 2.0s linear decay
