@@ -145,11 +145,12 @@ struct Salus : Module {
 	int delayWriteIndex = 0;
 
 	// Dual-column indicator state (0=SCAN, 1=GALVO, 2=TEMP)
-	// Col 1: Status LED (Green -> Yellow -> Amber with cooldown)
-	// Col 2: Trip LED (Red latch with 2.0s slow fade release)
+	// Col 1: Status LED (Green -> Yellow -> Amber, turns off/0 while red is active)
+	// Col 2: Trip LED (Red latch while active, 2.0s slow fade release to red_0)
 	StatusLedColor statusLedState[3] = {STATUS_LED_GREEN, STATUS_LED_GREEN, STATUS_LED_GREEN};
 	float statusCooldown[3] = {0.0f, 0.0f, 0.0f};
 	float tripLedBrightness[3] = {0.0f, 0.0f, 0.0f};
+	bool tripActive[3] = {false, false, false};
 
 	Salus() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -533,6 +534,7 @@ struct SalusStatusLed : Widget {
 	int imgGreen = 0;
 	int imgYellow = 0;
 	int imgAmber = 0;
+	int imgOff = 0;
 	std::shared_ptr<Svg> svgGreen;
 	std::shared_ptr<Svg> svgYellow;
 	std::shared_ptr<Svg> svgAmber;
@@ -546,23 +548,34 @@ struct SalusStatusLed : Widget {
 
 	void draw(const DrawArgs& args) override {
 		Salus::StatusLedColor state = Salus::STATUS_LED_GREEN;
+		bool isActivelyRed = false;
 		if (module) {
 			state = module->statusLedState[channel];
+			isActivelyRed = module->tripActive[channel];
 		}
 
 		if (imgGreen <= 0) {
 			imgGreen = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_green.png").c_str(), 0);
 			imgYellow = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_yellow.png").c_str(), 0);
 			imgAmber = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_amber.png").c_str(), 0);
+			imgOff = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_0.png").c_str(), 0);
 		}
 
 		int activeImg = imgGreen;
 		std::shared_ptr<Svg> activeSvg = svgGreen;
-		switch (state) {
-			case Salus::STATUS_LED_YELLOW: activeImg = imgYellow; activeSvg = svgYellow; break;
-			case Salus::STATUS_LED_AMBER:  activeImg = imgAmber;  activeSvg = svgAmber;  break;
-			case Salus::STATUS_LED_GREEN:
-			default:                       activeImg = imgGreen;  activeSvg = svgGreen;  break;
+
+		if (isActivelyRed) {
+			// Second column is actively red: Column 1 turns "off" (led_4mm_0.png)
+			activeImg = imgOff;
+			activeSvg = nullptr;
+		} else {
+			// Normal status display (green, yellow, or amber)
+			switch (state) {
+				case Salus::STATUS_LED_YELLOW: activeImg = imgYellow; activeSvg = svgYellow; break;
+				case Salus::STATUS_LED_AMBER:  activeImg = imgAmber;  activeSvg = svgAmber;  break;
+				case Salus::STATUS_LED_GREEN:
+				default:                       activeImg = imgGreen;  activeSvg = svgGreen;  break;
+			}
 		}
 
 		if (activeImg > 0) {
@@ -588,6 +601,7 @@ struct SalusTripLed : Widget {
 	Salus* module = nullptr;
 	int channel = 0; // 0=SCAN, 1=GALVO, 2=TEMP
 	int imgRed = 0;
+	int imgRedOff = 0;
 	std::shared_ptr<Svg> svgRed;
 
 	SalusTripLed(Salus* mod, int ch) : module(mod), channel(ch) {
@@ -597,30 +611,40 @@ struct SalusTripLed : Widget {
 
 	void draw(const DrawArgs& args) override {
 		float b = module ? module->tripLedBrightness[channel] : 0.0f;
-		if (b <= 0.005f) {
-			return; // Unlit / dark
-		}
 
-		if (imgRed <= 0) {
+		if (imgRedOff <= 0) {
+			imgRedOff = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_red_0.png").c_str(), 0);
 			imgRed = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_red.png").c_str(), 0);
 		}
 
-		nvgSave(args.vg);
-		nvgGlobalAlpha(args.vg, clampf(b, 0.0f, 1.0f));
-
-		if (imgRed > 0) {
-			NVGpaint imgPaint = nvgImagePattern(args.vg, 0.0f, 0.0f, box.size.x, box.size.y, 0.0f, imgRed, 1.0f);
+		// 1. Always draw inactive base LED (led_4mm_red_0.png)
+		if (imgRedOff > 0) {
+			NVGpaint basePaint = nvgImagePattern(args.vg, 0.0f, 0.0f, box.size.x, box.size.y, 0.0f, imgRedOff, 1.0f);
 			nvgBeginPath(args.vg);
 			nvgRect(args.vg, 0.0f, 0.0f, box.size.x, box.size.y);
-			nvgFillPaint(args.vg, imgPaint);
+			nvgFillPaint(args.vg, basePaint);
 			nvgFill(args.vg);
-		} else if (svgRed && svgRed->handle) {
-			float sx = box.size.x / svgRed->handle->width;
-			float sy = box.size.y / svgRed->handle->height;
-			nvgScale(args.vg, sx, sy);
-			svgDraw(args.vg, svgRed->handle);
 		}
-		nvgRestore(args.vg);
+
+		// 2. When actively triggered or in the 2.0s release fade, blend bright red LED on top
+		if (b > 0.001f) {
+			nvgSave(args.vg);
+			nvgGlobalAlpha(args.vg, clampf(b, 0.0f, 1.0f));
+
+			if (imgRed > 0) {
+				NVGpaint redPaint = nvgImagePattern(args.vg, 0.0f, 0.0f, box.size.x, box.size.y, 0.0f, imgRed, 1.0f);
+				nvgBeginPath(args.vg);
+				nvgRect(args.vg, 0.0f, 0.0f, box.size.x, box.size.y);
+				nvgFillPaint(args.vg, redPaint);
+				nvgFill(args.vg);
+			} else if (svgRed && svgRed->handle) {
+				float sx = box.size.x / svgRed->handle->width;
+				float sy = box.size.y / svgRed->handle->height;
+				nvgScale(args.vg, sx, sy);
+				svgDraw(args.vg, svgRed->handle);
+			}
+			nvgRestore(args.vg);
+		}
 	}
 };
 
@@ -789,10 +813,10 @@ struct SalusWidget : ModuleWidget {
 		float colIn = 5.20f;
 		float colOut = 15.12f;
 
-		// 3 Dual-Column LED Rows at Y = 18.00, 26.00, 34.00 mm
-		// Col 1 (colIn): Status LED (Green -> Yellow -> Amber with 250ms cooldown hold)
-		// Col 2 (colOut): Trip LED (Red latch with 2.0s slow fade release)
-		float ledYs[3] = {18.00f, 26.00f, 34.00f};
+		// 3 Dual-Column LED Rows at Y = 16.50, 23.50, 30.50 mm
+		// Col 1 (colIn = 5.20 mm): Status LED (Green -> Yellow -> Amber, turns off/0 while red is active)
+		// Col 2 (colOut = 15.12 mm): Trip LED (Red latch while active, 2.0s slow fade release to red_0)
+		float ledYs[3] = {16.50f, 23.50f, 30.50f};
 		for (int ch = 0; ch < 3; ++ch) {
 			auto* statusLed = new SalusStatusLed(module, ch);
 			statusLed->box.pos = mm2px(Vec(colIn, ledYs[ch])).minus(statusLed->box.size.div(2.0f));
@@ -803,10 +827,12 @@ struct SalusWidget : ModuleWidget {
 			addChild(tripLed);
 		}
 
-		// E-STOP Section at Y = 45.00 mm: Red button (colIn) + GATE CV Jack (colOut)
-		float estopY = 45.00f;
-		addParam(createParamCentered<SalusRedButton>(mm2px(Vec(colIn, estopY)), module, Salus::ESTOP_PARAM));
-		addInput(createInputCentered<SalusPort>(mm2px(Vec(colOut, estopY)), module, Salus::ESTOP_CV_INPUT));
+		// E-STOP Section: Button placed directly above GATE CV Jack (both centered at colMid = 10.16 mm)
+		float colMid = 10.16f;
+		float estopBtnY = 40.50f;
+		float estopJackY = 50.00f;
+		addParam(createParamCentered<SalusRedButton>(mm2px(Vec(colMid, estopBtnY)), module, Salus::ESTOP_PARAM));
+		addInput(createInputCentered<SalusPort>(mm2px(Vec(colMid, estopJackY)), module, Salus::ESTOP_CV_INPUT));
 
 		// ROW 3-7: XYRGB in/outs (Row 3 at 65.00mm, Row 4 at 78.00mm, Row 5 at 91.00mm, Row 6 at 104.00mm, Row 7 at 117.00mm)
 		float jackRows[5] = {65.00f, 78.00f, 91.00f, 104.00f, 117.00f};

@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="26.58px" height="26.58px" viewBox="0 0 26.58 26.58">
+<svg xmlns="http://www.w3.org/2000/svg" width="23.75px" height="23.75px" viewBox="0 0 23.75 23.75">
   <defs>
-    <linearGradient id="btn-rim-grad-p" x1="13.29" y1="1.64" x2="13.29" y2="25.94" gradientUnits="userSpaceOnUse">
+    <linearGradient id="btn-rim-grad-p" x1="11.875" y1="1.47" x2="11.875" y2="23.18" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#cc1818"/>
       <stop offset="1" stop-color="#000000"/>
     </linearGradient>
-    <linearGradient id="btn-cap-grad-p" x1="13.29" y1="2.61" x2="13.29" y2="24.97" gradientUnits="userSpaceOnUse">
+    <linearGradient id="btn-cap-grad-p" x1="11.875" y1="2.34" x2="11.875" y2="22.31" gradientUnits="userSpaceOnUse">
       <stop offset="0.01" stop-color="#770808"/>
       <stop offset="1" stop-color="#651e1e"/>
     </linearGradient>
   </defs>
-  <circle cx="13.29" cy="13.29" r="13.29" fill="#440000" />
-  <circle cx="13.29" cy="13.69" r="12.15" fill="url(#btn-rim-grad-p)" />
-  <circle cx="13.29" cy="13.69" r="11.18" fill="url(#btn-cap-grad-p)" />
+  <circle cx="11.875" cy="11.875" r="11.875" fill="#440000" />
+  <circle cx="11.875" cy="12.23" r="10.86" fill="url(#btn-rim-grad-p)" />
+  <circle cx="11.875" cy="12.23" r="9.99" fill="url(#btn-cap-grad-p)" />
 </svg>

@@ -84,41 +84,44 @@ def generate_panel(skin):
     
     # Header: Full-sized Title "SALUS" (16pt D-DIN-Bold) at Y = 8.000 mm, centered at col_mid
     svg.append(render_text(ddin_bold, 'SALUS', col_mid, 8.000, 16.0, title_color))
-    # Version tag "v1.0.2" at Y = 8.000 mm (right margin X = panel_w - 2.15 mm) per AGENTS.md 7.5
-    svg.append(render_text(quicksand, 'v1.0.2', panel_w - 2.15, 8.000, 4.5, version_color))
+    # Version tag "v1.0.3" at Y = 8.000 mm (right margin X = panel_w - 2.15 mm) per AGENTS.md 7.5
+    svg.append(render_text(quicksand, 'v1.0.3', panel_w - 2.15, 8.000, 4.5, version_color))
     
     # Two-Column LED Architecture:
-    # Col 1 (col_in = 5.20 mm): Status LED (Green -> Yellow -> Amber with cooldown hold)
-    # Col 2 (col_out = 15.12 mm): Trip LED (Red latch with 2.0s slow fade release)
-    # Centered Row Labels: 8 pt D-DINCondensed-Bold at Y = 14.00, 22.00, 30.00 mm
-    # LED Center Positions: Y = 18.00, 26.00, 34.00 mm
-    led_rows = [18.00, 26.00, 34.00]
+    # Col 1 (col_in = 5.20 mm): Status LED (Green -> Yellow -> Amber, turns off/0 while red is active)
+    # Col 2 (col_out = 15.12 mm): Trip LED (Red latch while active, 2.0s slow fade release to red_0)
+    # Centered Row Labels: 8 pt D-DINCondensed-Bold at Y = 13.00, 20.00, 27.00 mm
+    # LED Center Positions: Y = 16.50, 23.50, 30.50 mm
+    led_rows = [16.50, 23.50, 30.50]
     layer_labels = ['SCAN', 'GALVO', 'TEMP']
     
     bezel_color = '#383838' if bg_color != '#333333' else '#202020'
     for i in range(3):
         ly = led_rows[i]
-        label_base = ly - 4.00
+        label_base = ly - 3.50
         # Single centered label across both LED columns (col_mid) strictly 8 pt per AGENTS.md 7.5
         svg.append(render_text(ddin_cond_bold, layer_labels[i], col_mid, label_base, 8.0, label_color))
         # Subtle guide rings for 4mm LEDs in both columns
         svg.append(f'  <circle cx="{col_in:.3f}" cy="{ly:.3f}" r="2.000" fill="none" stroke="{bezel_color}" stroke-width="0.300" />')
         svg.append(f'  <circle cx="{col_out:.3f}" cy="{ly:.3f}" r="2.000" fill="none" stroke="{bezel_color}" stroke-width="0.300" />')
     
-    # E-STOP Section at Y = 45.00 mm: Single centered label across both button and gate strictly 8 pt at Y = 40.00 mm
-    svg.append(render_text(ddin_cond_bold, 'E-STOP', col_mid, 40.00, 8.0, label_color))
+    # E-STOP Section: Button directly above GATE CV Jack (both centered at midline col_mid = 10.16 mm)
+    # Single centered label "E-STOP" strictly 8 pt at Y = 35.50 mm
+    # Button center: Y = 40.50 mm (diameter 8.38 mm)
+    # Jack center:   Y = 50.00 mm
+    svg.append(render_text(ddin_cond_bold, 'E-STOP', col_mid, 35.50, 8.0, label_color))
     
-    # ROW 3-7 Column Headers: IN over col_in, OUT over col_out at Y = 52.00 mm (strictly 8 pt)
-    hdr_y = 52.00
-    svg.append(render_text(ddin_cond_bold, 'IN', col_in, hdr_y, 8.0, label_color))
-    svg.append(render_text(ddin_cond_bold, 'OUT', col_out, hdr_y, 8.0, label_color))
-
-    # Section Delineator line 10.00 mm above top jack row (Y = 65.00 - 10.00 = 55.00 mm)
-    delin_y = 55.00
+    # Section Delineator line between E-STOP section and I/O Jacks at Y = 56.00 mm
+    delin_y = 56.00
     delin_start_x = 0.20 * panel_w
     delin_end_x = panel_w
     svg.append(f'  <line x1="{delin_start_x:.3f}" y1="{delin_y - 0.075:.3f}" x2="{delin_end_x:.3f}" y2="{delin_y - 0.075:.3f}" stroke="{hi_color}" stroke-width="0.150" />')
     svg.append(f'  <line x1="{delin_start_x:.3f}" y1="{delin_y + 0.075:.3f}" x2="{delin_end_x:.3f}" y2="{delin_y + 0.075:.3f}" stroke="{sh_color}" stroke-width="0.150" />')
+    
+    # ROW 3-7 Column Headers: IN over col_in, OUT over col_out at Y = 59.50 mm (strictly 8 pt)
+    hdr_y = 59.50
+    svg.append(render_text(ddin_cond_bold, 'IN', col_in, hdr_y, 8.0, label_color))
+    svg.append(render_text(ddin_cond_bold, 'OUT', col_out, hdr_y, 8.0, label_color))
     
     # 5 Jack Rows: Bottom-up: Row 7 at 117.00, Row 6 at 104.00, Row 5 at 91.00, Row 4 at 78.00, Row 3 at 65.00
     jack_rows = [65.00, 78.00, 91.00, 104.00, 117.00]
