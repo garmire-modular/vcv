@@ -82,34 +82,29 @@ def generate_panel(skin):
     svg.append('    <rect x="0" y="19.800" width="1.350" height="88.900" fill="#5d5d5d" stroke="none" />')
     svg.append('  </g>')
     
-    # Header: Title "SOTERIA" at Y = 8.000 mm & Version tag "v1.0.0" at Y = 8.000 mm
-    svg.append(render_text(ddin_bold, 'SOTERIA', col_mid - 1.20, 8.000, 8.5, title_color))
-    svg.append(render_text(quicksand, 'v1.0.0', panel_w - 1.80, 8.000, 4.0, version_color))
+    # Header: Full-sized Title "SALUS" (16pt D-DIN-Bold) at Y = 8.000 mm, centered at col_mid
+    svg.append(render_text(ddin_bold, 'SALUS', col_mid, 8.000, 16.0, title_color))
+    # Version tag "v1.0.0" at Y = 11.80 mm
+    svg.append(render_text(quicksand, 'v1.0.0', panel_w - 1.80, 11.80, 4.0, version_color))
     
-    # ROW 1: SCAN, GALVO, TEMP LEDs at Y = 18.20 mm (Labels at Y = 13.80 mm)
-    led_label_y = 13.80
-    led_y = 18.20
-    x_scan = 4.20
-    x_galvo = 10.16
-    x_temp = 16.12
+    # Three LED Layers across Rows (Layout: LABEL on left, LED on right)
+    # Layer 1: SCAN at Y = 17.50 mm (Label baseline Y = 18.50 mm)
+    # Layer 2: GALVO at Y = 24.50 mm (Label baseline Y = 25.50 mm)
+    # Layer 3: TEMP at Y = 31.50 mm (Label baseline Y = 32.50 mm)
+    layer_ys = [17.50, 24.50, 31.50]
+    layer_labels = ['SCAN', 'GALVO', 'TEMP']
     
-    svg.append(render_text(ddin_cond_bold, 'SCAN', x_scan, led_label_y, 5.5, label_color))
-    svg.append(render_text(ddin_cond_bold, 'GALVO', x_galvo, led_label_y, 5.5, label_color))
-    svg.append(render_text(ddin_cond_bold, 'TEMP', x_temp, led_label_y, 5.5, label_color))
-    
-    # LED Bezels (radius 2.0 mm, stroke 0.35 mm)
     bezel_color = '#383838' if bg_color != '#333333' else '#202020'
-    for lx in [x_scan, x_galvo, x_temp]:
-        svg.append(f'  <circle cx="{lx:.3f}" cy="{led_y:.3f}" r="2.000" fill="none" stroke="{bezel_color}" stroke-width="0.350" />')
+    for i in range(3):
+        ly = layer_ys[i]
+        label_base = ly + 1.00
+        # Label on left (col_in)
+        svg.append(render_text(ddin_cond_bold, layer_labels[i], col_in, label_base, 7.0, label_color))
+        # Subtle guide ring for 4mm LED on right (col_out)
+        svg.append(f'  <circle cx="{col_out:.3f}" cy="{ly:.3f}" r="2.000" fill="none" stroke="{bezel_color}" stroke-width="0.300" />')
     
-    # ROW 2: E-STOP button & GATE jack at Y = 36.00 mm (Labels at Y = 30.50 mm)
-    btn_y = 36.00
-    svg.append(render_text(ddin_cond_bold, 'E-STOP', col_in, 30.50, 6.0, label_color))
-    svg.append(render_text(ddin_cond_bold, 'GATE', col_out, 30.50, 6.0, label_color))
-    
-    # E-STOP button ring track (X = col_in, Y = btn_y, R = 4.12 mm, stroke = 1.40 mm)
-    ring_track_color = '#3a3a3a' if bg_color != '#333333' else '#222222'
-    svg.append(f'  <circle cx="{col_in:.3f}" cy="{btn_y:.3f}" r="4.120" fill="none" stroke="{ring_track_color}" stroke-width="1.400" />')
+    # E-STOP Section at Y = 45.00 mm: Single centered label across both button and gate
+    svg.append(render_text(ddin_cond_bold, 'E-STOP', col_mid, 38.50, 7.5, label_color))
     
     # Section Delineator line 10.00 mm above top jack row (Y = 65.00 - 10.00 = 55.00 mm)
     delin_y = 55.00
@@ -143,7 +138,7 @@ def generate_panel(skin):
 skins = [
     {
         'name': 'Medium',
-        'filename': 'res/Soteria.svg',
+        'filename': 'res/Salus.svg',
         'bg_color': '#6e6e6e',
         'title_color': '#ffffff',
         'label_color': '#222222',
@@ -153,7 +148,7 @@ skins = [
     },
     {
         'name': 'Light',
-        'filename': 'res/Soteria_Light.svg',
+        'filename': 'res/Salus_Light.svg',
         'bg_color': '#c6c6c6',
         'title_color': '#333333',
         'label_color': '#222222',
@@ -163,7 +158,7 @@ skins = [
     },
     {
         'name': 'Dark',
-        'filename': 'res/Soteria_Dark.svg',
+        'filename': 'res/Salus_Dark.svg',
         'bg_color': '#333333',
         'title_color': '#c6c6c6',
         'label_color': '#ffffff',
@@ -177,6 +172,6 @@ for s in skins:
     generate_panel(s)
 
 # Render MetaModule bitmap (38 x 240) and verification image
-cairosvg.svg2png(url='res/Soteria.svg', write_to='metamodule/assets/Soteria.png', output_width=38, output_height=240)
-cairosvg.svg2png(url='res/Soteria.svg', write_to='scratch/soteria_verify.png', output_width=38 * 4, output_height=240 * 4)
-print('Rendered metamodule/assets/Soteria.png and scratch/soteria_verify.png')
+cairosvg.svg2png(url='res/Salus.svg', write_to='metamodule/assets/Salus.png', output_width=38, output_height=240)
+cairosvg.svg2png(url='res/Salus.svg', write_to='scratch/salus_verify.png', output_width=38 * 4, output_height=240 * 4)
+print('Rendered metamodule/assets/Salus.png and scratch/salus_verify.png')

@@ -4,7 +4,7 @@
 #include <string>
 
 // ─────────────────────────────────────────────────────────────────────
-//  Soteria — End-of-Chain XYRGB Laser Safety & KPPS Engine (4 HP)
+//  Salus — End-of-Chain XYRGB Laser Safety & KPPS Engine (4 HP)
 //  Utility class module providing galvanometer mechanical protection,
 //  vector slew rate limiting, scan-fail optical extinction, blanking on
 //  jumps, thermal coil overload protection, and manual/CV E-STOP blackout.
@@ -20,7 +20,7 @@ inline float clampf(float v, float lo, float hi) {
 }
 } // namespace
 
-struct Soteria : Module {
+struct Salus : Module {
 	enum KppsRating {
 		KPPS_12 = 0,
 		KPPS_20,
@@ -65,6 +65,13 @@ struct Soteria : Module {
 		THEME_DARK
 	};
 
+	enum LedColorState {
+		LED_GREEN = 0,
+		LED_YELLOW = 1,
+		LED_AMBER = 2,
+		LED_RED = 3
+	};
+
 	enum ParamId {
 		ESTOP_PARAM,
 		PARAMS_LEN
@@ -90,13 +97,6 @@ struct Soteria : Module {
 	};
 
 	enum LightId {
-		ESTOP_LIGHT,
-		SCAN_LIGHT_R,
-		SCAN_LIGHT_G,
-		GALVO_LIGHT_R,
-		GALVO_LIGHT_G,
-		TEMP_LIGHT_R,
-		TEMP_LIGHT_G,
 		LIGHTS_LEN
 	};
 
@@ -144,17 +144,12 @@ struct Soteria : Module {
 	float bBuf[DELAY_BUF_SIZE] = {0.0f};
 	int delayWriteIndex = 0;
 
-	// Traffic light approach values (0.0 = normal/green, 0.85 = yellow, 0.95 = orange, 1.0 = red)
-	float scanStress = 0.0f;
-	float galvoStress = 0.0f;
-	float tempStress = 0.0f;
+	// 4-state stop-light indicators (GREEN, YELLOW, AMBER, RED)
+	LedColorState scanLedState = LED_GREEN;
+	LedColorState galvoLedState = LED_GREEN;
+	LedColorState tempLedState = LED_GREEN;
 
-	// Smoothed light values
-	float scanStressSmooth = 0.0f;
-	float galvoStressSmooth = 0.0f;
-	float tempStressSmooth = 0.0f;
-
-	Soteria() {
+	Salus() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		configParam(ESTOP_PARAM, 0.0f, 1.0f, 0.0f, "E-stop blackout toggle");
@@ -203,36 +198,11 @@ struct Soteria : Module {
 		}
 	}
 
-	void computeTrafficColor(float stress, float& outR, float& outG) const {
-		// Stop-light color scheme:
-		// Normal (< 0.80): Pure Green (R=0, G=1)
-		// Within 20% of failover (0.80 - 0.90): Yellow (R=1, G=1)
-		// Within 10% of failover (0.90 - 1.00): Orange (R=1, G=0.45)
-		// Exceeded (>= 1.00): Pure Red (R=1, G=0)
-		if (stress < 0.80f) {
-			outR = 0.0f;
-			outG = 1.0f;
-		} else if (stress < 0.90f) {
-			float t = (stress - 0.80f) / 0.10f;
-			outR = t;
-			outG = 1.0f;
-		} else if (stress < 1.00f) {
-			float t = (stress - 0.90f) / 0.10f;
-			outR = 1.0f;
-			outG = 1.0f - 0.55f * t;
-		} else {
-			outR = 1.0f;
-			outG = 0.0f;
-		}
-	}
-
 	void process(const ProcessArgs& args) override {
 		// 1. E-STOP button & trigger evaluation
-		// Single click toggles E-STOP blackout
 		if (estopButtonTrigger.process(params[ESTOP_PARAM].getValue() > 0.5f)) {
 			eStopped = !eStopped;
 		}
-		// External gate/trigger pulse toggles E-STOP blackout
 		if (inputs[ESTOP_CV_INPUT].isConnected()) {
 			if (estopGateTrigger.process(inputs[ESTOP_CV_INPUT].getVoltage())) {
 				eStopped = !eStopped;
@@ -269,19 +239,31 @@ struct Soteria : Module {
 		float dist = std::sqrt(dx * dx + dy * dy);
 
 		bool slewActive = false;
-		float slewRatio = 0.0f;
 		if (dist > maxStepDistance && dist > 1e-7f) {
 			float ratio = maxStepDistance / dist;
 			galvoX += dx * ratio;
 			galvoY += dy * ratio;
 			slewActive = true;
-			slewRatio = 1.0f;
 		} else {
 			galvoX = inX;
 			galvoY = inY;
-			slewRatio = (maxStepDistance > 1e-7f) ? (dist / maxStepDistance) : 0.0f;
 		}
-		galvoStress = slewActive ? 1.0f : slewRatio;
+
+		// GALVO LED evaluation (Slew / Step distance vs limit)
+		// Green: normal (< 80%)
+		// Yellow: within 20% (80% - 90%)
+		// Amber: within 10% (90% - 100%)
+		// Red: exceeded (>= 100% / slew limiter active)
+		float galvoRatio = (maxStepDistance > 1e-7f) ? (dist / maxStepDistance) : 0.0f;
+		if (slewActive || galvoRatio >= 1.0f) {
+			galvoLedState = LED_RED;
+		} else if (galvoRatio >= 0.90f) {
+			galvoLedState = LED_AMBER;
+		} else if (galvoRatio >= 0.80f) {
+			galvoLedState = LED_YELLOW;
+		} else {
+			galvoLedState = LED_GREEN;
+		}
 
 		// 5. Galvo Mechanical Inertia (Critically damped 2nd-order lowpass filter)
 		float fc = clampf(0.5f * pps, 100.0f, 0.45f * args.sampleRate);
@@ -317,28 +299,33 @@ struct Soteria : Module {
 		float minVelocityThreshold = 0.03f * vpp * 1000.0f * (pps / 30000.0f);
 		if (scanFailMode == SCANFAIL_DISABLED) {
 			scanFailTripped = false;
-			scanStress = 0.0f;
+			scanLedState = LED_GREEN;
 		} else {
-			if (smoothedVelocity < minVelocityThreshold) {
+			bool isPatched = inputs[X_INPUT].isConnected() || inputs[Y_INPUT].isConnected();
+			if (!isPatched) {
+				// Unpatched / no signal: stationary beam protection active (RED)
+				scanFailTripped = true;
+				scanLedState = LED_RED;
+			} else if (smoothedVelocity < minVelocityThreshold) {
 				scanFailTripped = true;
 				scanFailRecoveryTimer = 0;
-				scanStress = 1.0f;
+				scanLedState = LED_RED;
 			} else {
 				if (scanFailTripped) {
 					scanFailRecoveryTimer++;
 					if (scanFailRecoveryTimer > (int)(0.002f * args.sampleRate)) {
 						scanFailTripped = false;
 					}
-					scanStress = 1.0f;
+					scanLedState = LED_RED;
 				} else {
-					// Margin ratio: how close velocity is to failover
+					// Velocity margin approaching stall
 					float margin = smoothedVelocity / (minVelocityThreshold + 1e-4f);
-					if (margin >= 1.25f) {
-						scanStress = 0.0f; // Normal / Green
-					} else if (margin >= 1.10f) {
-						scanStress = 0.85f; // Within 20% / Yellow
+					if (margin < 1.10f) {
+						scanLedState = LED_AMBER; // within 10%
+					} else if (margin < 1.25f) {
+						scanLedState = LED_YELLOW; // within 20%
 					} else {
-						scanStress = 0.95f; // Within 10% / Orange
+						scanLedState = LED_GREEN; // normal
 					}
 				}
 			}
@@ -370,7 +357,17 @@ struct Soteria : Module {
 		float alphaThermal = dt / tauThermal;
 		thermalStress += alphaThermal * (normStress - thermalStress);
 		if (thermalStress < 0.0f) thermalStress = 0.0f;
-		tempStress = thermalStress;
+
+		// TEMP LED evaluation (Thermal load vs 1.0 limit)
+		if (thermalStress >= 1.0f) {
+			tempLedState = LED_RED;
+		} else if (thermalStress >= 0.90f) {
+			tempLedState = LED_AMBER;
+		} else if (thermalStress >= 0.80f) {
+			tempLedState = LED_YELLOW;
+		} else {
+			tempLedState = LED_GREEN;
+		}
 
 		// 9. Color delay alignment buffer
 		float delaySec = 2.5f / pps;
@@ -389,7 +386,7 @@ struct Soteria : Module {
 		delayWriteIndex = (delayWriteIndex + 1) % DELAY_BUF_SIZE;
 
 		// 10. Laser Blackout & Emission Decision
-		// If eStopped, complete blackout: all RGB forced to 0.0V immediately
+		// E-STOP active forces complete blackout
 		bool emissionPermitted = !eStopped && !scanFailTripped && !jumpActive;
 
 		float outR = 0.0f;
@@ -412,28 +409,6 @@ struct Soteria : Module {
 		outputs[R_OUTPUT].setVoltage(outR);
 		outputs[G_OUTPUT].setVoltage(outG);
 		outputs[B_OUTPUT].setVoltage(outB);
-
-		// 12. Visual indicators with smooth response
-		float lightDt = clampf(15.0f * dt, 0.001f, 0.5f);
-		scanStressSmooth += lightDt * (scanStress - scanStressSmooth);
-		galvoStressSmooth += lightDt * (galvoStress - galvoStressSmooth);
-		tempStressSmooth += lightDt * (tempStress - tempStressSmooth);
-
-		float sr, sg, gr, gg, tr, tg;
-		computeTrafficColor(scanStressSmooth, sr, sg);
-		computeTrafficColor(galvoStressSmooth, gr, gg);
-		computeTrafficColor(tempStressSmooth, tr, tg);
-
-		lights[ESTOP_LIGHT].setBrightness(eStopped ? 1.0f : 0.0f);
-
-		lights[SCAN_LIGHT_R].setBrightness(sr);
-		lights[SCAN_LIGHT_G].setBrightness(sg);
-
-		lights[GALVO_LIGHT_R].setBrightness(gr);
-		lights[GALVO_LIGHT_G].setBrightness(gg);
-
-		lights[TEMP_LIGHT_R].setBrightness(tr);
-		lights[TEMP_LIGHT_G].setBrightness(tg);
 	}
 
 	json_t* dataToJson() override {
@@ -472,94 +447,74 @@ struct Soteria : Module {
 	}
 };
 
-struct SoteriaPort : app::SvgPort {
-	SoteriaPort() {
+struct SalusPort : app::SvgPort {
+	SalusPort() {
 		setSvg(Svg::load(asset::plugin(pluginInstance, "res/3_5mm_jacks.svg")));
 	}
 };
 
-struct SoteriaButton : app::SvgSwitch {
-	SoteriaButton() {
+struct SalusRedButton : app::SvgSwitch {
+	SalusRedButton() {
 		momentary = true;
-		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_0.svg")));
-		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_1.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance, "res/btn_red.svg")));
 	}
 };
 
-struct SoteriaEstopRing : ModuleLightWidget {
-	SoteriaEstopRing() {
-		box.size = mm2px(Vec(8.24f, 8.24f));
-	}
-	void draw(const DrawArgs& args) override {
-		if (!module) return;
-		float b = module->lights[Soteria::ESTOP_LIGHT].getBrightness();
-		if (b < 0.05f) return;
-		nvgBeginPath(args.vg);
-		float cx = box.size.x / 2.0f;
-		float cy = box.size.y / 2.0f;
-		float r = mm2px(4.120f);
-		nvgCircle(args.vg, cx, cy, r);
-		nvgStrokeWidth(args.vg, mm2px(1.400f));
-		nvgStrokeColor(args.vg, nvgRGBAf(0.95f, 0.08f, 0.08f, 0.95f * b));
-		nvgStroke(args.vg);
-	}
-};
+struct Salus4mmLed : Widget {
+	Salus* module = nullptr;
+	int channel = 0; // 0=SCAN, 1=GALVO, 2=TEMP
+	std::shared_ptr<Svg> svgGreen;
+	std::shared_ptr<Svg> svgYellow;
+	std::shared_ptr<Svg> svgAmber;
+	std::shared_ptr<Svg> svgRed;
 
-struct SoteriaStatusLed : ModuleLightWidget {
-	int redLightId = 0;
-	int greenLightId = 0;
-
-	SoteriaStatusLed(int rId = 0, int gId = 0) : redLightId(rId), greenLightId(gId) {
-		box.size = mm2px(Vec(4.40f, 4.40f));
+	Salus4mmLed(Salus* mod, int ch) : module(mod), channel(ch) {
+		svgGreen = Svg::load(asset::plugin(pluginInstance, "res/led_4mm_green.svg"));
+		svgYellow = Svg::load(asset::plugin(pluginInstance, "res/led_4mm_yellow.svg"));
+		svgAmber = Svg::load(asset::plugin(pluginInstance, "res/led_4mm_amber.svg"));
+		svgRed = Svg::load(asset::plugin(pluginInstance, "res/led_4mm_red.svg"));
+		box.size = Vec(11.34f, 11.34f);
 	}
 
 	void draw(const DrawArgs& args) override {
-		if (!module) return;
-		float r = module->lights[redLightId].getBrightness();
-		float g = module->lights[greenLightId].getBrightness();
-
-		float cx = box.size.x / 2.0f;
-		float cy = box.size.y / 2.0f;
-		float rad = mm2px(1.85f);
-
-		// Outer halo glow
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, cx, cy, rad * 1.35f);
-		nvgFillColor(args.vg, nvgRGBAf(r, g, 0.0f, 0.20f));
-		nvgFill(args.vg);
-
-		// Inner illuminated LED lens
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, cx, cy, rad);
-		nvgFillColor(args.vg, nvgRGBAf(r, g, 0.05f, 0.95f));
-		nvgFill(args.vg);
-
-		// Subtle glass reflection highlight
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, cx - rad * 0.25f, cy - rad * 0.25f, rad * 0.40f);
-		nvgFillColor(args.vg, nvgRGBAf(1.0f, 1.0f, 1.0f, 0.35f));
-		nvgFill(args.vg);
+		Salus::LedColorState state = Salus::LED_GREEN;
+		if (module) {
+			if (channel == 0) state = module->scanLedState;
+			else if (channel == 1) state = module->galvoLedState;
+			else if (channel == 2) state = module->tempLedState;
+		}
+		std::shared_ptr<Svg> s = svgGreen;
+		switch (state) {
+			case Salus::LED_YELLOW: s = svgYellow; break;
+			case Salus::LED_AMBER:  s = svgAmber;  break;
+			case Salus::LED_RED:    s = svgRed;    break;
+			case Salus::LED_GREEN:
+			default:                s = svgGreen;  break;
+		}
+		if (s && s->handle) {
+			svgDraw(args.vg, s->handle);
+		}
 	}
 };
 
-struct SoteriaWidget : ModuleWidget {
+struct SalusWidget : ModuleWidget {
 	SvgPanel* panel = nullptr;
-	Soteria::SkinTheme currentTheme = Soteria::THEME_MEDIUM;
+	Salus::SkinTheme currentTheme = Salus::THEME_MEDIUM;
 
-	void setTheme(Soteria::SkinTheme theme) {
+	void setTheme(Salus::SkinTheme theme) {
 		currentTheme = theme;
 		if (panel) {
 			std::string path;
 			switch (theme) {
-				case Soteria::THEME_LIGHT:
-					path = asset::plugin(pluginInstance, "res/Soteria_Light.svg");
+				case Salus::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Salus_Light.svg");
 					break;
-				case Soteria::THEME_DARK:
-					path = asset::plugin(pluginInstance, "res/Soteria_Dark.svg");
+				case Salus::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Salus_Dark.svg");
 					break;
-				case Soteria::THEME_MEDIUM:
+				case Salus::THEME_MEDIUM:
 				default:
-					path = asset::plugin(pluginInstance, "res/Soteria.svg");
+					path = asset::plugin(pluginInstance, "res/Salus.svg");
 					break;
 			}
 			panel->setBackground(Svg::load(path));
@@ -568,14 +523,14 @@ struct SoteriaWidget : ModuleWidget {
 
 	void step() override {
 		ModuleWidget::step();
-		auto* mod = dynamic_cast<Soteria*>(module);
+		auto* mod = dynamic_cast<Salus*>(module);
 		if (mod && mod->skinTheme != currentTheme) {
 			setTheme(mod->skinTheme);
 		}
 	}
 
 	void appendContextMenu(ui::Menu* menu) override {
-		Soteria* mod = dynamic_cast<Soteria*>(this->module);
+		Salus* mod = dynamic_cast<Salus*>(this->module);
 		if (!mod) return;
 
 		menu->addChild(new MenuSeparator());
@@ -590,8 +545,8 @@ struct SoteriaWidget : ModuleWidget {
 			"90 kpps"
 		};
 
-		for (int i = 0; i < Soteria::KPPS_LEN; ++i) {
-			Soteria::KppsRating r = (Soteria::KppsRating)i;
+		for (int i = 0; i < Salus::KPPS_LEN; ++i) {
+			Salus::KppsRating r = (Salus::KppsRating)i;
 			menu->addChild(createCheckMenuItem(kppsLabels[i], "",
 				[=]() { return mod->kppsRating == r; },
 				[=]() { mod->kppsRating = r; }
@@ -608,8 +563,8 @@ struct SoteriaWidget : ModuleWidget {
 			"Disabled"
 		};
 
-		for (int i = 0; i < Soteria::SCANFAIL_LEN; ++i) {
-			Soteria::ScanFailMode sf = (Soteria::ScanFailMode)i;
+		for (int i = 0; i < Salus::SCANFAIL_LEN; ++i) {
+			Salus::ScanFailMode sf = (Salus::ScanFailMode)i;
 			menu->addChild(createCheckMenuItem(scanFailLabels[i], "",
 				[=]() { return mod->scanFailMode == sf; },
 				[=]() { mod->scanFailMode = sf; }
@@ -620,12 +575,12 @@ struct SoteriaWidget : ModuleWidget {
 		menu->addChild(createMenuLabel("Jump Blanking"));
 
 		menu->addChild(createCheckMenuItem("Blank on jumps", "",
-			[=]() { return mod->jumpBlanking == Soteria::JUMP_BLANK_ON; },
-			[=]() { mod->jumpBlanking = Soteria::JUMP_BLANK_ON; }
+			[=]() { return mod->jumpBlanking == Salus::JUMP_BLANK_ON; },
+			[=]() { mod->jumpBlanking = Salus::JUMP_BLANK_ON; }
 		));
 		menu->addChild(createCheckMenuItem("Off", "",
-			[=]() { return mod->jumpBlanking == Soteria::JUMP_BLANK_OFF; },
-			[=]() { mod->jumpBlanking = Soteria::JUMP_BLANK_OFF; }
+			[=]() { return mod->jumpBlanking == Salus::JUMP_BLANK_OFF; },
+			[=]() { mod->jumpBlanking = Salus::JUMP_BLANK_OFF; }
 		));
 
 		menu->addChild(new MenuSeparator());
@@ -637,8 +592,8 @@ struct SoteriaWidget : ModuleWidget {
 			"±1V"
 		};
 
-		for (int i = 0; i < Soteria::TRAJ_LEN; ++i) {
-			Soteria::TrajectoryRange tr = (Soteria::TrajectoryRange)i;
+		for (int i = 0; i < Salus::TRAJ_LEN; ++i) {
+			Salus::TrajectoryRange tr = (Salus::TrajectoryRange)i;
 			menu->addChild(createCheckMenuItem(trajLabels[i], "",
 				[=]() { return mod->trajRange == tr; },
 				[=]() { mod->trajRange = tr; }
@@ -654,8 +609,8 @@ struct SoteriaWidget : ModuleWidget {
 			"0V to 10V"
 		};
 
-		for (int i = 0; i < Soteria::LASER_LEN; ++i) {
-			Soteria::LaserRange lr = (Soteria::LaserRange)i;
+		for (int i = 0; i < Salus::LASER_LEN; ++i) {
+			Salus::LaserRange lr = (Salus::LaserRange)i;
 			menu->addChild(createCheckMenuItem(laserLabels[i], "",
 				[=]() { return mod->laserRange == lr; },
 				[=]() { mod->laserRange = lr; }
@@ -672,7 +627,7 @@ struct SoteriaWidget : ModuleWidget {
 		};
 
 		for (int i = 0; i < 3; ++i) {
-			Soteria::SkinTheme theme = (Soteria::SkinTheme)i;
+			Salus::SkinTheme theme = (Salus::SkinTheme)i;
 			menu->addChild(createCheckMenuItem(skinLabels[i], "",
 				[=]() { return mod->skinTheme == theme; },
 				[=]() {
@@ -683,22 +638,22 @@ struct SoteriaWidget : ModuleWidget {
 		}
 	}
 
-	SoteriaWidget(Soteria* module) {
+	SalusWidget(Salus* module) {
 		setModule(module);
 		panel = new SvgPanel();
-		Soteria::SkinTheme initTheme = module ? module->skinTheme : Soteria::THEME_MEDIUM;
+		Salus::SkinTheme initTheme = module ? module->skinTheme : Salus::THEME_MEDIUM;
 		currentTheme = initTheme;
 		std::string initPath;
 		switch (initTheme) {
-			case Soteria::THEME_LIGHT:
-				initPath = asset::plugin(pluginInstance, "res/Soteria_Light.svg");
+			case Salus::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Salus_Light.svg");
 				break;
-			case Soteria::THEME_DARK:
-				initPath = asset::plugin(pluginInstance, "res/Soteria_Dark.svg");
+			case Salus::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Salus_Dark.svg");
 				break;
-			case Soteria::THEME_MEDIUM:
+			case Salus::THEME_MEDIUM:
 			default:
-				initPath = asset::plugin(pluginInstance, "res/Soteria.svg");
+				initPath = asset::plugin(pluginInstance, "res/Salus.svg");
 				break;
 		}
 		panel->setBackground(Svg::load(initPath));
@@ -707,35 +662,37 @@ struct SoteriaWidget : ModuleWidget {
 		float colIn = 5.20f;
 		float colOut = 15.12f;
 
-		// ROW 1: SCAN, GALVO, TEMP LEDs at Y = 18.20 mm
-		float ledY = 18.20f;
-		addChild(createLightCentered<SoteriaStatusLed>(mm2px(Vec(4.20f, ledY)), module, Soteria::SCAN_LIGHT_R));
-		addChild(createLightCentered<SoteriaStatusLed>(mm2px(Vec(10.16f, ledY)), module, Soteria::GALVO_LIGHT_R));
-		addChild(createLightCentered<SoteriaStatusLed>(mm2px(Vec(16.12f, ledY)), module, Soteria::TEMP_LIGHT_R));
+		// 3 LED Layers (Layout: LABEL on left, LED on right at Y = 17.50, 24.50, 31.50 mm)
+		float ledYs[3] = {17.50f, 24.50f, 31.50f};
+		for (int ch = 0; ch < 3; ++ch) {
+			Vec posPx = mm2px(Vec(colOut, ledYs[ch]));
+			auto* led = new Salus4mmLed(module, ch);
+			led->box.pos = posPx.minus(led->box.size.div(2.0f));
+			addChild(led);
+		}
 
-		// ROW 2: E-STOP button with red halo when active, and E-STOP GATE CV Jack at Y = 36.00 mm
-		float btnY = 36.00f;
-		addChild(createLightCentered<SoteriaEstopRing>(mm2px(Vec(colIn, btnY)), module, Soteria::ESTOP_LIGHT));
-		addParam(createParamCentered<SoteriaButton>(mm2px(Vec(colIn, btnY)), module, Soteria::ESTOP_PARAM));
-		addInput(createInputCentered<SoteriaPort>(mm2px(Vec(colOut, btnY)), module, Soteria::ESTOP_CV_INPUT));
+		// E-STOP Section at Y = 45.00 mm: Red button (colIn) + GATE CV Jack (colOut)
+		float estopY = 45.00f;
+		addParam(createParamCentered<SalusRedButton>(mm2px(Vec(colIn, estopY)), module, Salus::ESTOP_PARAM));
+		addInput(createInputCentered<SalusPort>(mm2px(Vec(colOut, estopY)), module, Salus::ESTOP_CV_INPUT));
 
 		// ROW 3-7: XYRGB in/outs (Row 3 at 65.00mm, Row 4 at 78.00mm, Row 5 at 91.00mm, Row 6 at 104.00mm, Row 7 at 117.00mm)
 		float jackRows[5] = {65.00f, 78.00f, 91.00f, 104.00f, 117.00f};
 
 		// Left Column: Inputs (X, Y, R, G, B)
-		addInput(createInputCentered<SoteriaPort>(mm2px(Vec(colIn, jackRows[0])), module, Soteria::X_INPUT));
-		addInput(createInputCentered<SoteriaPort>(mm2px(Vec(colIn, jackRows[1])), module, Soteria::Y_INPUT));
-		addInput(createInputCentered<SoteriaPort>(mm2px(Vec(colIn, jackRows[2])), module, Soteria::R_INPUT));
-		addInput(createInputCentered<SoteriaPort>(mm2px(Vec(colIn, jackRows[3])), module, Soteria::G_INPUT));
-		addInput(createInputCentered<SoteriaPort>(mm2px(Vec(colIn, jackRows[4])), module, Soteria::B_INPUT));
+		addInput(createInputCentered<SalusPort>(mm2px(Vec(colIn, jackRows[0])), module, Salus::X_INPUT));
+		addInput(createInputCentered<SalusPort>(mm2px(Vec(colIn, jackRows[1])), module, Salus::Y_INPUT));
+		addInput(createInputCentered<SalusPort>(mm2px(Vec(colIn, jackRows[2])), module, Salus::R_INPUT));
+		addInput(createInputCentered<SalusPort>(mm2px(Vec(colIn, jackRows[3])), module, Salus::G_INPUT));
+		addInput(createInputCentered<SalusPort>(mm2px(Vec(colIn, jackRows[4])), module, Salus::B_INPUT));
 
 		// Right Column: Outputs (X, Y, R, G, B)
-		addOutput(createOutputCentered<SoteriaPort>(mm2px(Vec(colOut, jackRows[0])), module, Soteria::X_OUTPUT));
-		addOutput(createOutputCentered<SoteriaPort>(mm2px(Vec(colOut, jackRows[1])), module, Soteria::Y_OUTPUT));
-		addOutput(createOutputCentered<SoteriaPort>(mm2px(Vec(colOut, jackRows[2])), module, Soteria::R_OUTPUT));
-		addOutput(createOutputCentered<SoteriaPort>(mm2px(Vec(colOut, jackRows[3])), module, Soteria::G_OUTPUT));
-		addOutput(createOutputCentered<SoteriaPort>(mm2px(Vec(colOut, jackRows[4])), module, Soteria::B_OUTPUT));
+		addOutput(createOutputCentered<SalusPort>(mm2px(Vec(colOut, jackRows[0])), module, Salus::X_OUTPUT));
+		addOutput(createOutputCentered<SalusPort>(mm2px(Vec(colOut, jackRows[1])), module, Salus::Y_OUTPUT));
+		addOutput(createOutputCentered<SalusPort>(mm2px(Vec(colOut, jackRows[2])), module, Salus::R_OUTPUT));
+		addOutput(createOutputCentered<SalusPort>(mm2px(Vec(colOut, jackRows[3])), module, Salus::G_OUTPUT));
+		addOutput(createOutputCentered<SalusPort>(mm2px(Vec(colOut, jackRows[4])), module, Salus::B_OUTPUT));
 	}
 };
 
-Model* modelSoteria = createModel<Soteria, SoteriaWidget>("Soteria");
+Model* modelSalus = createModel<Salus, SalusWidget>("Salus");
