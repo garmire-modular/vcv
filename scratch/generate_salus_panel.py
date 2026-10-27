@@ -84,8 +84,8 @@ def generate_panel(skin):
     
     # Header: Full-sized Title "SALUS" (16pt D-DIN-Bold) at Y = 8.000 mm, centered at col_mid
     svg.append(render_text(ddin_bold, 'SALUS', col_mid, 8.000, 16.0, title_color))
-    # Version tag "v1.0.4" at Y = 8.000 mm (right margin X = panel_w - 2.15 mm) per AGENTS.md 7.5
-    svg.append(render_text(quicksand, 'v1.0.4', panel_w - 2.15, 8.000, 4.5, version_color))
+    # Version tag "v1.0.5" at Y = 8.000 mm (right margin X = panel_w - 2.15 mm) per AGENTS.md 7.5
+    svg.append(render_text(quicksand, 'v1.0.5', panel_w - 2.15, 8.000, 4.5, version_color))
     
     # Two-Column LED Architecture:
     # Col 1 (col_in = 5.20 mm): Status LED (Green -> Yellow -> Amber, turns off/0 while red is active)

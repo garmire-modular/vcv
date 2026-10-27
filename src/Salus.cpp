@@ -212,14 +212,13 @@ struct Salus : Module {
 
 	void process(const ProcessArgs& args) override {
 		// 1. E-STOP button & trigger evaluation
-		if (estopButtonTrigger.process(params[ESTOP_PARAM].getValue() > 0.5f)) {
-			eStopped = !eStopped;
-		}
 		if (inputs[ESTOP_CV_INPUT].isConnected()) {
 			if (estopGateTrigger.process(inputs[ESTOP_CV_INPUT].getVoltage())) {
-				eStopped = !eStopped;
+				float newVal = (params[ESTOP_PARAM].getValue() > 0.5f) ? 0.0f : 1.0f;
+				params[ESTOP_PARAM].setValue(newVal);
 			}
 		}
+		eStopped = (params[ESTOP_PARAM].getValue() > 0.5f);
 
 		// 2. Physical & mathematical constants for selected KPPS & Sample Rate
 		float pps = getPointsPerSecond();
@@ -507,7 +506,10 @@ struct Salus : Module {
 		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 
 		json_t* esJ = json_object_get(rootJ, "eStopped");
-		if (esJ) eStopped = json_is_true(esJ);
+		if (esJ) {
+			eStopped = json_is_true(esJ);
+			params[ESTOP_PARAM].setValue(eStopped ? 1.0f : 0.0f);
+		}
 	}
 };
 
@@ -517,11 +519,12 @@ struct SalusPort : app::SvgPort {
 	}
 };
 
-struct SalusRedButton : app::SvgSwitch {
-	SalusRedButton() {
-		momentary = true;
+struct SalusEstopButton : app::SvgSwitch {
+	SalusEstopButton() {
+		// Frame 0: Normal / disarmed (grey button by default)
+		// Frame 1: Tripped / armed (red button when pressed)
+		addFrame(Svg::load(asset::plugin(pluginInstance, "res/btn_grey.svg")));
 		addFrame(Svg::load(asset::plugin(pluginInstance, "res/btn_red.svg")));
-		addFrame(Svg::load(asset::plugin(pluginInstance, "res/btn_red_pressed.svg")));
 	}
 };
 
@@ -548,7 +551,8 @@ struct SalusStatusLed : Widget {
 		bool isActivelyRed = false;
 		if (module) {
 			state = module->statusLedState[channel];
-			isActivelyRed = module->tripActive[channel];
+			// Keep Column 1 active colourwise during E-STOP mode (only turns off for hardware faults)
+			isActivelyRed = module->tripActive[channel] && !module->eStopped;
 		}
 
 		if (imgGreen <= 0) {
@@ -828,7 +832,7 @@ struct SalusWidget : ModuleWidget {
 		float colMid = 10.16f;
 		float estopBtnY = 40.50f;
 		float estopJackY = 50.00f;
-		addParam(createParamCentered<SalusRedButton>(mm2px(Vec(colMid, estopBtnY)), module, Salus::ESTOP_PARAM));
+		addParam(createParamCentered<SalusEstopButton>(mm2px(Vec(colMid, estopBtnY)), module, Salus::ESTOP_PARAM));
 		addInput(createInputCentered<SalusPort>(mm2px(Vec(colMid, estopJackY)), module, Salus::ESTOP_CV_INPUT));
 
 		// ROW 3-7: XYRGB in/outs (Row 3 at 65.00mm, Row 4 at 78.00mm, Row 5 at 91.00mm, Row 6 at 104.00mm, Row 7 at 117.00mm)
