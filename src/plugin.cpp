@@ -76,5 +76,6 @@ void init(Plugin* p) {
 	p->addModel(modelRandi);
 	p->addModel(modelGrainne);
 	p->addModel(modelLain);
+	p->addModel(modelPersephone);
 }
 

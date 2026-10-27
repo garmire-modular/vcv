@@ -65,6 +65,7 @@ SOURCES += src/Octavia.cpp
 SOURCES += src/Randi.cpp
 SOURCES += src/Grainne.cpp
 SOURCES += src/Lain.cpp
+SOURCES += src/Persephone.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res

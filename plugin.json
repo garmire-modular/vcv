@@ -779,6 +779,15 @@
         "Polyphonic",
         "Visual"
       ]
+    },
+    {
+      "slug": "Persephone",
+      "name": "Persephone",
+      "description": "End-of-chain XYRGB laser galvanometer safety interlock, scan-fail protector, and KPPS slew limiter",
+      "tags": [
+        "Utility",
+        "Visual"
+      ]
     }
   ]
 }
