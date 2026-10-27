@@ -77,4 +77,4 @@ extern Model* modelOctavia;
 extern Model* modelRandi;
 extern Model* modelGrainne;
 extern Model* modelLain;
-extern Model* modelPersephone;
+extern Model* modelSoteria;

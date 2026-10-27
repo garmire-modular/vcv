@@ -4,10 +4,10 @@
 #include <string>
 
 // ─────────────────────────────────────────────────────────────────────
-//  Persephone — End-of-Chain XYRGB Laser Safety Interlock & KPPS Engine
+//  Soteria — End-of-Chain XYRGB Laser Safety & KPPS Engine (4 HP)
 //  Utility class module providing galvanometer mechanical protection,
 //  vector slew rate limiting, scan-fail optical extinction, blanking on
-//  jumps, thermal coil overload protection, and diode reverse-bias safety.
+//  jumps, thermal coil overload protection, and manual/CV E-STOP blackout.
 // ─────────────────────────────────────────────────────────────────────
 
 #ifndef M_PI
@@ -20,11 +20,11 @@ inline float clampf(float v, float lo, float hi) {
 }
 } // namespace
 
-struct Persephone : Module {
+struct Soteria : Module {
 	enum KppsRating {
 		KPPS_12 = 0,
 		KPPS_20,
-		KPPS_30, // Default ILDA reference
+		KPPS_30,
 		KPPS_40,
 		KPPS_60,
 		KPPS_90,
@@ -32,29 +32,29 @@ struct Persephone : Module {
 	};
 
 	enum ScanFailMode {
-		SCANFAIL_STRICT = 0, // 1 ms threshold
-		SCANFAIL_NORMAL,     // 3 ms threshold (Default)
-		SCANFAIL_RELAXED,    // 10 ms threshold
-		SCANFAIL_DISABLED,   // Bypass (Warning: Laser burn hazard)
+		SCANFAIL_STRICT = 0,
+		SCANFAIL_NORMAL,
+		SCANFAIL_RELAXED,
+		SCANFAIL_DISABLED,
 		SCANFAIL_LEN
 	};
 
 	enum TrajectoryRange {
-		TRAJ_BIPOLAR_5V = 0, // ±5V (Default ILDA standard)
-		TRAJ_BIPOLAR_10V,    // ±10V (Eurorack standard)
-		TRAJ_BIPOLAR_1V,     // ±1V
+		TRAJ_BIPOLAR_5V = 0,
+		TRAJ_BIPOLAR_10V,
+		TRAJ_BIPOLAR_1V,
 		TRAJ_LEN
 	};
 
 	enum LaserRange {
-		LASER_0_5V = 0, // 0V to +5V (Default ILDA analog modulation)
-		LASER_0_1V,     // 0V to +1V
-		LASER_0_10V,    // 0V to +10V
+		LASER_0_5V = 0,
+		LASER_0_1V,
+		LASER_0_10V,
 		LASER_LEN
 	};
 
 	enum JumpBlankingMode {
-		JUMP_BLANK_ON = 0, // Default: blanks laser during large transit jumps
+		JUMP_BLANK_ON = 0,
 		JUMP_BLANK_OFF,
 		JUMP_BLANK_LEN
 	};
@@ -66,12 +66,12 @@ struct Persephone : Module {
 	};
 
 	enum ParamId {
-		ARM_PARAM,
+		ESTOP_PARAM,
 		PARAMS_LEN
 	};
 
 	enum InputId {
-		ARM_CV_INPUT,
+		ESTOP_CV_INPUT,
 		X_INPUT,
 		Y_INPUT,
 		R_INPUT,
@@ -90,11 +90,13 @@ struct Persephone : Module {
 	};
 
 	enum LightId {
-		ARM_LIGHT,
-		SAFE_LIGHT,
-		FAIL_LIGHT,
-		SLEW_LIGHT,
-		TEMP_LIGHT,
+		ESTOP_LIGHT,
+		SCAN_LIGHT_R,
+		SCAN_LIGHT_G,
+		GALVO_LIGHT_R,
+		GALVO_LIGHT_G,
+		TEMP_LIGHT_R,
+		TEMP_LIGHT_G,
 		LIGHTS_LEN
 	};
 
@@ -106,9 +108,10 @@ struct Persephone : Module {
 	JumpBlankingMode jumpBlanking = JUMP_BLANK_ON;
 	SkinTheme skinTheme = THEME_MEDIUM;
 
-	// Internal DSP state
-	bool armed = true;
-	dsp::BooleanTrigger armTrigger;
+	// E-Stop state
+	bool eStopped = false;
+	dsp::BooleanTrigger estopButtonTrigger;
+	dsp::SchmittTrigger estopGateTrigger;
 
 	// Physical Galvo state
 	float galvoX = 0.0f;
@@ -141,18 +144,22 @@ struct Persephone : Module {
 	float bBuf[DELAY_BUF_SIZE] = {0.0f};
 	int delayWriteIndex = 0;
 
-	// Light smoothing
-	float safeLightSmooth = 0.0f;
-	float failLightSmooth = 0.0f;
-	float slewLightSmooth = 0.0f;
-	float tempLightSmooth = 0.0f;
+	// Traffic light approach values (0.0 = normal/green, 0.85 = yellow, 0.95 = orange, 1.0 = red)
+	float scanStress = 0.0f;
+	float galvoStress = 0.0f;
+	float tempStress = 0.0f;
 
-	Persephone() {
+	// Smoothed light values
+	float scanStressSmooth = 0.0f;
+	float galvoStressSmooth = 0.0f;
+	float tempStressSmooth = 0.0f;
+
+	Soteria() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-		configParam(ARM_PARAM, 0.0f, 1.0f, 1.0f, "Arm safety shutter");
+		configParam(ESTOP_PARAM, 0.0f, 1.0f, 0.0f, "E-stop blackout toggle");
 
-		configInput(ARM_CV_INPUT, "Arm gate");
+		configInput(ESTOP_CV_INPUT, "E-stop toggle");
 		configInput(X_INPUT, "X");
 		configInput(Y_INPUT, "Y");
 		configInput(R_INPUT, "Red");
@@ -196,18 +203,43 @@ struct Persephone : Module {
 		}
 	}
 
+	void computeTrafficColor(float stress, float& outR, float& outG) const {
+		// Stop-light color scheme:
+		// Normal (< 0.80): Pure Green (R=0, G=1)
+		// Within 20% of failover (0.80 - 0.90): Yellow (R=1, G=1)
+		// Within 10% of failover (0.90 - 1.00): Orange (R=1, G=0.45)
+		// Exceeded (>= 1.00): Pure Red (R=1, G=0)
+		if (stress < 0.80f) {
+			outR = 0.0f;
+			outG = 1.0f;
+		} else if (stress < 0.90f) {
+			float t = (stress - 0.80f) / 0.10f;
+			outR = t;
+			outG = 1.0f;
+		} else if (stress < 1.00f) {
+			float t = (stress - 0.90f) / 0.10f;
+			outR = 1.0f;
+			outG = 1.0f - 0.55f * t;
+		} else {
+			outR = 1.0f;
+			outG = 0.0f;
+		}
+	}
+
 	void process(const ProcessArgs& args) override {
-		// 1. Arm button & gate evaluation
-		if (armTrigger.process(params[ARM_PARAM].getValue() > 0.5f)) {
-			armed = !armed;
+		// 1. E-STOP button & trigger evaluation
+		// Single click toggles E-STOP blackout
+		if (estopButtonTrigger.process(params[ESTOP_PARAM].getValue() > 0.5f)) {
+			eStopped = !eStopped;
+		}
+		// External gate/trigger pulse toggles E-STOP blackout
+		if (inputs[ESTOP_CV_INPUT].isConnected()) {
+			if (estopGateTrigger.process(inputs[ESTOP_CV_INPUT].getVoltage())) {
+				eStopped = !eStopped;
+			}
 		}
 
-		bool gateHigh = inputs[ARM_CV_INPUT].isConnected()
-			? (inputs[ARM_CV_INPUT].getVoltage() >= 1.0f)
-			: true;
-		bool systemArmed = armed && gateHigh;
-
-		// 2. Physical & mathematical constants for the selected KPPS & Sample Rate
+		// 2. Physical & mathematical constants for selected KPPS & Sample Rate
 		float pps = getPointsPerSecond();
 		float maxTrajV = getTrajMaxVoltage();
 		float maxLaserV = getLaserMaxVoltage();
@@ -237,23 +269,25 @@ struct Persephone : Module {
 		float dist = std::sqrt(dx * dx + dy * dy);
 
 		bool slewActive = false;
+		float slewRatio = 0.0f;
 		if (dist > maxStepDistance && dist > 1e-7f) {
 			float ratio = maxStepDistance / dist;
 			galvoX += dx * ratio;
 			galvoY += dy * ratio;
 			slewActive = true;
+			slewRatio = 1.0f;
 		} else {
 			galvoX = inX;
 			galvoY = inY;
+			slewRatio = (maxStepDistance > 1e-7f) ? (dist / maxStepDistance) : 0.0f;
 		}
+		galvoStress = slewActive ? 1.0f : slewRatio;
 
 		// 5. Galvo Mechanical Inertia (Critically damped 2nd-order lowpass filter)
-		// Cutoff frequency fc ~ 0.5 * pps
 		float fc = clampf(0.5f * pps, 100.0f, 0.45f * args.sampleRate);
 		float omega = 2.0f * (float)M_PI * fc;
 		float alpha = clampf(omega * dt, 0.001f, 0.95f);
 
-		// Critical damping: filter1 tracks galvo, filter2 tracks filter1
 		filterX1 += alpha * (galvoX - filterX1);
 		filterX2 += alpha * (filterX1 - filterX2);
 		filterY1 += alpha * (galvoY - filterY1);
@@ -283,15 +317,29 @@ struct Persephone : Module {
 		float minVelocityThreshold = 0.03f * vpp * 1000.0f * (pps / 30000.0f);
 		if (scanFailMode == SCANFAIL_DISABLED) {
 			scanFailTripped = false;
+			scanStress = 0.0f;
 		} else {
 			if (smoothedVelocity < minVelocityThreshold) {
 				scanFailTripped = true;
 				scanFailRecoveryTimer = 0;
-			} else if (scanFailTripped) {
-				// Require continuous safe motion for ~2ms before re-enabling laser
-				scanFailRecoveryTimer++;
-				if (scanFailRecoveryTimer > (int)(0.002f * args.sampleRate)) {
-					scanFailTripped = false;
+				scanStress = 1.0f;
+			} else {
+				if (scanFailTripped) {
+					scanFailRecoveryTimer++;
+					if (scanFailRecoveryTimer > (int)(0.002f * args.sampleRate)) {
+						scanFailTripped = false;
+					}
+					scanStress = 1.0f;
+				} else {
+					// Margin ratio: how close velocity is to failover
+					float margin = smoothedVelocity / (minVelocityThreshold + 1e-4f);
+					if (margin >= 1.25f) {
+						scanStress = 0.0f; // Normal / Green
+					} else if (margin >= 1.10f) {
+						scanStress = 0.85f; // Within 20% / Yellow
+					} else {
+						scanStress = 0.95f; // Within 10% / Orange
+					}
 				}
 			}
 		}
@@ -311,27 +359,24 @@ struct Persephone : Module {
 		}
 
 		// 8. Thermal coil stress integrator
-		// Coil current force is proportional to acceleration: d(vel)/dt
 		float instAccel = std::fabs(instVelocity - prevVelocity) * args.sampleRate;
 		prevVelocity = instVelocity;
 
-		// Normalized heating power (referenced to safe continuous max acceleration)
 		float maxAccelRef = maxSlewRate * pps * 0.15f;
 		float normStress = (instAccel / (maxAccelRef + 1e-4f));
 		normStress = normStress * normStress;
 
-		float tauThermal = 0.5f; // 500 ms thermal time constant
+		float tauThermal = 0.5f;
 		float alphaThermal = dt / tauThermal;
 		thermalStress += alphaThermal * (normStress - thermalStress);
 		if (thermalStress < 0.0f) thermalStress = 0.0f;
+		tempStress = thermalStress;
 
 		// 9. Color delay alignment buffer
-		// Real galvos have mechanical group delay ~ 2.5 / pps
 		float delaySec = 2.5f / pps;
 		int delaySamples = (int)(delaySec * args.sampleRate + 0.5f);
 		delaySamples = clampf(delaySamples, 1, DELAY_BUF_SIZE - 1);
 
-		// Store incoming RGB in ring buffer
 		rBuf[delayWriteIndex] = inputs[R_INPUT].getVoltage();
 		gBuf[delayWriteIndex] = inputs[G_INPUT].getVoltage();
 		bBuf[delayWriteIndex] = inputs[B_INPUT].getVoltage();
@@ -343,16 +388,15 @@ struct Persephone : Module {
 
 		delayWriteIndex = (delayWriteIndex + 1) % DELAY_BUF_SIZE;
 
-		// 10. Shutter, Interlock & Safety Gating
-		bool emissionPermitted = systemArmed && !scanFailTripped && !jumpActive;
+		// 10. Laser Blackout & Emission Decision
+		// If eStopped, complete blackout: all RGB forced to 0.0V immediately
+		bool emissionPermitted = !eStopped && !scanFailTripped && !jumpActive;
 
 		float outR = 0.0f;
 		float outG = 0.0f;
 		float outB = 0.0f;
 
 		if (emissionPermitted) {
-			// Normalize incoming 0..5V standard to selected output laser voltage standard
-			// Clamping prevents reverse bias and overdrive
 			float scaleR = clampf(delayedR / 5.0f, 0.0f, 1.0f);
 			float scaleG = clampf(delayedG / 5.0f, 0.0f, 1.0f);
 			float scaleB = clampf(delayedB / 5.0f, 0.0f, 1.0f);
@@ -369,20 +413,27 @@ struct Persephone : Module {
 		outputs[G_OUTPUT].setVoltage(outG);
 		outputs[B_OUTPUT].setVoltage(outB);
 
-		// 12. Visual indicators with smooth falloff
+		// 12. Visual indicators with smooth response
 		float lightDt = clampf(15.0f * dt, 0.001f, 0.5f);
+		scanStressSmooth += lightDt * (scanStress - scanStressSmooth);
+		galvoStressSmooth += lightDt * (galvoStress - galvoStressSmooth);
+		tempStressSmooth += lightDt * (tempStress - tempStressSmooth);
 
-		bool isSafe = systemArmed && !scanFailTripped;
-		safeLightSmooth += lightDt * ((isSafe ? 1.0f : 0.0f) - safeLightSmooth);
-		failLightSmooth += lightDt * ((scanFailTripped ? 1.0f : 0.0f) - failLightSmooth);
-		slewLightSmooth += lightDt * ((slewActive ? 1.0f : 0.0f) - slewLightSmooth);
-		tempLightSmooth += lightDt * ((thermalStress > 0.8f ? 1.0f : 0.0f) - tempLightSmooth);
+		float sr, sg, gr, gg, tr, tg;
+		computeTrafficColor(scanStressSmooth, sr, sg);
+		computeTrafficColor(galvoStressSmooth, gr, gg);
+		computeTrafficColor(tempStressSmooth, tr, tg);
 
-		lights[ARM_LIGHT].setBrightness(armed ? 1.0f : 0.1f);
-		lights[SAFE_LIGHT].setBrightness(safeLightSmooth);
-		lights[FAIL_LIGHT].setBrightness(failLightSmooth);
-		lights[SLEW_LIGHT].setBrightness(slewLightSmooth);
-		lights[TEMP_LIGHT].setBrightness(tempLightSmooth);
+		lights[ESTOP_LIGHT].setBrightness(eStopped ? 1.0f : 0.0f);
+
+		lights[SCAN_LIGHT_R].setBrightness(sr);
+		lights[SCAN_LIGHT_G].setBrightness(sg);
+
+		lights[GALVO_LIGHT_R].setBrightness(gr);
+		lights[GALVO_LIGHT_G].setBrightness(gg);
+
+		lights[TEMP_LIGHT_R].setBrightness(tr);
+		lights[TEMP_LIGHT_G].setBrightness(tg);
 	}
 
 	json_t* dataToJson() override {
@@ -393,7 +444,7 @@ struct Persephone : Module {
 		json_object_set_new(rootJ, "laserRange", json_integer((int)laserRange));
 		json_object_set_new(rootJ, "jumpBlanking", json_integer((int)jumpBlanking));
 		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
-		json_object_set_new(rootJ, "armed", json_boolean(armed));
+		json_object_set_new(rootJ, "eStopped", json_boolean(eStopped));
 		return rootJ;
 	}
 
@@ -416,62 +467,99 @@ struct Persephone : Module {
 		json_t* stJ = json_object_get(rootJ, "skinTheme");
 		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 
-		json_t* armJ = json_object_get(rootJ, "armed");
-		if (armJ) armed = json_is_true(armJ);
+		json_t* esJ = json_object_get(rootJ, "eStopped");
+		if (esJ) eStopped = json_is_true(esJ);
 	}
 };
 
-struct PersephonePort : app::SvgPort {
-	PersephonePort() {
+struct SoteriaPort : app::SvgPort {
+	SoteriaPort() {
 		setSvg(Svg::load(asset::plugin(pluginInstance, "res/3_5mm_jacks.svg")));
 	}
 };
 
-struct PersephoneButton : app::SvgSwitch {
-	PersephoneButton() {
-		momentary = false;
+struct SoteriaButton : app::SvgSwitch {
+	SoteriaButton() {
+		momentary = true;
 		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_0.svg")));
 		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_1.svg")));
 	}
 };
 
-struct PersephoneArmLightRing : ModuleLightWidget {
-	PersephoneArmLightRing() {
+struct SoteriaEstopRing : ModuleLightWidget {
+	SoteriaEstopRing() {
 		box.size = mm2px(Vec(8.24f, 8.24f));
 	}
 	void draw(const DrawArgs& args) override {
 		if (!module) return;
-		float b = module->lights[Persephone::ARM_LIGHT].getBrightness();
+		float b = module->lights[Soteria::ESTOP_LIGHT].getBrightness();
+		if (b < 0.05f) return;
 		nvgBeginPath(args.vg);
 		float cx = box.size.x / 2.0f;
 		float cy = box.size.y / 2.0f;
 		float r = mm2px(4.120f);
 		nvgCircle(args.vg, cx, cy, r);
 		nvgStrokeWidth(args.vg, mm2px(1.400f));
-		NVGcolor c = nvgRGBAf(0.1f + 0.9f * b, 0.7f * b, 0.1f * b, 0.25f + 0.75f * b);
-		nvgStrokeColor(args.vg, c);
+		nvgStrokeColor(args.vg, nvgRGBAf(0.95f, 0.08f, 0.08f, 0.95f * b));
 		nvgStroke(args.vg);
 	}
 };
 
-struct PersephoneWidget : ModuleWidget {
-	SvgPanel* panel = nullptr;
-	Persephone::SkinTheme currentTheme = Persephone::THEME_MEDIUM;
+struct SoteriaStatusLed : ModuleLightWidget {
+	int redLightId = 0;
+	int greenLightId = 0;
 
-	void setTheme(Persephone::SkinTheme theme) {
+	SoteriaStatusLed(int rId = 0, int gId = 0) : redLightId(rId), greenLightId(gId) {
+		box.size = mm2px(Vec(4.40f, 4.40f));
+	}
+
+	void draw(const DrawArgs& args) override {
+		if (!module) return;
+		float r = module->lights[redLightId].getBrightness();
+		float g = module->lights[greenLightId].getBrightness();
+
+		float cx = box.size.x / 2.0f;
+		float cy = box.size.y / 2.0f;
+		float rad = mm2px(1.85f);
+
+		// Outer halo glow
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, cx, cy, rad * 1.35f);
+		nvgFillColor(args.vg, nvgRGBAf(r, g, 0.0f, 0.20f));
+		nvgFill(args.vg);
+
+		// Inner illuminated LED lens
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, cx, cy, rad);
+		nvgFillColor(args.vg, nvgRGBAf(r, g, 0.05f, 0.95f));
+		nvgFill(args.vg);
+
+		// Subtle glass reflection highlight
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, cx - rad * 0.25f, cy - rad * 0.25f, rad * 0.40f);
+		nvgFillColor(args.vg, nvgRGBAf(1.0f, 1.0f, 1.0f, 0.35f));
+		nvgFill(args.vg);
+	}
+};
+
+struct SoteriaWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Soteria::SkinTheme currentTheme = Soteria::THEME_MEDIUM;
+
+	void setTheme(Soteria::SkinTheme theme) {
 		currentTheme = theme;
 		if (panel) {
 			std::string path;
 			switch (theme) {
-				case Persephone::THEME_LIGHT:
-					path = asset::plugin(pluginInstance, "res/Persephone_Light.svg");
+				case Soteria::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Soteria_Light.svg");
 					break;
-				case Persephone::THEME_DARK:
-					path = asset::plugin(pluginInstance, "res/Persephone_Dark.svg");
+				case Soteria::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Soteria_Dark.svg");
 					break;
-				case Persephone::THEME_MEDIUM:
+				case Soteria::THEME_MEDIUM:
 				default:
-					path = asset::plugin(pluginInstance, "res/Persephone.svg");
+					path = asset::plugin(pluginInstance, "res/Soteria.svg");
 					break;
 			}
 			panel->setBackground(Svg::load(path));
@@ -480,30 +568,30 @@ struct PersephoneWidget : ModuleWidget {
 
 	void step() override {
 		ModuleWidget::step();
-		auto* mod = dynamic_cast<Persephone*>(module);
+		auto* mod = dynamic_cast<Soteria*>(module);
 		if (mod && mod->skinTheme != currentTheme) {
 			setTheme(mod->skinTheme);
 		}
 	}
 
 	void appendContextMenu(ui::Menu* menu) override {
-		Persephone* mod = dynamic_cast<Persephone*>(this->module);
+		Soteria* mod = dynamic_cast<Soteria*>(this->module);
 		if (!mod) return;
 
 		menu->addChild(new MenuSeparator());
-		menu->addChild(createMenuLabel("Scanner Speed (KPPS)"));
+		menu->addChild(createMenuLabel("Scanner Speed"));
 
 		static const char* kppsLabels[] = {
-			"12 kpps (Budget / Entry Scanners)",
-			"20 kpps (Club Scanners)",
-			"30 kpps (ILDA Standard Reference)",
-			"40 kpps (High Speed Scanners)",
-			"60 kpps (Cambridge / ScannerMAX)",
-			"90 kpps (Ultra-Fast Graphic Scanners)"
+			"12 kpps",
+			"20 kpps",
+			"30 kpps",
+			"40 kpps",
+			"60 kpps",
+			"90 kpps"
 		};
 
-		for (int i = 0; i < Persephone::KPPS_LEN; ++i) {
-			Persephone::KppsRating r = (Persephone::KppsRating)i;
+		for (int i = 0; i < Soteria::KPPS_LEN; ++i) {
+			Soteria::KppsRating r = (Soteria::KppsRating)i;
 			menu->addChild(createCheckMenuItem(kppsLabels[i], "",
 				[=]() { return mod->kppsRating == r; },
 				[=]() { mod->kppsRating = r; }
@@ -514,14 +602,14 @@ struct PersephoneWidget : ModuleWidget {
 		menu->addChild(createMenuLabel("Scan-Fail Protection"));
 
 		static const char* scanFailLabels[] = {
-			"Strict (1 ms Cutoff)",
-			"Normal (3 ms Cutoff - Default)",
-			"Relaxed (10 ms Cutoff)",
-			"Disabled (Warning: Laser Burn Hazard)"
+			"Strict (1 ms)",
+			"Normal (3 ms)",
+			"Relaxed (10 ms)",
+			"Disabled"
 		};
 
-		for (int i = 0; i < Persephone::SCANFAIL_LEN; ++i) {
-			Persephone::ScanFailMode sf = (Persephone::ScanFailMode)i;
+		for (int i = 0; i < Soteria::SCANFAIL_LEN; ++i) {
+			Soteria::ScanFailMode sf = (Soteria::ScanFailMode)i;
 			menu->addChild(createCheckMenuItem(scanFailLabels[i], "",
 				[=]() { return mod->scanFailMode == sf; },
 				[=]() { mod->scanFailMode = sf; }
@@ -531,26 +619,26 @@ struct PersephoneWidget : ModuleWidget {
 		menu->addChild(new MenuSeparator());
 		menu->addChild(createMenuLabel("Jump Blanking"));
 
-		menu->addChild(createCheckMenuItem("Blank Laser On Large Transit Jumps", "",
-			[=]() { return mod->jumpBlanking == Persephone::JUMP_BLANK_ON; },
-			[=]() { mod->jumpBlanking = Persephone::JUMP_BLANK_ON; }
+		menu->addChild(createCheckMenuItem("Blank on jumps", "",
+			[=]() { return mod->jumpBlanking == Soteria::JUMP_BLANK_ON; },
+			[=]() { mod->jumpBlanking = Soteria::JUMP_BLANK_ON; }
 		));
-		menu->addChild(createCheckMenuItem("Draw Through Jumps (Unblanked)", "",
-			[=]() { return mod->jumpBlanking == Persephone::JUMP_BLANK_OFF; },
-			[=]() { mod->jumpBlanking = Persephone::JUMP_BLANK_OFF; }
+		menu->addChild(createCheckMenuItem("Off", "",
+			[=]() { return mod->jumpBlanking == Soteria::JUMP_BLANK_OFF; },
+			[=]() { mod->jumpBlanking = Soteria::JUMP_BLANK_OFF; }
 		));
 
 		menu->addChild(new MenuSeparator());
-		menu->addChild(createMenuLabel("Trajectory Voltage Standard"));
+		menu->addChild(createMenuLabel("Trajectory Voltage"));
 
 		static const char* trajLabels[] = {
-			"±5V (ILDA Standard Reference)",
-			"±10V (Eurorack Standard)",
+			"±5V",
+			"±10V",
 			"±1V"
 		};
 
-		for (int i = 0; i < Persephone::TRAJ_LEN; ++i) {
-			Persephone::TrajectoryRange tr = (Persephone::TrajectoryRange)i;
+		for (int i = 0; i < Soteria::TRAJ_LEN; ++i) {
+			Soteria::TrajectoryRange tr = (Soteria::TrajectoryRange)i;
 			menu->addChild(createCheckMenuItem(trajLabels[i], "",
 				[=]() { return mod->trajRange == tr; },
 				[=]() { mod->trajRange = tr; }
@@ -558,16 +646,16 @@ struct PersephoneWidget : ModuleWidget {
 		}
 
 		menu->addChild(new MenuSeparator());
-		menu->addChild(createMenuLabel("Laser Modulation Standard"));
+		menu->addChild(createMenuLabel("Laser Modulation"));
 
 		static const char* laserLabels[] = {
-			"0V to 5V (ILDA Analog Modulation)",
-			"0V to 1V (Diode Standard)",
-			"0V to 10V (Eurorack CV Standard)"
+			"0V to 5V",
+			"0V to 1V",
+			"0V to 10V"
 		};
 
-		for (int i = 0; i < Persephone::LASER_LEN; ++i) {
-			Persephone::LaserRange lr = (Persephone::LaserRange)i;
+		for (int i = 0; i < Soteria::LASER_LEN; ++i) {
+			Soteria::LaserRange lr = (Soteria::LaserRange)i;
 			menu->addChild(createCheckMenuItem(laserLabels[i], "",
 				[=]() { return mod->laserRange == lr; },
 				[=]() { mod->laserRange = lr; }
@@ -584,7 +672,7 @@ struct PersephoneWidget : ModuleWidget {
 		};
 
 		for (int i = 0; i < 3; ++i) {
-			Persephone::SkinTheme theme = (Persephone::SkinTheme)i;
+			Soteria::SkinTheme theme = (Soteria::SkinTheme)i;
 			menu->addChild(createCheckMenuItem(skinLabels[i], "",
 				[=]() { return mod->skinTheme == theme; },
 				[=]() {
@@ -595,64 +683,59 @@ struct PersephoneWidget : ModuleWidget {
 		}
 	}
 
-	PersephoneWidget(Persephone* module) {
+	SoteriaWidget(Soteria* module) {
 		setModule(module);
 		panel = new SvgPanel();
-		Persephone::SkinTheme initTheme = module ? module->skinTheme : Persephone::THEME_MEDIUM;
+		Soteria::SkinTheme initTheme = module ? module->skinTheme : Soteria::THEME_MEDIUM;
 		currentTheme = initTheme;
 		std::string initPath;
 		switch (initTheme) {
-			case Persephone::THEME_LIGHT:
-				initPath = asset::plugin(pluginInstance, "res/Persephone_Light.svg");
+			case Soteria::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Soteria_Light.svg");
 				break;
-			case Persephone::THEME_DARK:
-				initPath = asset::plugin(pluginInstance, "res/Persephone_Dark.svg");
+			case Soteria::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Soteria_Dark.svg");
 				break;
-			case Persephone::THEME_MEDIUM:
+			case Soteria::THEME_MEDIUM:
 			default:
-				initPath = asset::plugin(pluginInstance, "res/Persephone.svg");
+				initPath = asset::plugin(pluginInstance, "res/Soteria.svg");
 				break;
 		}
 		panel->setBackground(Svg::load(initPath));
 		setPanel(panel);
 
-		float col0 = 7.00f;
-		float col1 = 20.32f;
-		float col2 = 33.64f;
+		float colIn = 5.20f;
+		float colOut = 15.12f;
 
-		// Zone 2: ARM Button & Halo at Y = 17.50 mm
-		float btnY = 17.50f;
-		addChild(createLightCentered<PersephoneArmLightRing>(mm2px(Vec(col1, btnY)), module, Persephone::ARM_LIGHT));
-		addParam(createParamCentered<PersephoneButton>(mm2px(Vec(col1, btnY)), module, Persephone::ARM_PARAM));
+		// ROW 1: SCAN, GALVO, TEMP LEDs at Y = 18.20 mm
+		float ledY = 18.20f;
+		addChild(createLightCentered<SoteriaStatusLed>(mm2px(Vec(4.20f, ledY)), module, Soteria::SCAN_LIGHT_R));
+		addChild(createLightCentered<SoteriaStatusLed>(mm2px(Vec(10.16f, ledY)), module, Soteria::GALVO_LIGHT_R));
+		addChild(createLightCentered<SoteriaStatusLed>(mm2px(Vec(16.12f, ledY)), module, Soteria::TEMP_LIGHT_R));
 
-		// Status LEDs at Y = 28.50 mm
-		float ledY = 28.50f;
-		addChild(createLightCentered<MediumLight<GreenLight>>(mm2px(Vec(10.50f, ledY)), module, Persephone::SAFE_LIGHT));
-		addChild(createLightCentered<MediumLight<RedLight>>(mm2px(Vec(17.00f, ledY)), module, Persephone::FAIL_LIGHT));
-		addChild(createLightCentered<MediumLight<YellowLight>>(mm2px(Vec(23.64f, ledY)), module, Persephone::SLEW_LIGHT));
-		addChild(createLightCentered<MediumLight<RedLight>>(mm2px(Vec(30.14f, ledY)), module, Persephone::TEMP_LIGHT));
+		// ROW 2: E-STOP button with red halo when active, and E-STOP GATE CV Jack at Y = 36.00 mm
+		float btnY = 36.00f;
+		addChild(createLightCentered<SoteriaEstopRing>(mm2px(Vec(colIn, btnY)), module, Soteria::ESTOP_LIGHT));
+		addParam(createParamCentered<SoteriaButton>(mm2px(Vec(colIn, btnY)), module, Soteria::ESTOP_PARAM));
+		addInput(createInputCentered<SoteriaPort>(mm2px(Vec(colOut, btnY)), module, Soteria::ESTOP_CV_INPUT));
 
-		// Interlock Arm Gate Jack at Y = 39.50 mm
-		float gateY = 39.50f;
-		addInput(createInputCentered<PersephonePort>(mm2px(Vec(col1, gateY)), module, Persephone::ARM_CV_INPUT));
-
-		// Zone 4: 5 Jack Rows (Row 0 at 65.00mm, Row 1 at 78.00mm, Row 2 at 91.00mm, Row 3 at 104.00mm, Row 4 at 117.00mm)
+		// ROW 3-7: XYRGB in/outs (Row 3 at 65.00mm, Row 4 at 78.00mm, Row 5 at 91.00mm, Row 6 at 104.00mm, Row 7 at 117.00mm)
 		float jackRows[5] = {65.00f, 78.00f, 91.00f, 104.00f, 117.00f};
 
 		// Left Column: Inputs (X, Y, R, G, B)
-		addInput(createInputCentered<PersephonePort>(mm2px(Vec(col0, jackRows[0])), module, Persephone::X_INPUT));
-		addInput(createInputCentered<PersephonePort>(mm2px(Vec(col0, jackRows[1])), module, Persephone::Y_INPUT));
-		addInput(createInputCentered<PersephonePort>(mm2px(Vec(col0, jackRows[2])), module, Persephone::R_INPUT));
-		addInput(createInputCentered<PersephonePort>(mm2px(Vec(col0, jackRows[3])), module, Persephone::G_INPUT));
-		addInput(createInputCentered<PersephonePort>(mm2px(Vec(col0, jackRows[4])), module, Persephone::B_INPUT));
+		addInput(createInputCentered<SoteriaPort>(mm2px(Vec(colIn, jackRows[0])), module, Soteria::X_INPUT));
+		addInput(createInputCentered<SoteriaPort>(mm2px(Vec(colIn, jackRows[1])), module, Soteria::Y_INPUT));
+		addInput(createInputCentered<SoteriaPort>(mm2px(Vec(colIn, jackRows[2])), module, Soteria::R_INPUT));
+		addInput(createInputCentered<SoteriaPort>(mm2px(Vec(colIn, jackRows[3])), module, Soteria::G_INPUT));
+		addInput(createInputCentered<SoteriaPort>(mm2px(Vec(colIn, jackRows[4])), module, Soteria::B_INPUT));
 
 		// Right Column: Outputs (X, Y, R, G, B)
-		addOutput(createOutputCentered<PersephonePort>(mm2px(Vec(col2, jackRows[0])), module, Persephone::X_OUTPUT));
-		addOutput(createOutputCentered<PersephonePort>(mm2px(Vec(col2, jackRows[1])), module, Persephone::Y_OUTPUT));
-		addOutput(createOutputCentered<PersephonePort>(mm2px(Vec(col2, jackRows[2])), module, Persephone::R_OUTPUT));
-		addOutput(createOutputCentered<PersephonePort>(mm2px(Vec(col2, jackRows[3])), module, Persephone::G_OUTPUT));
-		addOutput(createOutputCentered<PersephonePort>(mm2px(Vec(col2, jackRows[4])), module, Persephone::B_OUTPUT));
+		addOutput(createOutputCentered<SoteriaPort>(mm2px(Vec(colOut, jackRows[0])), module, Soteria::X_OUTPUT));
+		addOutput(createOutputCentered<SoteriaPort>(mm2px(Vec(colOut, jackRows[1])), module, Soteria::Y_OUTPUT));
+		addOutput(createOutputCentered<SoteriaPort>(mm2px(Vec(colOut, jackRows[2])), module, Soteria::R_OUTPUT));
+		addOutput(createOutputCentered<SoteriaPort>(mm2px(Vec(colOut, jackRows[3])), module, Soteria::G_OUTPUT));
+		addOutput(createOutputCentered<SoteriaPort>(mm2px(Vec(colOut, jackRows[4])), module, Soteria::B_OUTPUT));
 	}
 };
 
-Model* modelPersephone = createModel<Persephone, PersephoneWidget>("Persephone");
+Model* modelSoteria = createModel<Soteria, SoteriaWidget>("Soteria");
