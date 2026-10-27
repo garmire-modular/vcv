@@ -65,11 +65,10 @@ struct Salus : Module {
 		THEME_DARK
 	};
 
-	enum LedColorState {
-		LED_GREEN = 0,
-		LED_YELLOW = 1,
-		LED_AMBER = 2,
-		LED_RED = 3
+	enum StatusLedColor {
+		STATUS_LED_GREEN = 0,
+		STATUS_LED_YELLOW = 1,
+		STATUS_LED_AMBER = 2
 	};
 
 	enum ParamId {
@@ -145,10 +144,12 @@ struct Salus : Module {
 	float bBuf[DELAY_BUF_SIZE] = {0.0f};
 	int delayWriteIndex = 0;
 
-	// 4-state stop-light indicators (GREEN, YELLOW, AMBER, RED)
-	LedColorState scanLedState = LED_GREEN;
-	LedColorState galvoLedState = LED_GREEN;
-	LedColorState tempLedState = LED_GREEN;
+	// Dual-column indicator state (0=SCAN, 1=GALVO, 2=TEMP)
+	// Col 1: Status LED (Green -> Yellow -> Amber with cooldown)
+	// Col 2: Trip LED (Red latch with 2.0s slow fade release)
+	StatusLedColor statusLedState[3] = {STATUS_LED_GREEN, STATUS_LED_GREEN, STATUS_LED_GREEN};
+	float statusCooldown[3] = {0.0f, 0.0f, 0.0f};
+	float tripLedBrightness[3] = {0.0f, 0.0f, 0.0f};
 
 	Salus() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -259,21 +260,8 @@ struct Salus : Module {
 			galvoY = inY;
 		}
 
-		// GALVO LED evaluation (Slew / Step distance vs limit)
-		// Green: normal (< 80%)
-		// Yellow: within 20% (80% - 90%)
-		// Amber: within 10% (90% - 100%)
-		// Red: exceeded (>= 100% / slew limiter active)
+		// GALVO slew ratio vs limit
 		float galvoRatio = (maxStepDistance > 1e-7f) ? (dist / maxStepDistance) : 0.0f;
-		if (slewActive || galvoRatio >= 1.0f) {
-			galvoLedState = LED_RED;
-		} else if (galvoRatio >= 0.90f) {
-			galvoLedState = LED_AMBER;
-		} else if (galvoRatio >= 0.80f) {
-			galvoLedState = LED_YELLOW;
-		} else {
-			galvoLedState = LED_GREEN;
-		}
 
 		// 5. Galvo Mechanical Inertia (Critically damped 2nd-order lowpass filter)
 		float fc = clampf(0.5f * pps, 100.0f, 0.45f * args.sampleRate);
@@ -299,12 +287,13 @@ struct Salus : Module {
 		float alphaScan = 1.0f - std::exp(-dt / 0.010f);
 		smoothedVelocity += alphaScan * (instVelocity - smoothedVelocity);
 
+		bool isPatched = inputs[X_INPUT].isConnected() || inputs[Y_INPUT].isConnected();
+		float dwellTimeout = getDwellTimeout();
+
 		if (scanFailMode == SCANFAIL_DISABLED) {
 			scanFailTripped = false;
 			stationaryTimer = 0.0f;
-			scanLedState = LED_GREEN;
 		} else {
-			bool isPatched = inputs[X_INPUT].isConnected() || inputs[Y_INPUT].isConnected();
 			float laserSum = std::fabs(inputs[R_INPUT].getVoltage()) +
 			                 std::fabs(inputs[G_INPUT].getVoltage()) +
 			                 std::fabs(inputs[B_INPUT].getVoltage());
@@ -314,12 +303,10 @@ struct Salus : Module {
 				if (laserSum > 0.05f) {
 					// Danger: lasers firing with unpatched scanners (stationary center hot spot)
 					scanFailTripped = true;
-					scanLedState = LED_RED;
 				} else {
-					// Normal unpatched standby: healthy green
+					// Normal unpatched standby
 					scanFailTripped = false;
 					stationaryTimer = 0.0f;
-					scanLedState = LED_GREEN;
 				}
 			} else {
 				// Scanners patched: check for stationary beam
@@ -327,22 +314,10 @@ struct Salus : Module {
 				bool isParkedAtZero = (std::fabs(outX) < 0.05f && std::fabs(outY) < 0.05f && instVelocity < 1.0f);
 				bool isStationary = (instVelocity < 0.25f) || isParkedAtZero;
 
-				float dwellTimeout = getDwellTimeout();
-
 				if (isStationary) {
 					stationaryTimer += dt;
 					if (stationaryTimer >= dwellTimeout) {
 						scanFailTripped = true;
-						scanLedState = LED_RED;
-					} else {
-						float ratio = stationaryTimer / dwellTimeout;
-						if (ratio >= 0.90f) {
-							scanLedState = LED_AMBER; // within 10% of cutoff
-						} else if (ratio >= 0.80f) {
-							scanLedState = LED_YELLOW; // within 20% of cutoff
-						} else {
-							scanLedState = LED_GREEN;
-						}
 					}
 				} else {
 					// Beam is moving (active scanning)
@@ -357,16 +332,6 @@ struct Salus : Module {
 						if (scanFailRecoveryTimer > (int)(0.002f * args.sampleRate)) {
 							scanFailTripped = false;
 							scanFailRecoveryTimer = 0;
-						}
-						scanLedState = LED_RED;
-					} else {
-						// Check velocity caution margins above stationary threshold (0.25 V/s)
-						if (smoothedVelocity < 0.50f) {
-							scanLedState = LED_AMBER; // very close to stall
-						} else if (smoothedVelocity < 1.00f) {
-							scanLedState = LED_YELLOW; // slow motion caution
-						} else {
-							scanLedState = LED_GREEN; // healthy active scanning
 						}
 					}
 				}
@@ -400,22 +365,74 @@ struct Salus : Module {
 		thermalStress += alphaThermal * (normStress - thermalStress);
 		if (thermalStress < 0.0f) thermalStress = 0.0f;
 
-		// TEMP LED evaluation (Thermal load vs 1.0 limit)
-		if (thermalStress >= 1.0f) {
-			tempLedState = LED_RED;
-		} else if (thermalStress >= 0.90f) {
-			tempLedState = LED_AMBER;
-		} else if (thermalStress >= 0.80f) {
-			tempLedState = LED_YELLOW;
-		} else {
-			tempLedState = LED_GREEN;
+		// 9. Dual-Column LED State Determination (0=SCAN, 1=GALVO, 2=TEMP)
+		// Col 1 (Status): Green -> Yellow -> Amber with cooldown smoothing
+		// Col 2 (Trip): Red latch while tripped + 2.0s slow fade release
+		StatusLedColor targetStatus[3] = {STATUS_LED_GREEN, STATUS_LED_GREEN, STATUS_LED_GREEN};
+		bool tripActive[3] = {false, false, false};
+
+		// --- Channel 0: SCAN ---
+		tripActive[0] = scanFailTripped || eStopped;
+		if (scanFailMode != SCANFAIL_DISABLED) {
+			float dwellRatio = (dwellTimeout > 1e-5f) ? (stationaryTimer / dwellTimeout) : 0.0f;
+			if (dwellRatio >= 0.90f || (isPatched && smoothedVelocity < 0.50f)) {
+				targetStatus[0] = STATUS_LED_AMBER;
+			} else if (dwellRatio >= 0.80f || (isPatched && smoothedVelocity < 1.00f)) {
+				targetStatus[0] = STATUS_LED_YELLOW;
+			} else {
+				targetStatus[0] = STATUS_LED_GREEN;
+			}
 		}
 
-		// When E-STOP is active, all 3 status indicators indicate full blackout / emergency stop (RED)
-		if (eStopped) {
-			scanLedState = LED_RED;
-			galvoLedState = LED_RED;
-			tempLedState = LED_RED;
+		// --- Channel 1: GALVO ---
+		tripActive[1] = slewActive || (galvoRatio >= 1.0f) || eStopped;
+		if (galvoRatio >= 0.90f) {
+			targetStatus[1] = STATUS_LED_AMBER;
+		} else if (galvoRatio >= 0.80f) {
+			targetStatus[1] = STATUS_LED_YELLOW;
+		} else {
+			targetStatus[1] = STATUS_LED_GREEN;
+		}
+
+		// --- Channel 2: TEMP ---
+		tripActive[2] = (thermalStress >= 1.0f) || eStopped;
+		if (thermalStress >= 0.90f) {
+			targetStatus[2] = STATUS_LED_AMBER;
+		} else if (thermalStress >= 0.80f) {
+			targetStatus[2] = STATUS_LED_YELLOW;
+		} else {
+			targetStatus[2] = STATUS_LED_GREEN;
+		}
+
+		// Apply Cooldown Smoothing on Status LEDs and 2.0s Release Fade on Trip LEDs
+		for (int ch = 0; ch < 3; ++ch) {
+			StatusLedColor tgt = targetStatus[ch];
+			if (tgt > statusLedState[ch]) {
+				// Immediate warning upgrade
+				statusLedState[ch] = tgt;
+				statusCooldown[ch] = 0.25f; // 250ms hold
+			} else if (tgt < statusLedState[ch]) {
+				// Cooldown hold before downgrading
+				if (statusCooldown[ch] > 0.0f) {
+					statusCooldown[ch] -= dt;
+				} else {
+					statusLedState[ch] = tgt;
+				}
+			} else {
+				if (statusLedState[ch] != STATUS_LED_GREEN) {
+					statusCooldown[ch] = 0.25f;
+				}
+			}
+
+			// Red Trip LED: latches full red when active, then 2.0s linear fade release
+			if (tripActive[ch]) {
+				tripLedBrightness[ch] = 1.0f;
+			} else if (tripLedBrightness[ch] > 0.0f) {
+				tripLedBrightness[ch] -= dt / 2.0f; // 2.0s linear decay
+				if (tripLedBrightness[ch] < 0.0f) {
+					tripLedBrightness[ch] = 0.0f;
+				}
+			}
 		}
 
 		// 9. Color delay alignment buffer
@@ -510,49 +527,42 @@ struct SalusRedButton : app::SvgSwitch {
 	}
 };
 
-struct Salus4mmLed : Widget {
+struct SalusStatusLed : Widget {
 	Salus* module = nullptr;
 	int channel = 0; // 0=SCAN, 1=GALVO, 2=TEMP
 	int imgGreen = 0;
 	int imgYellow = 0;
 	int imgAmber = 0;
-	int imgRed = 0;
 	std::shared_ptr<Svg> svgGreen;
 	std::shared_ptr<Svg> svgYellow;
 	std::shared_ptr<Svg> svgAmber;
-	std::shared_ptr<Svg> svgRed;
 
-	Salus4mmLed(Salus* mod, int ch) : module(mod), channel(ch) {
+	SalusStatusLed(Salus* mod, int ch) : module(mod), channel(ch) {
 		box.size = mm2px(Vec(4.0f, 4.0f));
 		svgGreen = Svg::load(asset::plugin(pluginInstance, "res/led_4mm_green.svg"));
 		svgYellow = Svg::load(asset::plugin(pluginInstance, "res/led_4mm_yellow.svg"));
 		svgAmber = Svg::load(asset::plugin(pluginInstance, "res/led_4mm_amber.svg"));
-		svgRed = Svg::load(asset::plugin(pluginInstance, "res/led_4mm_red.svg"));
 	}
 
 	void draw(const DrawArgs& args) override {
-		Salus::LedColorState state = Salus::LED_GREEN;
+		Salus::StatusLedColor state = Salus::STATUS_LED_GREEN;
 		if (module) {
-			if (channel == 0) state = module->scanLedState;
-			else if (channel == 1) state = module->galvoLedState;
-			else if (channel == 2) state = module->tempLedState;
+			state = module->statusLedState[channel];
 		}
 
 		if (imgGreen <= 0) {
 			imgGreen = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_green.png").c_str(), 0);
 			imgYellow = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_yellow.png").c_str(), 0);
 			imgAmber = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_amber.png").c_str(), 0);
-			imgRed = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_red.png").c_str(), 0);
 		}
 
 		int activeImg = imgGreen;
 		std::shared_ptr<Svg> activeSvg = svgGreen;
 		switch (state) {
-			case Salus::LED_YELLOW: activeImg = imgYellow; activeSvg = svgYellow; break;
-			case Salus::LED_AMBER:  activeImg = imgAmber;  activeSvg = svgAmber;  break;
-			case Salus::LED_RED:    activeImg = imgRed;    activeSvg = svgRed;    break;
-			case Salus::LED_GREEN:
-			default:                activeImg = imgGreen;  activeSvg = svgGreen;  break;
+			case Salus::STATUS_LED_YELLOW: activeImg = imgYellow; activeSvg = svgYellow; break;
+			case Salus::STATUS_LED_AMBER:  activeImg = imgAmber;  activeSvg = svgAmber;  break;
+			case Salus::STATUS_LED_GREEN:
+			default:                       activeImg = imgGreen;  activeSvg = svgGreen;  break;
 		}
 
 		if (activeImg > 0) {
@@ -571,6 +581,46 @@ struct Salus4mmLed : Widget {
 			svgDraw(args.vg, activeSvg->handle);
 			nvgRestore(args.vg);
 		}
+	}
+};
+
+struct SalusTripLed : Widget {
+	Salus* module = nullptr;
+	int channel = 0; // 0=SCAN, 1=GALVO, 2=TEMP
+	int imgRed = 0;
+	std::shared_ptr<Svg> svgRed;
+
+	SalusTripLed(Salus* mod, int ch) : module(mod), channel(ch) {
+		box.size = mm2px(Vec(4.0f, 4.0f));
+		svgRed = Svg::load(asset::plugin(pluginInstance, "res/led_4mm_red.svg"));
+	}
+
+	void draw(const DrawArgs& args) override {
+		float b = module ? module->tripLedBrightness[channel] : 0.0f;
+		if (b <= 0.005f) {
+			return; // Unlit / dark
+		}
+
+		if (imgRed <= 0) {
+			imgRed = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_red.png").c_str(), 0);
+		}
+
+		nvgSave(args.vg);
+		nvgGlobalAlpha(args.vg, clampf(b, 0.0f, 1.0f));
+
+		if (imgRed > 0) {
+			NVGpaint imgPaint = nvgImagePattern(args.vg, 0.0f, 0.0f, box.size.x, box.size.y, 0.0f, imgRed, 1.0f);
+			nvgBeginPath(args.vg);
+			nvgRect(args.vg, 0.0f, 0.0f, box.size.x, box.size.y);
+			nvgFillPaint(args.vg, imgPaint);
+			nvgFill(args.vg);
+		} else if (svgRed && svgRed->handle) {
+			float sx = box.size.x / svgRed->handle->width;
+			float sy = box.size.y / svgRed->handle->height;
+			nvgScale(args.vg, sx, sy);
+			svgDraw(args.vg, svgRed->handle);
+		}
+		nvgRestore(args.vg);
 	}
 };
 
@@ -739,13 +789,18 @@ struct SalusWidget : ModuleWidget {
 		float colIn = 5.20f;
 		float colOut = 15.12f;
 
-		// 3 LED Layers (Layout: LABEL on left, LED on right at Y = 17.50, 24.50, 31.50 mm)
-		float ledYs[3] = {17.50f, 24.50f, 31.50f};
+		// 3 Dual-Column LED Rows at Y = 18.00, 26.00, 34.00 mm
+		// Col 1 (colIn): Status LED (Green -> Yellow -> Amber with 250ms cooldown hold)
+		// Col 2 (colOut): Trip LED (Red latch with 2.0s slow fade release)
+		float ledYs[3] = {18.00f, 26.00f, 34.00f};
 		for (int ch = 0; ch < 3; ++ch) {
-			Vec posPx = mm2px(Vec(colOut, ledYs[ch]));
-			auto* led = new Salus4mmLed(module, ch);
-			led->box.pos = posPx.minus(led->box.size.div(2.0f));
-			addChild(led);
+			auto* statusLed = new SalusStatusLed(module, ch);
+			statusLed->box.pos = mm2px(Vec(colIn, ledYs[ch])).minus(statusLed->box.size.div(2.0f));
+			addChild(statusLed);
+
+			auto* tripLed = new SalusTripLed(module, ch);
+			tripLed->box.pos = mm2px(Vec(colOut, ledYs[ch])).minus(tripLed->box.size.div(2.0f));
+			addChild(tripLed);
 		}
 
 		// E-STOP Section at Y = 45.00 mm: Red button (colIn) + GATE CV Jack (colOut)
