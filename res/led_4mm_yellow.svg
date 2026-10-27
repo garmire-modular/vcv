@@ -1,1 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 11.34 11.34"><defs><style>.cls-1{fill:url(#radial-gradient);}.cls-2{fill:#ccc900;}</style><radialGradient id="radial-gradient" cx="5.67" cy="5.67" r="5.42" gradientUnits="userSpaceOnUse"><stop offset="0.04" stop-color="#fff"/><stop offset="0.73" stop-color="#d9d611"/></radialGradient></defs><g id="Layer_2" data-name="Layer 2"><g id="Components"><path class="cls-1" d="M5.67,11.09a5.42,5.42,0,1,1,5.42-5.42A5.42,5.42,0,0,1,5.67,11.09Z"/><path class="cls-2" d="M5.67.5A5.17,5.17,0,1,1,.5,5.67,5.18,5.18,0,0,1,5.67.5m0-.5a5.67,5.67,0,1,0,5.67,5.67A5.67,5.67,0,0,0,5.67,0Z"/></g></g></svg>
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="11.34px" height="11.34px" viewBox="0 0 11.34 11.34">
+  <defs>
+    <radialGradient id="radial-gradient" cx="5.67" cy="5.67" r="5.42" gradientUnits="userSpaceOnUse">
+      <stop offset="0.04" stop-color="#ffffff"/>
+      <stop offset="0.73" stop-color="#d9d611"/>
+    </radialGradient>
+  </defs>
+  <g id="Layer_2" data-name="Layer 2">
+    <g id="Components">
+      <path fill="url(#radial-gradient)" d="M5.67,11.09a5.42,5.42,0,1,1,5.42-5.42A5.42,5.42,0,0,1,5.67,11.09Z"/>
+      <path fill="#ccc900" d="M5.67.5A5.17,5.17,0,1,1,.5,5.67,5.18,5.18,0,0,1,5.67.5m0-.5a5.67,5.67,0,1,0,5.67,5.67A5.67,5.67,0,0,0,5.67,0Z"/>
+    </g>
+  </g>
+</svg>

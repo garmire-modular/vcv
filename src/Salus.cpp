@@ -303,9 +303,9 @@ struct Salus : Module {
 		} else {
 			bool isPatched = inputs[X_INPUT].isConnected() || inputs[Y_INPUT].isConnected();
 			if (!isPatched) {
-				// Unpatched / no signal: stationary beam protection active (RED)
-				scanFailTripped = true;
-				scanLedState = LED_RED;
+				// Standby / unpatched: normal green idle
+				scanFailTripped = false;
+				scanLedState = LED_GREEN;
 			} else if (smoothedVelocity < minVelocityThreshold) {
 				scanFailTripped = true;
 				scanFailRecoveryTimer = 0;
@@ -367,6 +367,13 @@ struct Salus : Module {
 			tempLedState = LED_YELLOW;
 		} else {
 			tempLedState = LED_GREEN;
+		}
+
+		// When E-STOP is active, all 3 status indicators indicate full blackout / emergency stop (RED)
+		if (eStopped) {
+			scanLedState = LED_RED;
+			galvoLedState = LED_RED;
+			tempLedState = LED_RED;
 		}
 
 		// 9. Color delay alignment buffer
