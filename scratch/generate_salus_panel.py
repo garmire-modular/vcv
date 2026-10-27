@@ -84,8 +84,8 @@ def generate_panel(skin):
     
     # Header: Full-sized Title "SALUS" (16pt D-DIN-Bold) at Y = 8.000 mm, centered at col_mid
     svg.append(render_text(ddin_bold, 'SALUS', col_mid, 8.000, 16.0, title_color))
-    # Version tag "v1.0.0" at Y = 11.80 mm
-    svg.append(render_text(quicksand, 'v1.0.0', panel_w - 1.80, 11.80, 4.0, version_color))
+    # Version tag "v1.0.1" at Y = 11.80 mm
+    svg.append(render_text(quicksand, 'v1.0.1', panel_w - 1.80, 11.80, 4.0, version_color))
     
     # Three LED Layers across Rows (Layout: LABEL on left, LED on right)
     # Layer 1: SCAN at Y = 17.50 mm (Label baseline Y = 18.50 mm)

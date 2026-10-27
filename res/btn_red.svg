@@ -1,26 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="28px" height="28px" viewBox="0 0 28 28">
+<svg xmlns="http://www.w3.org/2000/svg" width="26.58px" height="26.58px" viewBox="0 0 26.58 26.58">
   <defs>
-    <linearGradient id="linear-gradient" x1="-1040.79" y1="-1288.95" x2="-1015.18" y2="-1288.95" gradientTransform="translate(-1274.95 1041.98) rotate(90)" gradientUnits="userSpaceOnUse">
+    <linearGradient id="btn-rim-grad" x1="13.29" y1="1.14" x2="13.29" y2="25.44" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#f53333"/>
       <stop offset="1" stop-color="#0a0a0a"/>
     </linearGradient>
-    <linearGradient id="linear-gradient-2" x1="-750.34" y1="-268.51" x2="-726.77" y2="-268.51" gradientTransform="translate(-254.51 752.55) rotate(90)" gradientUnits="userSpaceOnUse">
+    <linearGradient id="btn-cap-grad" x1="13.29" y1="2.11" x2="13.29" y2="24.47" gradientUnits="userSpaceOnUse">
       <stop offset="0.01" stop-color="#990b0b"/>
       <stop offset="1" stop-color="#872929"/>
     </linearGradient>
   </defs>
-  <g id="Layer_2" data-name="Layer 2">
-    <g id="Text">
-      <g id="g5959-5">
-        <path id="path5961-3" fill="#660000" d="M28,14A14,14,0,1,1,14,0,14,14,0,0,1,28,14"/>
-      </g>
-      <g id="g5959-5-2" data-name="g5959-5">
-        <path id="path5961-3-2" fill="url(#linear-gradient)" d="M1.2,14A12.8,12.8,0,1,1,14,26.8,12.8,12.8,0,0,1,1.2,14"/>
-      </g>
-      <g id="g5959-5-3" data-name="g5959-5">
-        <path id="path5961-3-3" fill="url(#linear-gradient-2)" d="M14,2.22A11.78,11.78,0,1,1,2.22,14,11.77,11.77,0,0,1,14,2.22"/>
-      </g>
-    </g>
-  </g>
+  <circle cx="13.29" cy="13.29" r="13.29" fill="#660000" />
+  <circle cx="13.29" cy="13.29" r="12.15" fill="url(#btn-rim-grad)" />
+  <circle cx="13.29" cy="13.29" r="11.18" fill="url(#btn-cap-grad)" />
 </svg>

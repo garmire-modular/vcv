@@ -125,8 +125,9 @@ struct Salus : Module {
 	float filterY1 = 0.0f;
 	float filterY2 = 0.0f;
 
-	// Scan-fail leaky integrator
+	// Scan-fail leaky integrator & stationary dwell timer
 	float smoothedVelocity = 200.0f;
+	float stationaryTimer = 0.0f;
 	bool scanFailTripped = false;
 	int scanFailRecoveryTimer = 0;
 
@@ -195,6 +196,15 @@ struct Salus : Module {
 			case LASER_0_10V: return 10.0f;
 			case LASER_0_5V:
 			default:          return 5.0f;
+		}
+	}
+
+	float getDwellTimeout() const {
+		switch (scanFailMode) {
+			case SCANFAIL_STRICT:  return 0.010f; // 10 ms
+			case SCANFAIL_RELAXED: return 0.100f; // 100 ms
+			case SCANFAIL_NORMAL:
+			default:               return 0.030f; // 30 ms
 		}
 	}
 
@@ -278,54 +288,86 @@ struct Salus : Module {
 		float outX = clampf(filterX2, -maxTrajV, maxTrajV);
 		float outY = clampf(filterY2, -maxTrajV, maxTrajV);
 
-		// 6. Instantaneous velocity and scan-fail evaluation
+		// 6. Instantaneous velocity and stationary beam (scan-fail) safety
 		float stepX = outX - galvoVx;
 		float stepY = outY - galvoVy;
 		galvoVx = outX;
 		galvoVy = outY;
 		float instVelocity = std::sqrt(stepX * stepX + stepY * stepY) * args.sampleRate;
 
-		// Scan-fail leaky integration
-		float tauScanFail = 0.003f;
-		if (scanFailMode == SCANFAIL_STRICT) {
-			tauScanFail = 0.001f;
-		} else if (scanFailMode == SCANFAIL_RELAXED) {
-			tauScanFail = 0.010f;
-		}
-		float alphaScan = 1.0f - std::exp(-dt / tauScanFail);
+		// Smooth velocity with a 10ms leaky integrator for warning stability
+		float alphaScan = 1.0f - std::exp(-dt / 0.010f);
 		smoothedVelocity += alphaScan * (instVelocity - smoothedVelocity);
 
-		// Velocity threshold for stationary beam safety (~3% full scale per ms at 30k)
-		float minVelocityThreshold = 0.03f * vpp * 1000.0f * (pps / 30000.0f);
 		if (scanFailMode == SCANFAIL_DISABLED) {
 			scanFailTripped = false;
+			stationaryTimer = 0.0f;
 			scanLedState = LED_GREEN;
 		} else {
 			bool isPatched = inputs[X_INPUT].isConnected() || inputs[Y_INPUT].isConnected();
+			float laserSum = std::fabs(inputs[R_INPUT].getVoltage()) +
+			                 std::fabs(inputs[G_INPUT].getVoltage()) +
+			                 std::fabs(inputs[B_INPUT].getVoltage());
+
 			if (!isPatched) {
-				// Standby / unpatched: normal green idle
-				scanFailTripped = false;
-				scanLedState = LED_GREEN;
-			} else if (smoothedVelocity < minVelocityThreshold) {
-				scanFailTripped = true;
-				scanFailRecoveryTimer = 0;
-				scanLedState = LED_RED;
-			} else {
-				if (scanFailTripped) {
-					scanFailRecoveryTimer++;
-					if (scanFailRecoveryTimer > (int)(0.002f * args.sampleRate)) {
-						scanFailTripped = false;
-					}
+				// Scanner inputs not connected
+				if (laserSum > 0.05f) {
+					// Danger: lasers firing with unpatched scanners (stationary center hot spot)
+					scanFailTripped = true;
 					scanLedState = LED_RED;
 				} else {
-					// Velocity margin approaching stall
-					float margin = smoothedVelocity / (minVelocityThreshold + 1e-4f);
-					if (margin < 1.10f) {
-						scanLedState = LED_AMBER; // within 10%
-					} else if (margin < 1.25f) {
-						scanLedState = LED_YELLOW; // within 20%
+					// Normal unpatched standby: healthy green
+					scanFailTripped = false;
+					stationaryTimer = 0.0f;
+					scanLedState = LED_GREEN;
+				}
+			} else {
+				// Scanners patched: check for stationary beam
+				// Truly stationary beam: velocity < 0.25 V/s, OR beam parked at center (0,0) with velocity < 1.0 V/s
+				bool isParkedAtZero = (std::fabs(outX) < 0.05f && std::fabs(outY) < 0.05f && instVelocity < 1.0f);
+				bool isStationary = (instVelocity < 0.25f) || isParkedAtZero;
+
+				float dwellTimeout = getDwellTimeout();
+
+				if (isStationary) {
+					stationaryTimer += dt;
+					if (stationaryTimer >= dwellTimeout) {
+						scanFailTripped = true;
+						scanLedState = LED_RED;
 					} else {
-						scanLedState = LED_GREEN; // normal
+						float ratio = stationaryTimer / dwellTimeout;
+						if (ratio >= 0.90f) {
+							scanLedState = LED_AMBER; // within 10% of cutoff
+						} else if (ratio >= 0.80f) {
+							scanLedState = LED_YELLOW; // within 20% of cutoff
+						} else {
+							scanLedState = LED_GREEN;
+						}
+					}
+				} else {
+					// Beam is moving (active scanning)
+					if (stationaryTimer > 0.0f) {
+						stationaryTimer -= 4.0f * dt;
+						if (stationaryTimer < 0.0f) stationaryTimer = 0.0f;
+					}
+
+					if (scanFailTripped) {
+						// Recover once beam has sustained motion for a few samples
+						scanFailRecoveryTimer++;
+						if (scanFailRecoveryTimer > (int)(0.002f * args.sampleRate)) {
+							scanFailTripped = false;
+							scanFailRecoveryTimer = 0;
+						}
+						scanLedState = LED_RED;
+					} else {
+						// Check velocity caution margins above stationary threshold (0.25 V/s)
+						if (smoothedVelocity < 0.50f) {
+							scanLedState = LED_AMBER; // very close to stall
+						} else if (smoothedVelocity < 1.00f) {
+							scanLedState = LED_YELLOW; // slow motion caution
+						} else {
+							scanLedState = LED_GREEN; // healthy active scanning
+						}
 					}
 				}
 			}
@@ -464,23 +506,28 @@ struct SalusRedButton : app::SvgSwitch {
 	SalusRedButton() {
 		momentary = true;
 		addFrame(Svg::load(asset::plugin(pluginInstance, "res/btn_red.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance, "res/btn_red_pressed.svg")));
 	}
 };
 
 struct Salus4mmLed : Widget {
 	Salus* module = nullptr;
 	int channel = 0; // 0=SCAN, 1=GALVO, 2=TEMP
+	int imgGreen = 0;
+	int imgYellow = 0;
+	int imgAmber = 0;
+	int imgRed = 0;
 	std::shared_ptr<Svg> svgGreen;
 	std::shared_ptr<Svg> svgYellow;
 	std::shared_ptr<Svg> svgAmber;
 	std::shared_ptr<Svg> svgRed;
 
 	Salus4mmLed(Salus* mod, int ch) : module(mod), channel(ch) {
+		box.size = mm2px(Vec(4.0f, 4.0f));
 		svgGreen = Svg::load(asset::plugin(pluginInstance, "res/led_4mm_green.svg"));
 		svgYellow = Svg::load(asset::plugin(pluginInstance, "res/led_4mm_yellow.svg"));
 		svgAmber = Svg::load(asset::plugin(pluginInstance, "res/led_4mm_amber.svg"));
 		svgRed = Svg::load(asset::plugin(pluginInstance, "res/led_4mm_red.svg"));
-		box.size = Vec(11.34f, 11.34f);
 	}
 
 	void draw(const DrawArgs& args) override {
@@ -490,16 +537,39 @@ struct Salus4mmLed : Widget {
 			else if (channel == 1) state = module->galvoLedState;
 			else if (channel == 2) state = module->tempLedState;
 		}
-		std::shared_ptr<Svg> s = svgGreen;
-		switch (state) {
-			case Salus::LED_YELLOW: s = svgYellow; break;
-			case Salus::LED_AMBER:  s = svgAmber;  break;
-			case Salus::LED_RED:    s = svgRed;    break;
-			case Salus::LED_GREEN:
-			default:                s = svgGreen;  break;
+
+		if (imgGreen <= 0) {
+			imgGreen = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_green.png").c_str(), 0);
+			imgYellow = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_yellow.png").c_str(), 0);
+			imgAmber = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_amber.png").c_str(), 0);
+			imgRed = nvgCreateImage(args.vg, asset::plugin(pluginInstance, "res/led_4mm_red.png").c_str(), 0);
 		}
-		if (s && s->handle) {
-			svgDraw(args.vg, s->handle);
+
+		int activeImg = imgGreen;
+		std::shared_ptr<Svg> activeSvg = svgGreen;
+		switch (state) {
+			case Salus::LED_YELLOW: activeImg = imgYellow; activeSvg = svgYellow; break;
+			case Salus::LED_AMBER:  activeImg = imgAmber;  activeSvg = svgAmber;  break;
+			case Salus::LED_RED:    activeImg = imgRed;    activeSvg = svgRed;    break;
+			case Salus::LED_GREEN:
+			default:                activeImg = imgGreen;  activeSvg = svgGreen;  break;
+		}
+
+		if (activeImg > 0) {
+			nvgSave(args.vg);
+			NVGpaint imgPaint = nvgImagePattern(args.vg, 0.0f, 0.0f, box.size.x, box.size.y, 0.0f, activeImg, 1.0f);
+			nvgBeginPath(args.vg);
+			nvgRect(args.vg, 0.0f, 0.0f, box.size.x, box.size.y);
+			nvgFillPaint(args.vg, imgPaint);
+			nvgFill(args.vg);
+			nvgRestore(args.vg);
+		} else if (activeSvg && activeSvg->handle) {
+			nvgSave(args.vg);
+			float sx = box.size.x / activeSvg->handle->width;
+			float sy = box.size.y / activeSvg->handle->height;
+			nvgScale(args.vg, sx, sy);
+			svgDraw(args.vg, activeSvg->handle);
+			nvgRestore(args.vg);
 		}
 	}
 };
@@ -564,9 +634,9 @@ struct SalusWidget : ModuleWidget {
 		menu->addChild(createMenuLabel("Scan-Fail Protection"));
 
 		static const char* scanFailLabels[] = {
-			"Strict (1 ms)",
-			"Normal (3 ms)",
-			"Relaxed (10 ms)",
+			"Strict (10 ms)",
+			"Normal (30 ms)",
+			"Relaxed (100 ms)",
 			"Disabled"
 		};
 
