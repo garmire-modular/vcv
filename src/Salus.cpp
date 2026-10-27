@@ -104,11 +104,12 @@ struct Salus : Module {
 	ScanFailMode scanFailMode = SCANFAIL_NORMAL;
 	TrajectoryRange trajRange = TRAJ_BIPOLAR_5V;
 	LaserRange laserRange = LASER_0_5V;
-	JumpBlankingMode jumpBlanking = JUMP_BLANK_ON;
+	JumpBlankingMode jumpBlanking = JUMP_BLANK_OFF;
 	SkinTheme skinTheme = THEME_MEDIUM;
 
 	// E-Stop state
 	bool eStopped = false;
+	bool prevEStopped = false;
 	dsp::BooleanTrigger estopButtonTrigger;
 	dsp::SchmittTrigger estopGateTrigger;
 
@@ -128,7 +129,7 @@ struct Salus : Module {
 	float smoothedVelocity = 200.0f;
 	float stationaryTimer = 0.0f;
 	bool scanFailTripped = false;
-	int scanFailRecoveryTimer = 0;
+	float scanFailRecoveryTimer = 0.0f;
 
 	// Thermal coil stress integrator
 	float prevVelocity = 0.0f;
@@ -136,6 +137,7 @@ struct Salus : Module {
 
 	// Jump blanking active state
 	bool jumpActive = false;
+	float jumpTimer = 0.0f;
 
 	// Color delay compensation buffer (fixed 64 samples)
 	static const int DELAY_BUF_SIZE = 64;
@@ -169,6 +171,40 @@ struct Salus : Module {
 		configOutput(R_OUTPUT, "Red");
 		configOutput(G_OUTPUT, "Green");
 		configOutput(B_OUTPUT, "Blue");
+	}
+
+	void onReset() override {
+		eStopped = false;
+		prevEStopped = false;
+		params[ESTOP_PARAM].setValue(0.0f);
+		galvoX = 0.0f;
+		galvoY = 0.0f;
+		galvoVx = 0.0f;
+		galvoVy = 0.0f;
+		filterX1 = 0.0f;
+		filterX2 = 0.0f;
+		filterY1 = 0.0f;
+		filterY2 = 0.0f;
+		smoothedVelocity = 200.0f;
+		stationaryTimer = 0.0f;
+		scanFailTripped = false;
+		scanFailRecoveryTimer = 0.0f;
+		prevVelocity = 0.0f;
+		thermalStress = 0.0f;
+		jumpActive = false;
+		jumpTimer = 0.0f;
+		delayWriteIndex = 0;
+		for (int i = 0; i < DELAY_BUF_SIZE; ++i) {
+			rBuf[i] = 0.0f;
+			gBuf[i] = 0.0f;
+			bBuf[i] = 0.0f;
+		}
+		for (int ch = 0; ch < 3; ++ch) {
+			statusLedState[ch] = STATUS_LED_GREEN;
+			statusCooldown[ch] = 0.0f;
+			tripLedBrightness[ch] = 0.0f;
+			tripActive[ch] = false;
+		}
 	}
 
 	float getPointsPerSecond() const {
@@ -219,6 +255,14 @@ struct Salus : Module {
 			}
 		}
 		eStopped = (params[ESTOP_PARAM].getValue() > 0.5f);
+
+		// If E-STOP just turned off, immediately bypass red LED fade and snap to red_0
+		if (prevEStopped && !eStopped) {
+			for (int ch = 0; ch < 3; ++ch) {
+				tripLedBrightness[ch] = 0.0f;
+			}
+		}
+		prevEStopped = eStopped;
 
 		// 2. Physical & mathematical constants for selected KPPS & Sample Rate
 		float pps = getPointsPerSecond();
@@ -298,6 +342,7 @@ struct Salus : Module {
 		if (scanFailMode == SCANFAIL_DISABLED) {
 			scanFailTripped = false;
 			stationaryTimer = 0.0f;
+			scanFailRecoveryTimer = 0.0f;
 		} else if (!isPatched) {
 			// Scanner inputs not connected: laser firing without motion is an immediate burn hazard
 			float laserSum = std::fabs(inputs[R_INPUT].getVoltage()) +
@@ -316,18 +361,20 @@ struct Salus : Module {
 				if (stationaryTimer >= dwellTimeout) {
 					scanFailTripped = true; // Safety cutoff tripped!
 				}
+				scanFailRecoveryTimer = 0.0f;
 			} else {
 				if (scanFailTripped) {
-					// Strong recovery hysteresis: must achieve sustained safe motion > 3.0 V/s for >= 15ms
-					if (smoothedVelocity > 3.0f) {
-						scanFailRecoveryTimer++;
-						if (scanFailRecoveryTimer > (int)(0.015f * args.sampleRate)) {
+					// Leaky recovery accumulator: requires ~10ms of safe motion (> 2.5 V/s)
+					if (smoothedVelocity > 2.5f) {
+						scanFailRecoveryTimer += dt;
+						if (scanFailRecoveryTimer >= 0.010f) {
 							scanFailTripped = false; // Successfully recovered
-							scanFailRecoveryTimer = 0;
+							scanFailRecoveryTimer = 0.0f;
 							stationaryTimer = 0.0f;
 						}
 					} else {
-						scanFailRecoveryTimer = 0;
+						scanFailRecoveryTimer -= dt * 0.5f;
+						if (scanFailRecoveryTimer < 0.0f) scanFailRecoveryTimer = 0.0f;
 					}
 				} else {
 					if (stationaryTimer > 0.0f) {
@@ -340,33 +387,39 @@ struct Salus : Module {
 
 		// 7. Blanking on Jump (Large repositioning movements)
 		if (jumpBlanking == JUMP_BLANK_ON) {
-			float jumpThreshold = 0.08f * vpp;
+			float jumpThreshold = 0.15f * vpp;
 			if (dist > jumpThreshold && slewActive) {
 				jumpActive = true;
-			} else if (!slewActive || dist < 0.02f * vpp) {
+				jumpTimer += dt;
+				if (jumpTimer > 0.002f) { // Maximum 2ms jump blanking pulse
+					jumpActive = false;
+				}
+			} else {
 				jumpActive = false;
+				jumpTimer = 0.0f;
 			}
 		} else {
 			jumpActive = false;
+			jumpTimer = 0.0f;
 		}
 
 		// 8. Physical coil thermal dissipation model
-		// Kinetic coil power is proportional to (velocity / maxSafeVelocity)^2
-		float normSpeed = clampf(smoothedVelocity / (maxSlewRate * 0.5f + 1e-4f), 0.0f, 2.0f);
-		float kineticPower = normSpeed * normSpeed;
-		float tauThermal = 2.0f; // 2.0 second thermal mass cooling
-		float alphaThermal = dt / tauThermal;
-		thermalStress += alphaThermal * (kineticPower - thermalStress);
-		thermalStress = clampf(thermalStress, 0.0f, 1.5f);
+		// Galvos run comfortably up to rated speeds without overheating.
+		// Heating only occurs when driven hard into continuous slew saturation (> 85% of limit).
+		float slewStress = (maxStepDistance > 1e-7f) ? (dist / maxStepDistance) : 0.0f;
+		float heatDrive = clampf((slewStress - 0.85f) / 0.35f, 0.0f, 2.0f);
+		float heatPower = heatDrive * heatDrive;
+		float alphaThermal = dt / 1.0f; // 1.0s cooling time constant
+		thermalStress += alphaThermal * (heatPower - thermalStress);
+		if (thermalStress < 0.001f) thermalStress = 0.0f;
+		thermalStress = clampf(thermalStress, 0.0f, 1.2f);
 
 		// 9. Dual-Column LED State Determination (0=SCAN, 1=GALVO, 2=TEMP)
 		// Col 1 (Status): Green -> Yellow -> Amber (turns OFF when tripped / red)
 		// Col 2 (Trip): Red latch while tripped + 2.0s slow fade release to red_0
 		StatusLedColor targetStatus[3] = {STATUS_LED_GREEN, STATUS_LED_GREEN, STATUS_LED_GREEN};
-		bool tripCondition[3] = {false, false, false};
 
 		// --- Channel 0: SCAN ---
-		tripCondition[0] = scanFailTripped || eStopped;
 		if (scanFailMode != SCANFAIL_DISABLED && isPatched) {
 			if (scanFailTripped || smoothedVelocity <= 1.0f || stationaryTimer > 0.0f) {
 				targetStatus[0] = STATUS_LED_AMBER;
@@ -377,10 +430,11 @@ struct Salus : Module {
 			} else {
 				targetStatus[0] = STATUS_LED_GREEN;
 			}
+		} else if (!isPatched && scanFailTripped) {
+			targetStatus[0] = STATUS_LED_AMBER;
 		}
 
 		// --- Channel 1: GALVO ---
-		tripCondition[1] = slewActive || (galvoRatio >= 1.0f) || eStopped;
 		if (slewActive || galvoRatio >= 0.90f) {
 			targetStatus[1] = STATUS_LED_AMBER;
 		} else if (galvoRatio >= 0.75f) {
@@ -390,7 +444,6 @@ struct Salus : Module {
 		}
 
 		// --- Channel 2: TEMP ---
-		tripCondition[2] = (thermalStress >= 1.0f) || eStopped;
 		if (thermalStress >= 0.85f) {
 			targetStatus[2] = STATUS_LED_AMBER;
 		} else if (thermalStress >= 0.70f) {
@@ -399,47 +452,55 @@ struct Salus : Module {
 			targetStatus[2] = STATUS_LED_GREEN;
 		}
 
-		// Apply Cooldown Smoothing on Status LEDs and 2.0s Release Fade on Trip LEDs
+		// Hardware trip condition (genuine physical faults)
+		bool hwTrip[3];
+		hwTrip[0] = scanFailTripped;
+		hwTrip[1] = slewActive || (galvoRatio >= 1.0f);
+		hwTrip[2] = (thermalStress >= 1.0f);
+
+		// Apply Cooldown Smoothing on Status LEDs and Release Decay on Trip LEDs
 		for (int ch = 0; ch < 3; ++ch) {
-			tripActive[ch] = tripCondition[ch];
+			tripActive[ch] = hwTrip[ch] || eStopped;
 
 			StatusLedColor tgt = targetStatus[ch];
 			if (tgt > statusLedState[ch]) {
 				// Immediate warning upgrade
 				statusLedState[ch] = tgt;
 				statusCooldown[ch] = 0.25f; // 250ms hold
-			} else if (tgt < statusLedState[ch]) {
+			} else if (statusCooldown[ch] > 0.0f) {
 				// Cooldown hold before downgrading
-				if (statusCooldown[ch] > 0.0f) {
-					statusCooldown[ch] -= dt;
-				} else {
-					statusLedState[ch] = tgt;
-				}
+				statusCooldown[ch] -= dt;
 			} else {
-				if (statusLedState[ch] != STATUS_LED_GREEN) {
-					statusCooldown[ch] = 0.25f;
-				}
+				// Hold timer expired: downgrade to target
+				statusLedState[ch] = tgt;
 			}
 
-			// Red Trip LED: latches full red (1.0) while active, then 2.0s linear fade release
-			if (tripCondition[ch]) {
+			// Red Trip LED: latches full red (1.0) while active
+			if (eStopped) {
+				tripLedBrightness[ch] = 1.0f;
+			} else if (hwTrip[ch]) {
 				tripLedBrightness[ch] = 1.0f;
 			} else if (tripLedBrightness[ch] > 0.0f) {
-				tripLedBrightness[ch] -= dt / 2.0f; // 2.0s linear decay
+				// 2.0s linear fade release ONLY for cleared hardware trips
+				tripLedBrightness[ch] -= dt / 2.0f;
 				if (tripLedBrightness[ch] < 0.0f) {
 					tripLedBrightness[ch] = 0.0f;
 				}
 			}
 		}
 
-		// 9. Color delay alignment buffer
+		// 10. Color delay alignment buffer & input normaling
+		float inR = inputs[R_INPUT].isConnected() ? inputs[R_INPUT].getVoltage() : 0.0f;
+		float inG = inputs[G_INPUT].isConnected() ? inputs[G_INPUT].getVoltage() : inR;
+		float inB = inputs[B_INPUT].isConnected() ? inputs[B_INPUT].getVoltage() : inR;
+
 		float delaySec = 2.5f / pps;
 		int delaySamples = (int)(delaySec * args.sampleRate + 0.5f);
 		delaySamples = clampf(delaySamples, 1, DELAY_BUF_SIZE - 1);
 
-		rBuf[delayWriteIndex] = inputs[R_INPUT].getVoltage();
-		gBuf[delayWriteIndex] = inputs[G_INPUT].getVoltage();
-		bBuf[delayWriteIndex] = inputs[B_INPUT].getVoltage();
+		rBuf[delayWriteIndex] = inR;
+		gBuf[delayWriteIndex] = inG;
+		bBuf[delayWriteIndex] = inB;
 
 		int delayReadIndex = (delayWriteIndex - delaySamples + DELAY_BUF_SIZE) % DELAY_BUF_SIZE;
 		float delayedR = rBuf[delayReadIndex];
@@ -448,7 +509,7 @@ struct Salus : Module {
 
 		delayWriteIndex = (delayWriteIndex + 1) % DELAY_BUF_SIZE;
 
-		// 10. Laser Blackout & Emission Decision
+		// 11. Laser Blackout & Emission Decision
 		// E-STOP active forces complete blackout
 		bool emissionPermitted = !eStopped && !scanFailTripped && !jumpActive;
 
@@ -457,16 +518,12 @@ struct Salus : Module {
 		float outB = 0.0f;
 
 		if (emissionPermitted) {
-			float scaleR = clampf(delayedR / 5.0f, 0.0f, 1.0f);
-			float scaleG = clampf(delayedG / 5.0f, 0.0f, 1.0f);
-			float scaleB = clampf(delayedB / 5.0f, 0.0f, 1.0f);
-
-			outR = scaleR * maxLaserV;
-			outG = scaleG * maxLaserV;
-			outB = scaleB * maxLaserV;
+			outR = clampf(delayedR, 0.0f, maxLaserV);
+			outG = clampf(delayedG, 0.0f, maxLaserV);
+			outB = clampf(delayedB, 0.0f, maxLaserV);
 		}
 
-		// 11. Write outputs
+		// 12. Write outputs
 		outputs[X_OUTPUT].setVoltage(outX);
 		outputs[Y_OUTPUT].setVoltage(outY);
 		outputs[R_OUTPUT].setVoltage(outR);
