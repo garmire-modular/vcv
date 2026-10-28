@@ -131,10 +131,10 @@ struct Serqet : Module {
 		// CRT Emulation Attenuverter Knobs
 		configParam(GRATICULE_CUE_PARAM, 0.0f, 1.0f, 0.25f, "Cue graticule opacity", "%", 0.0f, 100.0f);
 		configParam(GRATICULE_MAIN_PARAM, 0.0f, 1.0f, 0.0f, "Main graticule opacity", "%", 0.0f, 100.0f);
-		// Focus: 0.06mm (0%) to 0.725mm (100%), default 40% (~0.33mm)
-		configParam(FOCUS_PARAM, 0.0f, 1.0f, 0.40f, "Focus", "%", 0.0f, 100.0f);
-		// Beam Intensity: 25% (0%) to 150% (100%), default 30%
-		configParam(BEAM_PARAM, 0.0f, 1.0f, 0.30f, "Beam intensity", "%", 0.0f, 100.0f);
+		// Focus: 0.06mm (0%) to 0.725mm (100%), default 10% (~0.13mm)
+		configParam(FOCUS_PARAM, 0.0f, 1.0f, 0.10f, "Focus", "%", 0.0f, 100.0f);
+		// Beam Intensity: 25% (0%) to 150% (100%), default 0%
+		configParam(BEAM_PARAM, 0.0f, 1.0f, 0.00f, "Beam intensity", "%", 0.0f, 100.0f);
 		// Phosphor Decay: non-linear tanh afterglow, max 75%, default 5%
 		configParam(DECAY_PARAM, 0.0f, 1.0f, 0.05f, "Phosphor decay", "%", 0.0f, 100.0f);
 		// Optical Bloom: dual-scale halation and glass scatter, default 30%
@@ -394,12 +394,21 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		}
 	}
 
+	static inline float erfApprox(float x) {
+		float s = (x >= 0.0f) ? 1.0f : -1.0f;
+		float a = std::abs(x);
+		float t = 1.0f + (0.278393f + (0.230389f + 0.078108f * (a * a)) * a) * a;
+		t *= t;
+		return s * (1.0f - 1.0f / (t * t));
+	}
+
 	void renderCrtSimulation(float focusNorm, float beamNorm, float decayNorm, float bloomNorm) {
 		// 1. Phosphor Afterglow Decay (tanh persistence law from sosci afterglow_decay.frag)
 		float effectiveDecay = decayNorm * 0.75f;
-		float fadeAmount = 0.90f * std::pow(1.0f - effectiveDecay, 1.8f) + 0.02f;
-		float adjustedAfterglow = (0.2f + effectiveDecay * 3.0f) * 1.5f;
-		float minFade = 0.1f * (1.0f - clamp(adjustedAfterglow / 10.0f, 0.0f, 1.0f));
+		// Smooth persistence: at decay 5%, fadeAmount ~ 0.45 per frame for smooth frame blending
+		float fadeAmount = 0.50f * std::pow(1.0f - effectiveDecay, 2.2f) + 0.015f;
+		float adjustedAfterglow = (0.25f + effectiveDecay * 3.0f) * 1.5f;
+		float minFade = 0.08f * (1.0f - clamp(adjustedAfterglow / 10.0f, 0.0f, 1.0f));
 
 		for (int i = 0; i < CRT_RES * CRT_RES; i++) {
 			float r = accumR[i];
@@ -421,20 +430,22 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 			accumB[i] = b * keep;
 		}
 
-		// 2. Electron Beam Spot & Intensity Setup
+		// 2. Electron Beam Spot & Intensity Setup (Analytical erf Gaussian Integration)
 		// Calibrated Focus: 0.06 mm (0%) to 0.725 mm (100%)
 		float focus_mm = 0.06f + focusNorm * (0.725f - 0.06f);
 		// Pixels per mm on 66x66 mm box with 256x256 res: 256.0 / 66.0 = 3.878 px/mm
-		float sigma = (focus_mm / 66.0f) * (float)CRT_RES * 0.40f;
-		sigma = std::max(0.35f, sigma);
+		float beamSigma = (focus_mm / 66.0f) * (float)CRT_RES * 0.40f;
+		// Convolve physical beam spot with 0.65px pixel reconstruction filter for continuous anti-aliasing
+		float sigma = std::sqrt(beamSigma * beamSigma + 0.65f * 0.65f);
 		float inv2Sigma2 = 1.0f / (2.0f * sigma * sigma);
-		float normFactor = 1.0f / (2.0f * 3.14159265f * sigma * sigma);
+		float sqrt2Sigma = 1.41421356f * sigma;
+		float normFactor = 1.0f / (2.50662827f * sigma); // 1.0 / (sqrt(2*pi) * sigma)
 
 		// Calibrated Beam: 25% (0%) to 150% (100%)
 		float beamIntensity = 0.25f + beamNorm * (1.50f - 0.25f);
-		float baseIntensity = beamIntensity * 2.2f;
+		float baseIntensity = beamIntensity * 14.0f;
 
-		// 3. Trajectory Fetch & Rasterization
+		// 3. Trajectory Fetch & Analytical Rasterization
 		if (module) {
 			const SerqetRingBuffer& rb = isMainOut ? module->mainBuffer : module->cueBuffer;
 			uint32_t head = rb.getHead();
@@ -447,6 +458,29 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 			bool isXConnected = isMainOut ? (ch1XConn || ch2XConn) : (module->cueSource == 0 ? ch1XConn : ch2XConn);
 			bool isYConnected = isMainOut ? (ch1YConn || ch2YConn) : (module->cueSource == 0 ? ch1YConn : ch2YConn);
 
+			float sampleRate = (APP && APP->engine) ? APP->engine->getSampleRate() : 44100.0f;
+			if (sampleRate <= 0.0f) sampleRate = 44100.0f;
+			// Reverse-engineered sosci window duration: 0.042666666666666665s (~42.67ms)
+			size_t windowSamples = (size_t)std::round(sampleRate * 0.042666666666666665f);
+			windowSamples = std::max((size_t)128, std::min(windowSamples, (size_t)SerqetConstants::BUFFER_SIZE));
+
+			// Trigger stabilization in 1D time-domain mode (only Y connected)
+			size_t triggerOffset = 0;
+			if (!isXConnected && isYConnected) {
+				size_t searchLimit = windowSamples / 2;
+				for (size_t k = windowSamples - 1; k > searchLimit; k--) {
+					float yPrev = rb.readOffset(head, k).y;
+					float yCurr = rb.readOffset(head, k - 1).y;
+					if (yPrev <= 0.0f && yCurr > 0.0f) {
+						triggerOffset = windowSamples - 1 - k;
+						break;
+					}
+				}
+			}
+
+			size_t effectiveWindow = windowSamples - triggerOffset;
+			if (effectiveWindow < 128) effectiveWindow = 128;
+
 			static constexpr size_t NUM_POINTS = 512;
 			Vec pts[NUM_POINTS];
 			float sampleR[NUM_POINTS];
@@ -458,7 +492,8 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 			const float scaleFactor = cx * 0.88f;
 
 			for (size_t i = 0; i < NUM_POINTS; i++) {
-				SerqetSample s = rb.readOffset(head, NUM_POINTS - 1 - i);
+				size_t offsetBack = triggerOffset + effectiveWindow - 1 - (size_t)((i * (effectiveWindow - 1)) / (NUM_POINTS - 1));
+				SerqetSample s = rb.readOffset(head, offsetBack);
 				float px = cx;
 				float py = cy;
 
@@ -501,45 +536,75 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 				sampleB[i] = b;
 			}
 
-			// Rasterize segments with 1/L velocity-dependent energy deposition
-			int spotRadius = std::min(7, std::max(1, (int)std::ceil(2.2f * sigma)));
-
+			// Analytical Gaussian Beam Segment Integration (Continuous anti-aliasing via erf)
 			for (size_t i = 0; i < NUM_POINTS - 1; i++) {
 				Vec p0 = pts[i];
 				Vec p1 = pts[i + 1];
 				float dx = p1.x - p0.x;
 				float dy = p1.y - p0.y;
-				float segLen = std::sqrt(dx * dx + dy * dy);
+				float L = std::sqrt(dx * dx + dy * dy);
 
-				// Velocity-dependent scaling factor
-				float velFactor = 1.0f / std::max(segLen, 1.2f);
-				int steps = std::max(1, (int)std::ceil(segLen / 0.75f));
-				float stepDt = 1.0f / (float)steps;
-				float stepEnergy = baseIntensity * velFactor * (segLen > 0.001f ? (segLen / (float)steps) : 1.0f);
+				// Temporal fade along the sweep
+				float intensityScale = (float)i / (float)(NUM_POINTS - 1);
+				float intensityFade = 0.60f + 0.40f * intensityScale;
+
+				// Velocity factor conserving energy per unit time
+				float velFactor = 1.0f / std::max(L, 0.8f);
+				float segEnergy = baseIntensity * intensityFade * std::sqrt(std::max(L, 0.5f)) * velFactor;
 
 				float r = sampleR[i];
 				float g = sampleG[i];
 				float b = sampleB[i];
 
-				for (int s = 0; s <= steps; s++) {
-					float t = (float)s * stepDt;
-					float px = p0.x + t * dx;
-					float py = p0.y + t * dy;
-
-					int minX = std::max(0, (int)std::floor(px - spotRadius));
-					int maxX = std::min(CRT_RES - 1, (int)std::ceil(px + spotRadius));
-					int minY = std::max(0, (int)std::floor(py - spotRadius));
-					int maxY = std::min(CRT_RES - 1, (int)std::ceil(py + spotRadius));
-
+				if (L < 1e-4f) {
+					// Point spot (stationary beam)
+					int spotR = std::min(CRT_RES / 2, std::max(1, (int)std::ceil(3.2f * sigma)));
+					int minX = std::max(0, (int)std::floor(p0.x - spotR));
+					int maxX = std::min(CRT_RES - 1, (int)std::ceil(p0.x + spotR));
+					int minY = std::max(0, (int)std::floor(p0.y - spotR));
+					int maxY = std::min(CRT_RES - 1, (int)std::ceil(p0.y + spotR));
 					for (int iy = minY; iy <= maxY; iy++) {
-						float distY = (float)iy - py;
+						float distY = (float)iy - p0.y;
 						float dy2 = distY * distY;
 						int row = iy * CRT_RES;
 						for (int ix = minX; ix <= maxX; ix++) {
-							float distX = (float)ix - px;
+							float distX = (float)ix - p0.x;
 							float d2 = dy2 + distX * distX;
-							float w = std::exp(-d2 * inv2Sigma2) * normFactor;
-							float e = stepEnergy * w;
+							float w = std::exp(-d2 * inv2Sigma2) * (normFactor * normFactor);
+							float e = segEnergy * w;
+							accumR[row + ix] += e * r;
+							accumG[row + ix] += e * g;
+							accumB[row + ix] += e * b;
+						}
+					}
+				} else {
+					// Analytical Gaussian beam segment integration (exact erf formulation from sosci)
+					float tx = dx / L;
+					float ty = dy / L;
+					float nx = -ty;
+					float ny = tx;
+
+					float pad = 3.2f * sigma;
+					int minX = std::max(0, (int)std::floor(std::min(p0.x, p1.x) - pad));
+					int maxX = std::min(CRT_RES - 1, (int)std::ceil(std::max(p0.x, p1.x) + pad));
+					int minY = std::max(0, (int)std::floor(std::min(p0.y, p1.y) - pad));
+					int maxY = std::min(CRT_RES - 1, (int)std::ceil(std::max(p0.y, p1.y) + pad));
+
+					for (int iy = minY; iy <= maxY; iy++) {
+						float py = (float)iy - p0.y;
+						int row = iy * CRT_RES;
+						for (int ix = minX; ix <= maxX; ix++) {
+							float px = (float)ix - p0.x;
+							float u = px * tx + py * ty;
+							float v = px * nx + py * ny;
+
+							if (std::abs(v) > pad || u < -pad || u > L + pad) continue;
+
+							float erfTerm = erfApprox(u / sqrt2Sigma) - erfApprox((u - L) / sqrt2Sigma);
+							float wPerp = std::exp(-v * v * inv2Sigma2);
+							float brightness = 0.5f * erfTerm * wPerp * normFactor / std::max(L, 0.5f);
+							float e = segEnergy * brightness * L;
+
 							accumR[row + ix] += e * r;
 							accumG[row + ix] += e * g;
 							accumB[row + ix] += e * b;
@@ -639,8 +704,8 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		float cy = h * 0.5f;
 
 		// Read module parameter states
-		float focusVal = module ? module->params[Serqet::FOCUS_PARAM].getValue() : 0.40f;
-		float beamVal = module ? module->params[Serqet::BEAM_PARAM].getValue() : 0.30f;
+		float focusVal = module ? module->params[Serqet::FOCUS_PARAM].getValue() : 0.10f;
+		float beamVal = module ? module->params[Serqet::BEAM_PARAM].getValue() : 0.00f;
 		float decayVal = module ? module->params[Serqet::DECAY_PARAM].getValue() : 0.05f;
 		float bloomVal = module ? module->params[Serqet::BLOOM_PARAM].getValue() : 0.30f;
 
@@ -662,7 +727,7 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		// 3. Upload and draw NanoVG texture
 		cachedVg = args.vg;
 		if (nvgImageId < 0) {
-			nvgImageId = nvgCreateImageRGBA(args.vg, CRT_RES, CRT_RES, NVG_IMAGE_NEAREST, (const unsigned char*)outputRgba.data());
+			nvgImageId = nvgCreateImageRGBA(args.vg, CRT_RES, CRT_RES, 0, (const unsigned char*)outputRgba.data());
 		} else {
 			nvgUpdateImage(args.vg, nvgImageId, (const unsigned char*)outputRgba.data());
 		}
