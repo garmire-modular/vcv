@@ -115,7 +115,7 @@ struct Serqet : Module {
 	enum XfadeCurve {
 		XFADE_LINEAR = 0,
 		XFADE_SMOOTHSTEP = 1,
-		XFADE_CONSTANT_POWER = 2,
+		XFADE_FADE_OUT_IN = 2,
 		XFADE_CURVES_COUNT = 3
 	};
 
@@ -228,15 +228,10 @@ struct Serqet : Module {
 
 	inline float computeCrossfadeRatio(float rawAlpha) const {
 		float a = clamp(rawAlpha, 0.0f, 1.0f);
-		switch (xfadeCurve) {
-			case XFADE_SMOOTHSTEP:
-				return a * a * (3.0f - 2.0f * a);
-			case XFADE_CONSTANT_POWER:
-				return std::sin(a * 1.57079632679f);
-			case XFADE_LINEAR:
-			default:
-				return a;
+		if (xfadeCurve == XFADE_SMOOTHSTEP) {
+			return a * a * (3.0f - 2.0f * a);
 		}
+		return a;
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -264,8 +259,37 @@ struct Serqet : Module {
 		}
 		float alpha = clamp(fader, 0.0f, 1.0f); // 0.0 = Ch 1, 1.0 = Ch 2
 		effectiveAlpha.store(alpha, std::memory_order_relaxed);
-		float mixGain2 = computeCrossfadeRatio(alpha);
-		float mixGain1 = (xfadeCurve == XFADE_CONSTANT_POWER) ? std::cos(alpha * 1.57079632679f) : (1.0f - mixGain2);
+
+		// Determine crossfade gains and mode
+		enum FadeState { FADE_NORMAL, FADE_CH1, FADE_DARK, FADE_CH2 } fadeState = FADE_NORMAL;
+		float fadeGain = 0.0f;
+		float mixGain1 = 0.0f;
+		float mixGain2 = 0.0f;
+
+		if (xfadeCurve == XFADE_FADE_OUT_IN) {
+			if (alpha < 0.05f) {
+				fadeState = FADE_CH1;
+				fadeGain = 1.0f;
+			} else if (alpha < 0.49f) {
+				fadeState = FADE_CH1;
+				fadeGain = (0.49f - alpha) / 0.44f;
+			} else if (alpha <= 0.51f) {
+				fadeState = FADE_DARK;
+				fadeGain = 0.0f;
+			} else if (alpha <= 0.95f) {
+				fadeState = FADE_CH2;
+				fadeGain = (alpha - 0.51f) / 0.44f;
+			} else {
+				fadeState = FADE_CH2;
+				fadeGain = 1.0f;
+			}
+		} else if (xfadeCurve == XFADE_SMOOTHSTEP) {
+			mixGain2 = alpha * alpha * (3.0f - 2.0f * alpha);
+			mixGain1 = 1.0f - mixGain2;
+		} else { // XFADE_LINEAR
+			mixGain2 = alpha;
+			mixGain1 = 1.0f - mixGain2;
+		}
 
 		// Polyphony handling
 		int channels = std::max({
@@ -293,11 +317,33 @@ struct Serqet : Module {
 			float b2 = inputs[CH2_B_INPUT].isConnected() ? inputs[CH2_B_INPUT].getPolyVoltage(c) : 0.0f;
 
 			// Crossfaded Main Output
-			float mx = x1 * mixGain1 + x2 * mixGain2;
-			float my = y1 * mixGain1 + y2 * mixGain2;
-			float mr = r1 * mixGain1 + r2 * mixGain2;
-			float mg = g1 * mixGain1 + g2 * mixGain2;
-			float mb = b1 * mixGain1 + b2 * mixGain2;
+			float mx, my, mr, mg, mb;
+			if (fadeState == FADE_CH1) {
+				mx = x1;
+				my = y1;
+				mr = r1 * fadeGain;
+				mg = g1 * fadeGain;
+				mb = b1 * fadeGain;
+			} else if (fadeState == FADE_CH2) {
+				mx = x2;
+				my = y2;
+				mr = r2 * fadeGain;
+				mg = g2 * fadeGain;
+				mb = b2 * fadeGain;
+			} else if (fadeState == FADE_DARK) {
+				mx = 0.0f;
+				my = 0.0f;
+				mr = 0.0f;
+				mg = 0.0f;
+				mb = 0.0f;
+			} else {
+				// Standard Linear or Smoothstep crossfade
+				mx = x1 * mixGain1 + x2 * mixGain2;
+				my = y1 * mixGain1 + y2 * mixGain2;
+				mr = r1 * mixGain1 + r2 * mixGain2;
+				mg = g1 * mixGain1 + g2 * mixGain2;
+				mb = b1 * mixGain1 + b2 * mixGain2;
+			}
 
 			outputs[X_OUTPUT].setVoltage(mx, c);
 			outputs[Y_OUTPUT].setVoltage(my, c);
@@ -1062,7 +1108,7 @@ struct SerqetWidget : ModuleWidget {
 
 		// Crossfade Curve Selection Menu
 		menu->addChild(createMenuLabel("Crossfade Response"));
-		const char* curveLabels[] = { "Linear", "Smoothstep", "Constant Power (Cosine)" };
+		const char* curveLabels[] = { "Linear", "Smoothstep", "Fade Out/In" };
 		for (int i = 0; i < Serqet::XFADE_CURVES_COUNT; i++) {
 			Serqet::XfadeCurve selected = (Serqet::XfadeCurve)i;
 			menu->addChild(createCheckMenuItem(curveLabels[i], "",
