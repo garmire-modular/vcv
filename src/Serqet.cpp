@@ -5,13 +5,11 @@
 #include <nanovg.h>
 
 // ─────────────────────────────────────────────────────────────────────
-//  SERQET — Dual-Input Dual-Preview CRT Oscilloscope & Video Crossfader
-//  Columns:
-//   Col 1 (7.00 mm):  Focus / Decay / Main Graticule & Ch 1 X, Y, R, G, B inputs
-//   Col 2 (20.32 mm): Beam / Bloom / Cue Graticule & Ch 2 X, Y, R, G, B inputs
-//   Col 3 (50.80 mm): Dual CRT Scopes (Main Out top, Cue bottom with Ch1/Ch2 buttons)
-//   Col 4 (81.28 mm): Vertical crossfader (1 -> 2) & CV jack
-//   Col 5 (94.60 mm): Mixed X, Y, R, G, B outputs
+//  SERQET — Dual-Preview CRT Oscilloscope & Video Crossfader (28 HP)
+//  Layout:
+//   Top: Side-by-side Dual CRT Scopes (Cue Monitor left, Main Out right)
+//   Mid: Cue buttons, status labels, and full-width Horizontal Xfade Slider
+//   Bottom: 11 columns with Ch 1 / Ch 2 inputs, Xfade CV, Attenuverters, Outputs
 // ─────────────────────────────────────────────────────────────────────
 
 namespace SerqetConstants {
@@ -55,13 +53,13 @@ struct SerqetRingBuffer {
 
 struct Serqet : Module {
 	enum ParamIds {
-		// CRT Emulation Controls
+		// CRT Emulation Controls (Attenuverter Knobs)
+		GRATICULE_CUE_PARAM,
+		GRATICULE_MAIN_PARAM,
 		FOCUS_PARAM,
 		BEAM_PARAM,
 		DECAY_PARAM,
 		BLOOM_PARAM,
-		GRATICULE_MAIN_PARAM,
-		GRATICULE_CUE_PARAM,
 
 		// Crossfade & Cue
 		CROSSFADE_PARAM,
@@ -71,27 +69,25 @@ struct Serqet : Module {
 	};
 
 	enum InputIds {
-		// Col 1: Ch 1
+		// Row 1 (Y = 104 mm): Ch 1 (X, Y, R, G, B)
 		CH1_X_INPUT,
 		CH1_Y_INPUT,
 		CH1_R_INPUT,
 		CH1_G_INPUT,
 		CH1_B_INPUT,
 
-		// Col 2: Ch 2
+		// Row 2 (Y = 117 mm): Ch 2 (X, Y, R, G, B) & Xfade CV
 		CH2_X_INPUT,
 		CH2_Y_INPUT,
 		CH2_R_INPUT,
 		CH2_G_INPUT,
 		CH2_B_INPUT,
-
-		// Col 4: Fader CV
 		XFADE_CV_INPUT,
 		INPUTS_LEN
 	};
 
 	enum OutputIds {
-		// Col 5: Outputs
+		// Row 2 (Y = 117 mm): Master Outputs
 		X_OUTPUT,
 		Y_OUTPUT,
 		R_OUTPUT,
@@ -132,7 +128,9 @@ struct Serqet : Module {
 	Serqet() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-		// CRT Emulation Knobs
+		// CRT Emulation Attenuverter Knobs
+		configParam(GRATICULE_CUE_PARAM, 0.0f, 1.0f, 0.25f, "Cue graticule opacity", "%", 0.0f, 100.0f);
+		configParam(GRATICULE_MAIN_PARAM, 0.0f, 1.0f, 0.0f, "Main graticule opacity", "%", 0.0f, 100.0f);
 		// Focus: 0.25mm (0%) to 5.00mm (100%), default 20% (~1.20mm)
 		configParam(FOCUS_PARAM, 0.0f, 1.0f, 0.20f, "Focus", "%", 0.0f, 100.0f);
 		// Beam Intensity: 25% (0%) to 150% (100%), default 60% (100% nominal)
@@ -142,12 +140,8 @@ struct Serqet : Module {
 		// Optical Bloom: dual-scale halation and glass scatter, default 50%
 		configParam(BLOOM_PARAM, 0.0f, 1.0f, 0.50f, "Bloom", "%", 0.0f, 100.0f);
 
-		// Dual Graticule Trimpots: Main Out (default 0%) and Cue Monitor (default 25%)
-		configParam(GRATICULE_MAIN_PARAM, 0.0f, 1.0f, 0.0f, "Main graticule opacity", "%", 0.0f, 100.0f);
-		configParam(GRATICULE_CUE_PARAM, 0.0f, 1.0f, 0.25f, "Cue graticule opacity", "%", 0.0f, 100.0f);
-
-		// Crossfade & Cue
-		configParam(CROSSFADE_PARAM, 0.0f, 1.0f, 1.0f, "Crossfade", "%", 0.0f, 100.0f);
+		// Horizontal Crossfade Slider & Cue Buttons
+		configParam(CROSSFADE_PARAM, 0.0f, 1.0f, 0.0f, "Crossfade", "%", 0.0f, 100.0f);
 		configButton(CUE_CH1_PARAM, "Cue channel 1");
 		configButton(CUE_CH2_PARAM, "Cue channel 2");
 
@@ -223,13 +217,12 @@ struct Serqet : Module {
 		}
 
 		// 2. Crossfade alpha
-		// Fader value 1.0 = top (Ch 1), value 0.0 = bottom (Ch 2)
+		// Fader value 0.0 = Left (Ch 1), value 1.0 = Right (Ch 2)
 		float fader = params[CROSSFADE_PARAM].getValue();
 		if (inputs[XFADE_CV_INPUT].isConnected()) {
-			fader -= inputs[XFADE_CV_INPUT].getVoltage() * 0.1f; // Positive CV pushes towards Ch 2
+			fader += inputs[XFADE_CV_INPUT].getVoltage() * 0.1f; // Positive CV pushes towards Ch 2 (right)
 		}
-		float fadePos = clamp(fader, 0.0f, 1.0f);
-		float alpha = 1.0f - fadePos; // 0.0 = Ch 1, 1.0 = Ch 2
+		float alpha = clamp(fader, 0.0f, 1.0f); // 0.0 = Ch 1, 1.0 = Ch 2
 		float mixGain2 = computeCrossfadeRatio(alpha);
 		float mixGain1 = (xfadeCurve == XFADE_CONSTANT_POWER) ? std::cos(alpha * 1.57079632679f) : (1.0f - mixGain2);
 
@@ -314,7 +307,7 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 	NVGcontext* cachedVg = nullptr;
 
 	SerqetCrtWidget(Serqet* m, bool mainOut) : module(m), isMainOut(mainOut) {
-		box.size = mm2px(Vec(44.0f, 44.0f));
+		box.size = mm2px(Vec(66.0f, 66.0f));
 
 		accumR.assign(CRT_RES * CRT_RES, 0.0f);
 		accumG.assign(CRT_RES * CRT_RES, 0.0f);
@@ -403,7 +396,6 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 
 	void renderCrtSimulation(float focusNorm, float beamNorm, float decayNorm, float bloomNorm) {
 		// 1. Phosphor Afterglow Decay (tanh persistence law from sosci afterglow_decay.frag)
-		// decayNorm 0% = fast fade (wipe in 1-2 frames); 100% = long persistent glow (seconds)
 		float fadeAmount = 0.90f * std::pow(1.0f - decayNorm, 1.8f) + 0.02f;
 		float adjustedAfterglow = (0.2f + decayNorm * 3.0f) * 1.5f;
 		float minFade = 0.1f * (1.0f - clamp(adjustedAfterglow / 10.0f, 0.0f, 1.0f));
@@ -431,8 +423,8 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		// 2. Electron Beam Spot & Intensity Setup
 		// Calibrated Focus: 0.25 mm (0%) to 5.00 mm (100%)
 		float focus_mm = 0.25f + focusNorm * (5.00f - 0.25f);
-		// Pixels per mm on 44x44 mm box with 256x256 res: 256.0 / 44.0 = 5.818 px/mm
-		float sigma = (focus_mm / 44.0f) * (float)CRT_RES * 0.26f;
+		// Pixels per mm on 66x66 mm box with 256x256 res: 256.0 / 66.0 = 3.878 px/mm
+		float sigma = (focus_mm / 66.0f) * (float)CRT_RES * 0.32f;
 		sigma = std::max(0.40f, sigma);
 		float inv2Sigma2 = 1.0f / (2.0f * sigma * sigma);
 		float normFactor = 1.0f / (2.0f * 3.14159265f * sigma * sigma);
@@ -605,7 +597,7 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 			float gTone = 1.0f - std::exp(-1.4f * gLight);
 			float bTone = 1.0f - std::exp(-1.4f * bLight);
 
-			// Overexposure Core Whitening (sosci crt_composite.frag)
+			// Overexposure Core Whitening
 			float s = std::max({rTone, gTone, bTone});
 			if (s > 1e-5f) {
 				float invS = 1.0f / s;
@@ -660,7 +652,7 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 			gratAlpha = isMainOut ? 0.0f : 0.25f;
 		}
 
-		// 1. Scissor clip to the 44x44 mm CRT scope screen area
+		// 1. Scissor clip to the 66x66 mm CRT scope screen area with 1.5mm corner radius
 		nvgScissor(args.vg, 0.0f, 0.0f, w, h);
 
 		// 2. Render CPU-rasterized CRT simulation buffer
@@ -677,7 +669,7 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		if (nvgImageId >= 0) {
 			NVGpaint imgPaint = nvgImagePattern(args.vg, 0.0f, 0.0f, w, h, 0.0f, nvgImageId, 1.0f);
 			nvgBeginPath(args.vg);
-			nvgRoundedRect(args.vg, 0.0f, 0.0f, w, h, mm2px(2.5f));
+			nvgRoundedRect(args.vg, 0.0f, 0.0f, w, h, mm2px(1.5f));
 			nvgFillPaint(args.vg, imgPaint);
 			nvgFill(args.vg);
 		}
@@ -744,7 +736,7 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 
 		// 5. CRT Glass Vignette Inner Shadow & Bezel Rim
 		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0.5f, 0.5f, w - 1.0f, h - 1.0f, mm2px(2.5f));
+		nvgRoundedRect(args.vg, 0.5f, 0.5f, w - 1.0f, h - 1.0f, mm2px(1.5f));
 		nvgStrokeColor(args.vg, nvgRGBA(0x00, 0x00, 0x00, 0x88));
 		nvgStrokeWidth(args.vg, 1.5f);
 		nvgStroke(args.vg);
@@ -760,13 +752,6 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 
 struct GarmirePort : app::SvgPort {
 	GarmirePort() { setSvg(Svg::load(asset::plugin(pluginInstance, "res/3_5mm_jacks.svg"))); }
-};
-
-struct GarmireKnob : RoundKnob {
-	GarmireKnob() {
-		setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob.svg")));
-		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob_bg.svg")));
-	}
 };
 
 struct GarmireTrimpot : RoundKnob {
@@ -786,19 +771,21 @@ struct SerqetButton : app::SvgSwitch {
 
 struct SerqetFader : app::SvgSlider {
 	SerqetFader() {
-		box.size = mm2px(math::Vec(7.00f, 70.00f));
+		horizontal = true;
+		box.size = mm2px(math::Vec(128.24f, 10.00f));
 		fb->box.size = box.size;
-		setHandleSvg(Svg::load(asset::system("res/ComponentLibrary/VCVSliderHandle.svg")));
-		float halfHandle = handle->box.size.y / 2.0f;
+		setHandleSvg(Svg::load(asset::plugin(pluginInstance, "res/crossfader.svg")));
+		float halfHandleX = handle->box.size.x / 2.0f;
+		float cy = box.size.y / 2.0f;
 		setHandlePosCentered(
-			math::Vec(box.size.x / 2.0f, box.size.y - halfHandle), // minValue (0.0, Ch 2) at BOTTOM
-			math::Vec(box.size.x / 2.0f, halfHandle)               // maxValue (1.0, Ch 1) at TOP
+			math::Vec(halfHandleX, cy),                  // minValue (0.0, Ch 1) at LEFT
+			math::Vec(box.size.x - halfHandleX, cy)     // maxValue (1.0, Ch 2) at RIGHT
 		);
 	}
 };
 
 // ─────────────────────────────────────────────────────────────────────
-//  SerqetWidget — Panel & UI Layout (20 HP)
+//  SerqetWidget — Panel & UI Layout (28 HP)
 // ─────────────────────────────────────────────────────────────────────
 
 struct SerqetWidget : ModuleWidget {
@@ -889,73 +876,65 @@ struct SerqetWidget : ModuleWidget {
 		box.size = panel->box.size;
 		setPanel(panel);
 
-		// Column Coordinates (mm)
-		const float col1_x = 7.00f;
-		const float col2_x = 20.32f;
-		const float col3_x = 50.80f;
-		const float col4_x = 81.28f;
-		const float col5_x = 94.60f;
+		// ── Column Coordinates (mm) ──
+		const float col_x[11] = {
+			7.000f, 19.824f, 32.648f, 45.472f, 58.296f,
+			71.120f,
+			83.944f, 96.768f, 109.592f, 122.416f, 135.240f
+		};
 
-		// ── CRT Emulation Knobs (Zone 2 & Zone 3) ──
-		// Row 1 (Y = 18.00 mm): FOCUS, BEAM
-		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(col1_x, 18.00f)), module, Serqet::FOCUS_PARAM));
-		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(col2_x, 18.00f)), module, Serqet::BEAM_PARAM));
+		// ── Dual CRT Scopes (66 x 66 mm, Y center = 43.50 mm) ──
+		// Scope 1: CUE MONITOR (Center X = 37.00 mm, Center Y = 43.50 mm)
+		auto* scopeCue = new SerqetCrtWidget(module, false);
+		scopeCue->box.pos = mm2px(Vec(37.00f - 33.00f, 43.50f - 33.00f));
+		addChild(scopeCue);
 
-		// Row 2 (Y = 34.00 mm): DECAY, BLOOM
-		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(col1_x, 34.00f)), module, Serqet::DECAY_PARAM));
-		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(col2_x, 34.00f)), module, Serqet::BLOOM_PARAM));
+		// Scope 2: MAIN OUT (Center X = 105.24 mm, Center Y = 43.50 mm)
+		auto* scopeMain = new SerqetCrtWidget(module, true);
+		scopeMain->box.pos = mm2px(Vec(105.24f - 33.00f, 43.50f - 33.00f));
+		addChild(scopeMain);
 
-		// Row 3 (Y = 47.00 mm): DUAL GRATICULE Trimpots (MAIN at col1_x, CUE at col2_x)
-		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col1_x, 47.00f)), module, Serqet::GRATICULE_MAIN_PARAM));
-		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col2_x, 47.00f)), module, Serqet::GRATICULE_CUE_PARAM));
+		// ── Cue Buttons (Center Y = 80.00 mm) ──
+		// CH 1 button at Center X = 7.00 mm, CH 2 button at Center X = 67.00 mm
+		addParam(createParamCentered<SerqetButton>(mm2px(Vec(7.00f, 80.00f)), module, Serqet::CUE_CH1_PARAM));
+		addParam(createParamCentered<SerqetButton>(mm2px(Vec(67.00f, 80.00f)), module, Serqet::CUE_CH2_PARAM));
 
-		// Row Coordinates for Jacks (Bottom-Up: 65, 78, 91, 104, 117 mm)
-		const float jack_y[5] = { 65.00f, 78.00f, 91.00f, 104.00f, 117.00f };
+		// ── Horizontal Crossfader Slider (Center X = 71.12 mm, Center Y = 88.50 mm) ──
+		addParam(createParamCentered<SerqetFader>(mm2px(Vec(71.12f, 88.50f)), module, Serqet::CROSSFADE_PARAM));
 
-		// ── Column 1: Ch 1 Inputs (X, Y, R, G, B) ──
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col1_x, jack_y[0])), module, Serqet::CH1_X_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col1_x, jack_y[1])), module, Serqet::CH1_Y_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col1_x, jack_y[2])), module, Serqet::CH1_R_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col1_x, jack_y[3])), module, Serqet::CH1_G_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col1_x, jack_y[4])), module, Serqet::CH1_B_INPUT));
+		// ── Row 1 (Center Y = 104.00 mm) ──
+		// CH 1 Inputs (X, Y, R, G, B)
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col_x[0], 104.00f)), module, Serqet::CH1_X_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col_x[1], 104.00f)), module, Serqet::CH1_Y_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col_x[2], 104.00f)), module, Serqet::CH1_R_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col_x[3], 104.00f)), module, Serqet::CH1_G_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col_x[4], 104.00f)), module, Serqet::CH1_B_INPUT));
 
-		// ── Column 2: Ch 2 Inputs (X, Y, R, G, B) ──
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col2_x, jack_y[0])), module, Serqet::CH2_X_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col2_x, jack_y[1])), module, Serqet::CH2_Y_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col2_x, jack_y[2])), module, Serqet::CH2_R_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col2_x, jack_y[3])), module, Serqet::CH2_G_INPUT));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col2_x, jack_y[4])), module, Serqet::CH2_B_INPUT));
+		// Attenuverter Knobs
+		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col_x[5], 104.00f)), module, Serqet::GRATICULE_CUE_PARAM));
+		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col_x[6], 104.00f)), module, Serqet::GRATICULE_MAIN_PARAM));
+		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col_x[7], 104.00f)), module, Serqet::FOCUS_PARAM));
+		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col_x[8], 104.00f)), module, Serqet::BEAM_PARAM));
+		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col_x[9], 104.00f)), module, Serqet::DECAY_PARAM));
+		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col_x[10], 104.00f)), module, Serqet::BLOOM_PARAM));
 
-		// ── Column 3: Dual Oscilloscopes ──
-		// Scope 1 (Main Out): Center (50.80, 39.00 mm), Size 44 x 44 mm
-		auto* scope1 = new SerqetCrtWidget(module, true);
-		scope1->box.pos = mm2px(Vec(col3_x - 22.0f, 39.00f - 22.0f));
-		addChild(scope1);
+		// ── Row 2 (Center Y = 117.00 mm) ──
+		// CH 2 Inputs (X, Y, R, G, B)
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col_x[0], 117.00f)), module, Serqet::CH2_X_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col_x[1], 117.00f)), module, Serqet::CH2_Y_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col_x[2], 117.00f)), module, Serqet::CH2_R_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col_x[3], 117.00f)), module, Serqet::CH2_G_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col_x[4], 117.00f)), module, Serqet::CH2_B_INPUT));
 
-		// Scope 2 (Cue Monitor): Center (50.80, 89.00 mm), Size 44 x 44 mm
-		auto* scope2 = new SerqetCrtWidget(module, false);
-		scope2->box.pos = mm2px(Vec(col3_x - 22.0f, 89.00f - 22.0f));
-		addChild(scope2);
+		// XFADE CV Input (Center X = 71.12 mm)
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col_x[5], 117.00f)), module, Serqet::XFADE_CV_INPUT));
 
-		// Cue Buttons: CH 1 ---- ( )  ( ) ---- CH 2 (Y = 117.00 mm)
-		// Centers at 44.80 mm and 56.80 mm (no halo rings)
-		const float btn1_x = col3_x - 6.00f; // 44.80 mm
-		const float btn2_x = col3_x + 6.00f; // 56.80 mm
-
-		addParam(createParamCentered<SerqetButton>(mm2px(Vec(btn1_x, 117.00f)), module, Serqet::CUE_CH1_PARAM));
-		addParam(createParamCentered<SerqetButton>(mm2px(Vec(btn2_x, 117.00f)), module, Serqet::CUE_CH2_PARAM));
-
-		// ── Column 4: Crossfader Slider & CV Jack ──
-		// Slider Center at (81.28, 57.00 mm)
-		addParam(createParamCentered<SerqetFader>(mm2px(Vec(col4_x, 57.00f)), module, Serqet::CROSSFADE_PARAM));
-		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col4_x, 117.00f)), module, Serqet::XFADE_CV_INPUT));
-
-		// ── Column 5: Outputs (X, Y, R, G, B) ──
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col5_x, jack_y[0])), module, Serqet::X_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col5_x, jack_y[1])), module, Serqet::Y_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col5_x, jack_y[2])), module, Serqet::R_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col5_x, jack_y[3])), module, Serqet::G_OUTPUT));
-		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col5_x, jack_y[4])), module, Serqet::B_OUTPUT));
+		// Master Outputs (X, Y, R, G, B)
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col_x[6], 117.00f)), module, Serqet::X_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col_x[7], 117.00f)), module, Serqet::Y_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col_x[8], 117.00f)), module, Serqet::R_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col_x[9], 117.00f)), module, Serqet::G_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col_x[10], 117.00f)), module, Serqet::B_OUTPUT));
 	}
 };
 

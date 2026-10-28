@@ -58,21 +58,11 @@ def render_text(font, text, x_center, y_baseline, pt_size, color='#222222'):
     return ''.join(paths)
 
 def generate_serqet_panel(skin):
-    panel_hp = 20
-    panel_w = panel_hp * 5.08  # 101.60 mm
-    panel_h = 128.50
+    panel_hp = 28
+    panel_w = panel_hp * 5.08  # 142.24 mm
+    panel_h = 128.50           # Eurorack 3U
     
-    # 5 Main Columns:
-    # Col 1: Focus / Decay / Ch 1 In (7.00 mm)
-    # Col 2: Beam / Bloom / Ch 2 In (20.32 mm)
-    # Col 3: Dual Scope & Cue Buttons (Center = 50.80 mm)
-    # Col 4: Fader & CV (81.28 mm)
-    # Col 5: Out (94.60 mm)
-    col1_x = 7.00
-    col2_x = 20.32
-    col3_x = 50.80
-    col4_x = 81.28
-    col5_x = 94.60
+    mid_x = panel_w / 2.0      # 71.12 mm
     
     bg_color = skin['bg_color']
     title_color = skin['title_color']
@@ -92,96 +82,96 @@ def generate_serqet_panel(skin):
     svg.append('    <rect x="0" y="19.800" width="2.540" height="88.900" fill="#5d5d5d" stroke="none" />')
     svg.append('  </g>')
     
-    # Module Title & Version
-    svg.append(render_text(ddin_bold, 'SERQET', col3_x, 8.000, 16.0, title_color))
-    svg.append(render_text(quicksand, 'v1.2.0', panel_w - 2.15, 8.000, 4.5, version_color))
+    # ── ZONE 1: HEADER & TITLE ──
+    # Module Title: Fixed Y = 8.000 mm (D-DIN-Bold 16 pt, centered)
+    svg.append(render_text(ddin_bold, 'SERQET', mid_x, 8.000, 16.0, title_color))
+    # Version Tag: Fixed Y = 8.000 mm (Quicksand-Regular 4.5 pt, X = W - 2.15 mm)
+    svg.append(render_text(quicksand, 'v1.3.0', panel_w - 2.15, 8.000, 4.5, version_color))
     
-    # CRT Control Knobs in Columns 1 & 2
-    # Row 1 (Y = 18.00 mm): FOCUS, BEAM (10 pt D-DINCondensed-Bold, baseline Y = 18.00 - 5.75 = 12.25 mm)
-    svg.append(render_text(ddin_cond_bold, 'FOCUS', col1_x, 12.25, 10.0, label_color))
-    svg.append(render_text(ddin_cond_bold, 'BEAM', col2_x, 12.25, 10.0, label_color))
+    # ── ZONE 2: SIDE-BY-SIDE DUAL CRT SCOPES ──
+    # Scope 1 (CUE MONITOR): 66 x 66 mm, 1.5 mm corner radius, Center (37.00, 43.50)
+    cue_w, cue_h = 66.00, 66.00
+    cue_x, cue_y = 37.00 - cue_w / 2.0, 43.50 - cue_h / 2.0  # (4.00, 10.50)
+    svg.append('  <!-- Scope 1: Cue Monitor Bezel -->')
+    svg.append(f'  <rect x="{cue_x:.2f}" y="{cue_y:.2f}" width="{cue_w:.2f}" height="{cue_h:.2f}" rx="1.5" ry="1.5" fill="#111111" stroke="{scope_bezel}" stroke-width="0.8" />')
     
-    # Row 2 (Y = 34.00 mm): DECAY, BLOOM (10 pt D-DINCondensed-Bold, baseline Y = 34.00 - 5.75 = 28.25 mm)
-    svg.append(render_text(ddin_cond_bold, 'DECAY', col1_x, 28.25, 10.0, label_color))
-    svg.append(render_text(ddin_cond_bold, 'BLOOM', col2_x, 28.25, 10.0, label_color))
+    # Scope 2 (MAIN OUT): 66 x 66 mm, 1.5 mm corner radius, Center (105.24, 43.50)
+    main_w, main_h = 66.00, 66.00
+    main_x, main_y = 105.24 - main_w / 2.0, 43.50 - main_h / 2.0  # (72.24, 10.50)
+    svg.append('  <!-- Scope 2: Main Out Bezel -->')
+    svg.append(f'  <rect x="{main_x:.2f}" y="{main_y:.2f}" width="{main_w:.2f}" height="{main_h:.2f}" rx="1.5" ry="1.5" fill="#111111" stroke="{scope_bezel}" stroke-width="0.8" />')
     
-    # Row 3 (Y = 47.00 mm): DUAL GRATICULE Trimpots (MAIN at col1_x, CUE at col2_x)
-    # Centered Header: GRATICULE (8 pt D-DINCondensed, baseline Y = 47.00 - 4.00 = 43.00 mm)
-    mid_knobs = (col1_x + col2_x) / 2.0  # 13.66 mm
-    svg.append(render_text(ddin_cond, 'GRATICULE', mid_knobs, 43.00, 8.0, label_color))
-    svg.append(render_text(ddin_cond, 'MAIN', col1_x, 53.50, 7.0, label_color))
-    svg.append(render_text(ddin_cond, 'CUE', col2_x, 53.50, 7.0, label_color))
+    # ── CUE BUTTONS & SCOPE LABELS (Y = 80.00 mm, Y baseline = 81.75 mm) ──
+    # CH 1 cue button: 4x4mm grey round at Center X: 7, Center Y: 80
+    # CH 2 cue button: 4x4mm grey round at Center X: 67, Center Y: 80
+    btn_y = 80.00
+    lbl_y = 81.75
+    # Connecting subtle guide lines between cue buttons and labels
+    svg.append(f'  <line x1="9.50" y1="{btn_y:.2f}" x2="10.80" y2="{btn_y:.2f}" stroke="{border_color}" stroke-width="0.4" />')
+    svg.append(f'  <line x1="63.20" y1="{btn_y:.2f}" x2="64.50" y2="{btn_y:.2f}" stroke="{border_color}" stroke-width="0.4" />')
     
-    # Delineator Line 2 separating CRT Controls from Input Jacks (Y = 55.00 mm, 10mm above jack row 65mm)
-    svg.append(f'  <line x1="3.00" y1="54.92" x2="27.50" y2="54.92" stroke="{hi_color}" stroke-width="0.15" />')
-    svg.append(f'  <line x1="3.00" y1="55.08" x2="27.50" y2="55.08" stroke="{sh_color}" stroke-width="0.15" />')
+    svg.append(render_text(ddin_cond_bold, 'CH 1', 13.00, lbl_y, 8.0, label_color))
+    svg.append(render_text(ddin_cond_bold, 'CUE MONITOR', 37.00, lbl_y, 8.0, label_color))
+    svg.append(render_text(ddin_cond_bold, 'CH 2', 61.00, lbl_y, 8.0, label_color))
+    svg.append(render_text(ddin_cond_bold, 'MAIN OUT', 105.24, lbl_y, 8.0, label_color))
     
-    # Column Headers for Input Jacks (strictly 8 pt D-DINCondensed-Bold at Y = 59.50 mm)
-    svg.append(render_text(ddin_cond_bold, 'CH 1', col1_x, 59.50, 8.0, label_color))
-    svg.append(render_text(ddin_cond_bold, 'CH 2', col2_x, 59.50, 8.0, label_color))
+    # ── HORIZONTAL CROSSFADER SLIDER ──
+    # Width: 128.24 mm, Center X: 71.12, Center Y: 88.50
+    # Slot from X = 7.00 to 135.24 mm
+    fader_w = 128.24
+    fader_cx = 71.12
+    fader_cy = 88.50
+    slot_x0 = fader_cx - fader_w / 2.0  # 7.00 mm
+    slot_x1 = fader_cx + fader_w / 2.0  # 135.24 mm
     
-    # Top Column Headers for Col 3, 4, 5 at Y = 13.00 mm
-    svg.append(render_text(ddin_cond_bold, 'MAIN OUT', col3_x, 13.00, 8.0, label_color))
-    svg.append(render_text(ddin_cond_bold, 'XFADE', col4_x, 13.00, 8.0, label_color))
-    svg.append(render_text(ddin_cond_bold, 'OUT', col5_x, 13.00, 8.0, label_color))
+    svg.append('  <!-- Horizontal Fader Slot Graphic -->')
+    svg.append(f'  <rect x="{slot_x0:.2f}" y="{fader_cy - 1.20:.2f}" width="{fader_w:.2f}" height="2.40" rx="1.2" ry="1.2" fill="#181818" stroke="{border_color}" stroke-width="0.3" />')
     
-    # Dual Scope Bezels in Column 3
-    # Scope 1 (Main Out): Center (50.80, 39.00), Width 44.00, Height 44.00
-    s1_w, s1_h = 44.00, 44.00
-    s1_x, s1_y = col3_x - s1_w / 2.0, 17.00
-    svg.append(f'  <!-- Scope 1: Main Out Bezel -->')
-    svg.append(f'  <rect x="{s1_x:.2f}" y="{s1_y:.2f}" width="{s1_w:.2f}" height="{s1_h:.2f}" rx="2.5" ry="2.5" fill="#111111" stroke="{scope_bezel}" stroke-width="0.8" />')
+    # Scale ticks along the fader slot (11 major tick marks at column centers)
+    col_x_coords = [7.000, 19.824, 32.648, 45.472, 58.296, 71.120, 83.944, 96.768, 109.592, 122.416, 135.240]
+    for tx in col_x_coords:
+        svg.append(f'  <line x1="{tx:.3f}" y1="{fader_cy - 3.80:.2f}" x2="{tx:.3f}" y2="{fader_cy - 1.80:.2f}" stroke="{border_color}" stroke-width="0.3" />')
+        svg.append(f'  <line x1="{tx:.3f}" y1="{fader_cy + 1.80:.2f}" x2="{tx:.3f}" y2="{fader_cy + 3.80:.2f}" stroke="{border_color}" stroke-width="0.3" />')
     
-    # Scope 2 (Cue Monitor): Center (50.80, 89.00), Width 44.00, Height 44.00
-    s2_w, s2_h = 44.00, 44.00
-    s2_x, s2_y = col3_x - s2_w / 2.0, 67.00
-    svg.append(f'  <!-- Scope 2: Cue Bezel -->')
-    svg.append(f'  <rect x="{s2_x:.2f}" y="{s2_y:.2f}" width="{s2_w:.2f}" height="{s2_h:.2f}" rx="2.5" ry="2.5" fill="#111111" stroke="{scope_bezel}" stroke-width="0.8" />')
-    svg.append(render_text(ddin_cond_bold, 'CUE MONITOR', col3_x, 65.50, 7.0, label_color))
+    # Delineator Line separating Fader from Knobs/Jacks (Y = 94.00 mm, 10mm above row at 104mm)
+    svg.append(f'  <line x1="4.00" y1="93.92" x2="{panel_w - 4.00:.2f}" y2="93.92" stroke="{hi_color}" stroke-width="0.15" />')
+    svg.append(f'  <line x1="4.00" y1="94.08" x2="{panel_w - 4.00:.2f}" y2="94.08" stroke="{sh_color}" stroke-width="0.15" />')
     
-    # Cue Buttons beneath Scope 2: CH 1 ---- ( )  ( ) ---- CH 2
-    # Buttons centered at X = 44.80 and 56.80 mm, Y = 117.00 mm
-    btn_y = 117.00
-    btn1_x = col3_x - 6.00  # 44.80 mm
-    btn2_x = col3_x + 6.00  # 56.80 mm
+    # ── LABELS ABOVE ROW AT Y = 104 mm (Y baseline: 99.00 mm) ──
+    # CH 1 (label) Center X: 32.648
+    svg.append(render_text(ddin_cond_bold, 'CH 1', 32.648, 99.00, 8.0, label_color))
+    # GRATICULE (label) Header centered over the two graticule knobs (X = 77.532, Y = 95.6)
+    # with sublabels CUE (71.12) and MAIN (83.944) at Y baseline 99.00
+    svg.append(render_text(ddin_cond, 'GRATICULE', 77.532, 95.60, 7.5, label_color))
+    svg.append(render_text(ddin_cond_bold, 'CUE', 71.120, 99.00, 7.5, label_color))
+    svg.append(render_text(ddin_cond_bold, 'MAIN', 83.944, 99.00, 7.5, label_color))
     
-    # Left and Right text labels
-    svg.append(render_text(ddin_cond_bold, 'CH 1', 32.50, btn_y + 0.80, 8.0, label_color))
-    svg.append(render_text(ddin_cond_bold, 'CH 2', 69.10, btn_y + 0.80, 8.0, label_color))
+    # CRT Engine Control Labels
+    svg.append(render_text(ddin_cond_bold, 'FOCUS', 96.768, 99.00, 8.0, label_color))
+    svg.append(render_text(ddin_cond_bold, 'BEAM', 109.592, 99.00, 8.0, label_color))
+    svg.append(render_text(ddin_cond_bold, 'DECAY', 122.416, 99.00, 8.0, label_color))
+    svg.append(render_text(ddin_cond_bold, 'BLOOM', 135.240, 99.00, 8.0, label_color))
     
-    # Connecting lines between labels and buttons
-    svg.append(f'  <line x1="36.50" y1="{btn_y:.2f}" x2="41.20" y2="{btn_y:.2f}" stroke="{border_color}" stroke-width="0.5" />')
-    svg.append(f'  <line x1="60.40" y1="{btn_y:.2f}" x2="65.10" y2="{btn_y:.2f}" stroke="{border_color}" stroke-width="0.5" />')
-    
-    # 5 Jack Rows (Bottom-up: Row 7 at 117.00, Row 6 at 104.00, Row 5 at 91.00, Row 4 at 78.00, Row 3 at 65.00)
-    jack_rows = [65.00, 78.00, 91.00, 104.00, 117.00]
-    jack_labels = ['X', 'Y', 'R', 'G', 'B']
-    
-    # Centered labels between Col 1 & 2 (at X = 13.66 mm)
-    mid_in = (col1_x + col2_x) / 2.0
-    for r in range(5):
-        jy = jack_rows[r]
-        svg.append(render_text(ddin_cond_bold, jack_labels[r], mid_in, jy - 5.00, 8.0, label_color))
-        # Col 5 Output row labels
-        svg.append(render_text(ddin_cond_bold, jack_labels[r], col5_x, jy - 5.00, 8.0, label_color))
+    # ── LABELS AT Y BASELINE: 112.00 mm ──
+    # CH 1 & CH 2 Input Column Labels: X - 7, Y - 19.824, R - 32.648, G - 45.472, B - 58.296
+    ch_labels = ['X', 'Y', 'R', 'G', 'B']
+    ch1_x_coords = [7.000, 19.824, 32.648, 45.472, 58.296]
+    for lbl, x in zip(ch_labels, ch1_x_coords):
+        svg.append(render_text(ddin_cond_bold, lbl, x, 112.00, 8.0, label_color))
         
-    # Column 4: Vertical Crossfader & CV Jack
-    # Fader Slot: Center X = 81.28, Y from 22.00 to 92.00 (Length 70mm, Width 2.4mm)
-    slot_x = col4_x - 1.20
-    svg.append(f'  <!-- Fader Slot Graphic -->')
-    svg.append(f'  <rect x="{slot_x:.2f}" y="22.00" width="2.40" height="70.00" rx="1.2" ry="1.2" fill="#181818" stroke="{border_color}" stroke-width="0.3" />')
-    # Fader Scale Ticks along Col 4
-    for t in range(11):
-        ty = 22.00 + t * 7.00
-        svg.append(f'  <line x1="{col4_x - 4.50:.2f}" y1="{ty:.2f}" x2="{col4_x - 2.20:.2f}" y2="{ty:.2f}" stroke="{border_color}" stroke-width="0.3" />')
-        svg.append(f'  <line x1="{col4_x + 2.20:.2f}" y1="{ty:.2f}" x2="{col4_x + 4.50:.2f}" y2="{ty:.2f}" stroke="{border_color}" stroke-width="0.3" />')
+    # XFADE CV label at 71.12
+    svg.append(render_text(ddin_cond_bold, 'XFADE', 71.120, 112.00, 8.0, label_color))
     
-    # Fader End Labels
-    svg.append(render_text(ddin_cond_bold, '1', col4_x - 6.50, 24.00, 7.5, label_color))
-    svg.append(render_text(ddin_cond_bold, '2', col4_x - 6.50, 93.00, 7.5, label_color))
-    
-    # Fader CV Jack at Y = 117.00 mm
-    svg.append(render_text(ddin_cond_bold, 'CV', col4_x, 117.00 - 5.00, 8.0, label_color))
+    # Output Column Labels: X - 83.944, Y - 96.768, R - 109.592, G - 122.416, B - 135.24
+    out_x_coords = [83.944, 96.768, 109.592, 122.416, 135.240]
+    for lbl, x in zip(ch_labels, out_x_coords):
+        svg.append(render_text(ddin_cond_bold, lbl, x, 112.00, 8.0, label_color))
+        
+    # ── BOTTOM LABELS AT Y BASELINE: 125.50 mm ──
+    # CH 2 (label) Center X: 32.648
+    svg.append(render_text(ddin_cond_bold, 'CH 2', 32.648, 125.50, 8.0, label_color))
+    # MAIN OUT (label) under the output columns (Center = 109.592)
+    svg.append(render_text(ddin_cond_bold, 'MAIN OUT', 109.592, 125.50, 8.0, label_color))
     
     svg.append('</svg>')
     
@@ -238,6 +228,6 @@ if __name__ == '__main__':
     for s in skins:
         generate_serqet_panel(s)
         
-    cairosvg.svg2png(url='res/Serqet.svg', write_to='metamodule/assets/Serqet.png', output_width=190, output_height=240)
-    cairosvg.svg2png(url='res/Serqet.svg', write_to='scratch/serqet_verify.png', output_width=190 * 4, output_height=240 * 4)
+    cairosvg.svg2png(url='res/Serqet.svg', write_to='metamodule/assets/Serqet.png', output_width=266, output_height=240)
+    cairosvg.svg2png(url='res/Serqet.svg', write_to='scratch/serqet_verify.png', output_width=266 * 4, output_height=240 * 4)
     print('Rendered metamodule/assets/Serqet.png and scratch/serqet_verify.png successfully.')
