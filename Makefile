@@ -66,6 +66,7 @@ SOURCES += src/Randi.cpp
 SOURCES += src/Grainne.cpp
 SOURCES += src/Lain.cpp
 SOURCES += src/Salus.cpp
+SOURCES += src/Serqet.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res
@@ -76,6 +77,17 @@ RACK_PLUGINS_DIR ?= C:/Users/Pat/AppData/Local/Rack2/plugins-win-x64
 
 # Include the Rack SDK build system
 include $(RACK_DIR)/plugin.mk
+
+# Link OpenGL for real-time CRT oscilloscope rendering
+ifdef ARCH_WIN
+	LDFLAGS += -lopengl32
+endif
+ifdef ARCH_LIN
+	LDFLAGS += -lGL
+endif
+ifdef ARCH_MAC
+	LDFLAGS += -framework OpenGL
+endif
 
 check-compliance:
 	@python scratch/verify_compliance.py

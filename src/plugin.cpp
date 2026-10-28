@@ -77,5 +77,6 @@ void init(Plugin* p) {
 	p->addModel(modelGrainne);
 	p->addModel(modelLain);
 	p->addModel(modelSalus);
+	p->addModel(modelSerqet);
 }
 

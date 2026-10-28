@@ -78,3 +78,4 @@ extern Model* modelRandi;
 extern Model* modelGrainne;
 extern Model* modelLain;
 extern Model* modelSalus;
+extern Model* modelSerqet;

@@ -403,7 +403,7 @@
     {
       "slug": "Daisy",
       "name": "Daisy",
-      "description": "Rhodonea rose curve and Limaçon trajectory generator with Coarse/Fine timebase, 3-state Range oscillator (Very Slow / LFO / VCO), carrier-normalized linear FM, harmonic petal count, center offset, bipolar phase shift, and stretch control",
+      "description": "Rhodonea rose curve and Lima\u00e7on trajectory generator with Coarse/Fine timebase, 3-state Range oscillator (Very Slow / LFO / VCO), carrier-normalized linear FM, harmonic petal count, center offset, bipolar phase shift, and stretch control",
       "tags": [
         "Visual",
         "Oscillator",
@@ -760,7 +760,7 @@
     },
     {
       "slug": "Grainne",
-      "name": "Gráinne",
+      "name": "Gr\u00e1inne",
       "description": "Cyclic 3-stop RGB gradient generator with Coarse/Scale/Fine timebase, live RGB hue halo rings, and continuous midpoint distribution controls",
       "tags": [
         "Generate",
@@ -787,6 +787,17 @@
       "tags": [
         "Utility",
         "Visual"
+      ]
+    },
+    {
+      "slug": "Serqet",
+      "name": "Serqet",
+      "description": "Dual-input dual-preview CRT oscilloscope monitor and video crossfader with selectable interpolation curves",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Dual",
+        "Mixer"
       ]
     }
   ]
