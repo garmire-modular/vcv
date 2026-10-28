@@ -113,8 +113,19 @@ struct Serqet : Module {
 		XFADE_CURVES_COUNT = 3
 	};
 
+	enum GraticuleColor {
+		GRAT_COLOR_GREEN = 0,
+		GRAT_COLOR_AMBER = 1,
+		GRAT_COLOR_NAVY = 2,
+		GRAT_COLOR_RED = 3,
+		GRAT_COLOR_WHITE = 4,
+		GRAT_COLORS_COUNT = 5
+	};
+
 	SkinTheme skinTheme = THEME_MEDIUM;
 	XfadeCurve xfadeCurve = XFADE_LINEAR;
+	GraticuleColor cueGraticuleColor = GRAT_COLOR_AMBER;
+	GraticuleColor mainGraticuleColor = GRAT_COLOR_GREEN;
 
 	// Cue selection: 0 = Ch 1, 1 = Ch 2
 	int cueSource = 0;
@@ -172,6 +183,8 @@ struct Serqet : Module {
 		cueSource = 0;
 		xfadeCurve = XFADE_LINEAR;
 		skinTheme = THEME_MEDIUM;
+		cueGraticuleColor = GRAT_COLOR_AMBER;
+		mainGraticuleColor = GRAT_COLOR_GREEN;
 	}
 
 	json_t* dataToJson() override {
@@ -179,6 +192,8 @@ struct Serqet : Module {
 		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		json_object_set_new(rootJ, "xfadeCurve", json_integer((int)xfadeCurve));
 		json_object_set_new(rootJ, "cueSource", json_integer(cueSource));
+		json_object_set_new(rootJ, "cueGraticuleColor", json_integer((int)cueGraticuleColor));
+		json_object_set_new(rootJ, "mainGraticuleColor", json_integer((int)mainGraticuleColor));
 		return rootJ;
 	}
 
@@ -192,6 +207,12 @@ struct Serqet : Module {
 
 		json_t* cueJ = json_object_get(rootJ, "cueSource");
 		if (cueJ) cueSource = json_integer_value(cueJ);
+
+		json_t* cueColJ = json_object_get(rootJ, "cueGraticuleColor");
+		if (cueColJ) cueGraticuleColor = (GraticuleColor)json_integer_value(cueColJ);
+
+		json_t* mainColJ = json_object_get(rootJ, "mainGraticuleColor");
+		if (mainColJ) mainGraticuleColor = (GraticuleColor)json_integer_value(mainColJ);
 	}
 
 	inline float computeCrossfadeRatio(float rawAlpha) const {
@@ -287,9 +308,9 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 	Serqet* module = nullptr;
 	bool isMainOut = true; // true = Main Out, false = Cue
 
-	static constexpr int CRT_RES = 256;
-	static constexpr int BLUR_RES_1 = 128;
-	static constexpr int BLUR_RES_2 = 32;
+	static constexpr int CRT_RES = 512;
+	static constexpr int BLUR_RES_1 = 256;
+	static constexpr int BLUR_RES_2 = 128;
 
 	// Multi-frame phosphor persistence accumulation buffer
 	std::vector<float> accumR;
@@ -333,63 +354,68 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		}
 	}
 
-	static void blur5(float* dst, const float* src, float* tmp, int w, int h) {
-		// 5-tap separable Gaussian weights: 0.06, 0.24, 0.40, 0.24, 0.06
+	static inline float sampleBilinear(const float* buf, int w, int h, float fx, float fy) {
+		fx = clamp(fx, 0.0f, (float)(w - 1));
+		fy = clamp(fy, 0.0f, (float)(h - 1));
+		int x0 = (int)fx;
+		int y0 = (int)fy;
+		int x1 = std::min(w - 1, x0 + 1);
+		int y1 = std::min(h - 1, y0 + 1);
+		float tx = fx - (float)x0;
+		float ty = fy - (float)y0;
+		float top = (1.0f - tx) * buf[y0 * w + x0] + tx * buf[y0 * w + x1];
+		float bot = (1.0f - tx) * buf[y1 * w + x0] + tx * buf[y1 * w + x1];
+		return (1.0f - ty) * top + ty * bot;
+	}
+
+	static void boxBlurH(const float* src, float* dst, int w, int h, int r) {
+		float scale = 1.0f / (float)(2 * r + 1);
 		for (int y = 0; y < h; y++) {
 			int row = y * w;
-			for (int x = 0; x < w; x++) {
-				int x_m2 = std::max(0, x - 2);
-				int x_m1 = std::max(0, x - 1);
-				int x_p1 = std::min(w - 1, x + 1);
-				int x_p2 = std::min(w - 1, x + 2);
-				tmp[row + x] = 0.06f * src[row + x_m2] +
-				               0.24f * src[row + x_m1] +
-				               0.40f * src[row + x] +
-				               0.24f * src[row + x_p1] +
-				               0.06f * src[row + x_p2];
+			float val = src[row] * (float)r;
+			for (int i = 0; i <= r; i++) {
+				val += src[row + std::min(w - 1, i)];
 			}
-		}
-		for (int y = 0; y < h; y++) {
-			int y_m2 = std::max(0, y - 2) * w;
-			int y_m1 = std::max(0, y - 1) * w;
-			int y_0  = y * w;
-			int y_p1 = std::min(h - 1, y + 1) * w;
-			int y_p2 = std::min(h - 1, y + 2) * w;
 			for (int x = 0; x < w; x++) {
-				dst[y_0 + x] = 0.06f * tmp[y_m2 + x] +
-				               0.24f * tmp[y_m1 + x] +
-				               0.40f * tmp[y_0 + x] +
-				               0.24f * tmp[y_p1 + x] +
-				               0.06f * tmp[y_p2 + x];
+				dst[row + x] = val * scale;
+				val += src[row + std::min(w - 1, x + r + 1)] - src[row + std::max(0, x - r)];
 			}
 		}
 	}
 
-	static void downsample2x(float* dst, const float* src) {
-		for (int y = 0; y < BLUR_RES_1; y++) {
-			int sy0 = (y * 2) * CRT_RES;
-			int sy1 = (y * 2 + 1) * CRT_RES;
-			int dy = y * BLUR_RES_1;
-			for (int x = 0; x < BLUR_RES_1; x++) {
-				int sx = x * 2;
-				dst[dy + x] = 0.25f * (src[sy0 + sx] + src[sy0 + sx + 1] +
-				                       src[sy1 + sx] + src[sy1 + sx + 1]);
+	static void boxBlurV(const float* src, float* dst, int w, int h, int r) {
+		float scale = 1.0f / (float)(2 * r + 1);
+		for (int x = 0; x < w; x++) {
+			float val = src[x] * (float)r;
+			for (int i = 0; i <= r; i++) {
+				val += src[std::min(h - 1, i) * w + x];
+			}
+			for (int y = 0; y < h; y++) {
+				dst[y * w + x] = val * scale;
+				val += src[std::min(h - 1, y + r + 1) * w + x] - src[std::max(0, y - r) * w + x];
 			}
 		}
 	}
 
-	static void downsample4x(float* dst, const float* src) {
-		for (int y = 0; y < BLUR_RES_2; y++) {
-			int dy = y * BLUR_RES_2;
-			for (int x = 0; x < BLUR_RES_2; x++) {
-				float sum = 0.0f;
-				for (int dy_sub = 0; dy_sub < 4; dy_sub++) {
-					int sy = (y * 4 + dy_sub) * BLUR_RES_1;
-					for (int dx_sub = 0; dx_sub < 4; dx_sub++) {
-						sum += src[sy + (x * 4 + dx_sub)];
-					}
-				}
-				dst[dy + x] = sum * 0.0625f;
+	static void gaussianBlur(float* buf, float* tmp, int w, int h, int r) {
+		// 3 passes of 1D sliding-window box blur mathematically converges to exact Gaussian (Central Limit Theorem)
+		for (int p = 0; p < 3; p++) {
+			boxBlurH(buf, tmp, w, h, r);
+			boxBlurV(tmp, buf, w, h, r);
+		}
+	}
+
+	static void downsample2x(float* dst, const float* src, int w, int h) {
+		int dstW = w / 2;
+		int dstH = h / 2;
+		for (int y = 0; y < dstH; y++) {
+			int sy0 = (y * 2) * w;
+			int sy1 = (y * 2 + 1) * w;
+			int dy = y * dstW;
+			for (int x = 0; x < dstW; x++) {
+				int sx0 = x * 2;
+				dst[dy + x] = 0.25f * (src[sy0 + sx0] + src[sy0 + sx0 + 1] +
+				                       src[sy1 + sx0] + src[sy1 + sx0 + 1]);
 			}
 		}
 	}
@@ -431,19 +457,18 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		}
 
 		// 2. Electron Beam Spot & Intensity Setup (Analytical erf Gaussian Integration)
-		// Calibrated Focus: 0.06 mm (0%) to 0.725 mm (100%)
-		float focus_mm = 0.06f + focusNorm * (0.725f - 0.06f);
-		// Pixels per mm on 66x66 mm box with 256x256 res: 256.0 / 66.0 = 3.878 px/mm
-		float beamSigma = (focus_mm / 66.0f) * (float)CRT_RES * 0.40f;
-		// Convolve physical beam spot with 0.65px pixel reconstruction filter for continuous anti-aliasing
-		float sigma = std::sqrt(beamSigma * beamSigma + 0.65f * 0.65f);
+		// Calibrated Focus Range:
+		// focusNorm = 0.0 (0%) -> sigma = 0.40 px (razor-thin sub-pixel beam, FWHM 0.94 px)
+		// focusNorm = 0.10 (10% default) -> sigma = 0.445 px (FWHM 1.05 px, visible width 2.5 - 3 px matching sosci)
+		// focusNorm = 1.0 (100%) -> sigma = 0.85 px (FWHM 2.0 px, visible width 5 px)
+		float sigma = 0.40f + focusNorm * 0.45f;
 		float inv2Sigma2 = 1.0f / (2.0f * sigma * sigma);
 		float sqrt2Sigma = 1.41421356f * sigma;
-		float normFactor = 1.0f / (2.50662827f * sigma); // 1.0 / (sqrt(2*pi) * sigma)
 
-		// Calibrated Beam: 25% (0%) to 150% (100%)
-		float beamIntensity = 0.25f + beamNorm * (1.50f - 0.25f);
-		float baseIntensity = beamIntensity * 14.0f;
+		// Calibrated Beam Intensity: 25% (at 0% knob) to 150% (at 100% knob)
+		// At beamNorm = 0 (25% default), baseIntensity = 0.25 * 65.0 = 16.25 (delicate, pristine color preservation)
+		float beamIntensity = 0.25f + beamNorm * 1.25f;
+		float baseIntensity = beamIntensity * 65.0f;
 
 		// 3. Trajectory Fetch & Analytical Rasterization
 		if (module) {
@@ -536,7 +561,7 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 				sampleB[i] = b;
 			}
 
-			// Analytical Gaussian Beam Segment Integration (Continuous anti-aliasing via erf)
+			// Analytical Gaussian Beam Segment Integration (Exact sosci formulation)
 			for (size_t i = 0; i < NUM_POINTS - 1; i++) {
 				Vec p0 = pts[i];
 				Vec p1 = pts[i + 1];
@@ -546,11 +571,11 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 
 				// Temporal fade along the sweep
 				float intensityScale = (float)i / (float)(NUM_POINTS - 1);
-				float intensityFade = 0.60f + 0.40f * intensityScale;
+				float intensityFade = 0.70f + 0.30f * intensityScale;
 
-				// Velocity factor conserving energy per unit time
-				float velFactor = 1.0f / std::max(L, 0.8f);
-				float segEnergy = baseIntensity * intensityFade * std::sqrt(std::max(L, 0.5f)) * velFactor;
+				// Energy conservation per unit segment length (sosci safeLen)
+				float safeLen = std::max(L, 2.0f * sigma);
+				float segEnergy = baseIntensity * intensityFade;
 
 				float r = sampleR[i];
 				float g = sampleG[i];
@@ -558,7 +583,8 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 
 				if (L < 1e-4f) {
 					// Point spot (stationary beam)
-					int spotR = std::min(CRT_RES / 2, std::max(1, (int)std::ceil(3.2f * sigma)));
+					float invSqrt2PiSigma = 1.0f / (2.50662827f * sigma);
+					int spotR = std::max(1, (int)std::ceil(3.0f * sigma));
 					int minX = std::max(0, (int)std::floor(p0.x - spotR));
 					int maxX = std::min(CRT_RES - 1, (int)std::ceil(p0.x + spotR));
 					int minY = std::max(0, (int)std::floor(p0.y - spotR));
@@ -570,7 +596,7 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 						for (int ix = minX; ix <= maxX; ix++) {
 							float distX = (float)ix - p0.x;
 							float d2 = dy2 + distX * distX;
-							float w = std::exp(-d2 * inv2Sigma2) * (normFactor * normFactor);
+							float w = std::exp(-d2 * inv2Sigma2) * invSqrt2PiSigma;
 							float e = segEnergy * w;
 							accumR[row + ix] += e * r;
 							accumG[row + ix] += e * g;
@@ -578,13 +604,13 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 						}
 					}
 				} else {
-					// Analytical Gaussian beam segment integration (exact erf formulation from sosci)
+					// Exact analytical erf Gaussian segment integral from sosci
 					float tx = dx / L;
 					float ty = dy / L;
 					float nx = -ty;
 					float ny = tx;
 
-					float pad = 3.2f * sigma;
+					float pad = 3.0f * sigma;
 					int minX = std::max(0, (int)std::floor(std::min(p0.x, p1.x) - pad));
 					int maxX = std::min(CRT_RES - 1, (int)std::ceil(std::max(p0.x, p1.x) + pad));
 					int minY = std::max(0, (int)std::floor(std::min(p0.y, p1.y) - pad));
@@ -602,8 +628,8 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 
 							float erfTerm = erfApprox(u / sqrt2Sigma) - erfApprox((u - L) / sqrt2Sigma);
 							float wPerp = std::exp(-v * v * inv2Sigma2);
-							float brightness = 0.5f * erfTerm * wPerp * normFactor / std::max(L, 0.5f);
-							float e = segEnergy * brightness * L;
+							float brightness = 0.5f * erfTerm * wPerp / safeLen;
+							float e = segEnergy * brightness;
 
 							accumR[row + ix] += e * r;
 							accumG[row + ix] += e * g;
@@ -615,83 +641,90 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		}
 
 		// 4. Dual-Kernel Separable Bloom (Tight excited halo + wide glass scatter)
-		downsample2x(tightR.data(), accumR.data());
-		downsample2x(tightG.data(), accumG.data());
-		downsample2x(tightB.data(), accumB.data());
+		// Tight bloom at 256x256 (2x downsample from 512x512)
+		downsample2x(tightR.data(), accumR.data(), CRT_RES, CRT_RES);
+		downsample2x(tightG.data(), accumG.data(), CRT_RES, CRT_RES);
+		downsample2x(tightB.data(), accumB.data(), CRT_RES, CRT_RES);
 
-		blur5(tightR.data(), tightR.data(), tightTmp.data(), BLUR_RES_1, BLUR_RES_1);
-		blur5(tightG.data(), tightG.data(), tightTmp.data(), BLUR_RES_1, BLUR_RES_1);
-		blur5(tightB.data(), tightB.data(), tightTmp.data(), BLUR_RES_1, BLUR_RES_1);
+		gaussianBlur(tightR.data(), tightTmp.data(), BLUR_RES_1, BLUR_RES_1, 2);
+		gaussianBlur(tightG.data(), tightTmp.data(), BLUR_RES_1, BLUR_RES_1, 2);
+		gaussianBlur(tightB.data(), tightTmp.data(), BLUR_RES_1, BLUR_RES_1, 2);
 
-		downsample4x(scatterR.data(), tightR.data());
-		downsample4x(scatterG.data(), tightG.data());
-		downsample4x(scatterB.data(), tightB.data());
+		// Wide scatter at 128x128 (2x downsample from 256x256)
+		downsample2x(scatterR.data(), tightR.data(), BLUR_RES_1, BLUR_RES_1);
+		downsample2x(scatterG.data(), tightG.data(), BLUR_RES_1, BLUR_RES_1);
+		downsample2x(scatterB.data(), tightB.data(), BLUR_RES_1, BLUR_RES_1);
 
-		blur5(scatterR.data(), scatterR.data(), scatterTmp.data(), BLUR_RES_2, BLUR_RES_2);
-		blur5(scatterG.data(), scatterG.data(), scatterTmp.data(), BLUR_RES_2, BLUR_RES_2);
-		blur5(scatterB.data(), scatterB.data(), scatterTmp.data(), BLUR_RES_2, BLUR_RES_2);
+		gaussianBlur(scatterR.data(), scatterTmp.data(), BLUR_RES_2, BLUR_RES_2, 5);
+		gaussianBlur(scatterG.data(), scatterTmp.data(), BLUR_RES_2, BLUR_RES_2, 5);
+		gaussianBlur(scatterB.data(), scatterTmp.data(), BLUR_RES_2, BLUR_RES_2, 5);
 
-		// 5. Tone Mapping, Exponential Saturation & Overexposure Whitening
-		float glow = 1.75f * std::pow(bloomNorm * 1.5f, 1.5f);
+		// 5. Tone Mapping, Exponential Saturation & Overexposure Whitening (sosci composite)
+		float glow = 1.75f * std::pow(bloomNorm, 1.5f);
+		float scaleTight = (float)(BLUR_RES_1 - 1) / (float)(CRT_RES - 1);
+		float scaleScatter = (float)(BLUR_RES_2 - 1) / (float)(CRT_RES - 1);
 
-		for (int i = 0; i < CRT_RES * CRT_RES; i++) {
-			int y = i / CRT_RES;
-			int x = i % CRT_RES;
+		float uExposure = 0.18f;
+		float uOverexposure = 0.5f * beamNorm;
 
-			float rLine = accumR[i];
-			float gLine = accumG[i];
-			float bLine = accumB[i];
+		for (int y = 0; y < CRT_RES; y++) {
+			float fyTight = (float)y * scaleTight;
+			float fyScatter = (float)y * scaleScatter;
+			int row = y * CRT_RES;
+			float dy_v = ((float)y - 256.0f) / 256.0f;
 
-			float rTight = tightR[(y >> 1) * BLUR_RES_1 + (x >> 1)];
-			float gTight = tightG[(y >> 1) * BLUR_RES_1 + (x >> 1)];
-			float bTight = tightB[(y >> 1) * BLUR_RES_1 + (x >> 1)];
+			for (int x = 0; x < CRT_RES; x++) {
+				float fxTight = (float)x * scaleTight;
+				float fxScatter = (float)x * scaleScatter;
+				int idx = row + x;
 
-			float rScatter = scatterR[(y >> 3) * BLUR_RES_2 + (x >> 3)];
-			float gScatter = scatterG[(y >> 3) * BLUR_RES_2 + (x >> 3)];
-			float bScatter = scatterB[(y >> 3) * BLUR_RES_2 + (x >> 3)];
+				float rLine = accumR[idx];
+				float gLine = accumG[idx];
+				float bLine = accumB[idx];
 
-			float rBloom = glow * (0.75f * rTight + 0.60f * rScatter);
-			float gBloom = glow * (0.75f * gTight + 0.60f * gScatter);
-			float bBloom = glow * (0.75f * bTight + 0.60f * bScatter);
+				float rTight = sampleBilinear(tightR.data(), BLUR_RES_1, BLUR_RES_1, fxTight, fyTight);
+				float gTight = sampleBilinear(tightG.data(), BLUR_RES_1, BLUR_RES_1, fxTight, fyTight);
+				float bTight = sampleBilinear(tightB.data(), BLUR_RES_1, BLUR_RES_1, fxTight, fyTight);
 
-			float rLight = rLine + rBloom;
-			float gLight = gLine + gBloom;
-			float bLight = bLine + bBloom;
+				float rScatter = sampleBilinear(scatterR.data(), BLUR_RES_2, BLUR_RES_2, fxScatter, fyScatter);
+				float gScatter = sampleBilinear(scatterG.data(), BLUR_RES_2, BLUR_RES_2, fxScatter, fyScatter);
+				float bScatter = sampleBilinear(scatterB.data(), BLUR_RES_2, BLUR_RES_2, fxScatter, fyScatter);
 
-			// Exponential Tone Mapping
-			float rTone = 1.0f - std::exp(-1.4f * rLight);
-			float gTone = 1.0f - std::exp(-1.4f * gLight);
-			float bTone = 1.0f - std::exp(-1.4f * bLight);
+				float rBloom = glow * (0.75f * rTight + 0.60f * rScatter);
+				float gBloom = glow * (0.75f * gTight + 0.60f * gScatter);
+				float bBloom = glow * (0.75f * bTight + 0.60f * bScatter);
 
-			// Overexposure Core Whitening
-			float s = std::max({rTone, gTone, bTone});
-			if (s > 1e-5f) {
-				float invS = 1.0f / s;
-				float baseR = rTone * invS;
-				float baseG = gTone * invS;
-				float baseB = bTone * invS;
-				float s3 = s * s * s;
-				float whiteMix = clamp(0.20f + s3 * 1.6f, 0.0f, 1.0f);
-				rTone = (baseR * (1.0f - whiteMix) + whiteMix) * s;
-				gTone = (baseG * (1.0f - whiteMix) + whiteMix) * s;
-				bTone = (baseB * (1.0f - whiteMix) + whiteMix) * s;
+				float rLight = rLine + rBloom;
+				float gLight = gLine + gBloom;
+				float bLight = bLine + bBloom;
+
+				// Exponential Tone Mapping from sosci: tlight = 1.0 - exp(-uExposure * light)
+				float rTone = 1.0f - std::exp(-uExposure * rLight);
+				float gTone = 1.0f - std::exp(-uExposure * gLight);
+				float bTone = 1.0f - std::exp(-uExposure * bLight);
+
+				float s = std::max({rTone, gTone, bTone});
+				float whiteMix = clamp(std::pow(s, 4.0f) * uOverexposure, 0.0f, 1.0f);
+
+				float outR = rTone * (1.0f - whiteMix) + s * whiteMix;
+				float outG = gTone * (1.0f - whiteMix) + s * whiteMix;
+				float outB = bTone * (1.0f - whiteMix) + s * whiteMix;
+
+				// CRT Dark Phosphorescent Obsidian Glass & Vignette
+				float dx_v = ((float)x - 256.0f) / 256.0f;
+				float r2 = dx_v * dx_v + dy_v * dy_v;
+				float vignette = clamp(1.0f - 0.22f * r2, 0.0f, 1.0f);
+
+				float crtBgR = 0.005f * vignette;
+				float crtBgG = 0.009f * vignette;
+				float crtBgB = 0.006f * vignette;
+
+				uint8_t pixR = (uint8_t)clamp((outR + crtBgR) * 255.0f, 0.0f, 255.0f);
+				uint8_t pixG = (uint8_t)clamp((outG + crtBgG) * 255.0f, 0.0f, 255.0f);
+				uint8_t pixB = (uint8_t)clamp((outB + crtBgB) * 255.0f, 0.0f, 255.0f);
+
+				outputRgba[idx] = ((uint32_t)pixR) | (((uint32_t)pixG) << 8) | (((uint32_t)pixB) << 16) | 0xff000000;
 			}
-
-			// CRT Dark Phosphorescent Obsidian Glass & Vignette
-			float dx = (x - 128.0f) / 128.0f;
-			float dy = (y - 128.0f) / 128.0f;
-			float r2 = dx * dx + dy * dy;
-			float vignette = clamp(1.0f - 0.22f * r2, 0.0f, 1.0f);
-
-			float crtBgR = 0.015f * vignette;
-			float crtBgG = 0.035f * vignette;
-			float crtBgB = 0.022f * vignette;
-
-			uint8_t outR = (uint8_t)clamp((rTone + crtBgR) * 255.0f, 0.0f, 255.0f);
-			uint8_t outG = (uint8_t)clamp((gTone + crtBgG) * 255.0f, 0.0f, 255.0f);
-			uint8_t outB = (uint8_t)clamp((bTone + crtBgB) * 255.0f, 0.0f, 255.0f);
-
-			outputRgba[i] = ((uint32_t)outR) | (((uint32_t)outG) << 8) | (((uint32_t)outB) << 16) | 0xff000000;
 		}
 	}
 
@@ -742,21 +775,31 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 
 		// 4. Draw Vector Graticule Grid (if opacity > 0)
 		if (gratAlpha > 0.005f) {
-			NVGcolor gridCol;
-			NVGcolor crosshairCol;
-			NVGcolor tickCol;
-
-			if (!isMainOut && module && module->cueSource == 1) {
-				// Warm amber graticule when cueing Channel 2
-				gridCol = nvgRGBAf(1.00f, 0.72f, 0.15f, 0.22f * gratAlpha);
-				crosshairCol = nvgRGBAf(1.00f, 0.78f, 0.20f, 0.48f * gratAlpha);
-				tickCol = nvgRGBAf(1.00f, 0.85f, 0.30f, 0.66f * gratAlpha);
-			} else {
-				// CRT phosphorescent green graticule
-				gridCol = nvgRGBAf(0.00f, 0.93f, 0.40f, 0.22f * gratAlpha);
-				crosshairCol = nvgRGBAf(0.00f, 1.00f, 0.47f, 0.48f * gratAlpha);
-				tickCol = nvgRGBAf(0.00f, 1.00f, 0.47f, 0.66f * gratAlpha);
+			Serqet::GraticuleColor gCol = isMainOut ? (module ? module->mainGraticuleColor : Serqet::GRAT_COLOR_GREEN)
+			                                       : (module ? module->cueGraticuleColor : Serqet::GRAT_COLOR_AMBER);
+			float rBase = 0.00f, gBase = 0.93f, bBase = 0.40f;
+			switch (gCol) {
+				case Serqet::GRAT_COLOR_AMBER:
+					rBase = 1.00f; gBase = 0.72f; bBase = 0.15f;
+					break;
+				case Serqet::GRAT_COLOR_NAVY:
+					rBase = 0.22f; gBase = 0.60f; bBase = 1.00f;
+					break;
+				case Serqet::GRAT_COLOR_RED:
+					rBase = 1.00f; gBase = 0.22f; bBase = 0.22f;
+					break;
+				case Serqet::GRAT_COLOR_WHITE:
+					rBase = 0.95f; gBase = 0.95f; bBase = 0.95f;
+					break;
+				case Serqet::GRAT_COLOR_GREEN:
+				default:
+					rBase = 0.00f; gBase = 0.93f; bBase = 0.40f;
+					break;
 			}
+
+			NVGcolor gridCol = nvgRGBAf(rBase, gBase, bBase, 0.22f * gratAlpha);
+			NVGcolor crosshairCol = nvgRGBAf(rBase, gBase, bBase, 0.48f * gratAlpha);
+			NVGcolor tickCol = nvgRGBAf(rBase, gBase, bBase, 0.66f * gratAlpha);
 
 			nvgBeginPath(args.vg);
 			nvgStrokeColor(args.vg, gridCol);
@@ -901,6 +944,29 @@ struct SerqetWidget : ModuleWidget {
 			menu->addChild(createCheckMenuItem(curveLabels[i], "",
 				[=]() { return mod->xfadeCurve == selected; },
 				[=]() { mod->xfadeCurve = selected; }
+			));
+		}
+
+		// Cue Monitor Graticule Color
+		menu->addChild(new MenuSeparator());
+		menu->addChild(createMenuLabel("Cue Monitor Graticule"));
+		const char* gratColorNames[] = { "Green", "Amber", "Navy", "Red", "White" };
+		for (int i = 0; i < Serqet::GRAT_COLORS_COUNT; i++) {
+			Serqet::GraticuleColor col = (Serqet::GraticuleColor)i;
+			menu->addChild(createCheckMenuItem(gratColorNames[i], "",
+				[=]() { return mod->cueGraticuleColor == col; },
+				[=]() { mod->cueGraticuleColor = col; }
+			));
+		}
+
+		// Main Out Graticule Color
+		menu->addChild(new MenuSeparator());
+		menu->addChild(createMenuLabel("Main Out Graticule"));
+		for (int i = 0; i < Serqet::GRAT_COLORS_COUNT; i++) {
+			Serqet::GraticuleColor col = (Serqet::GraticuleColor)i;
+			menu->addChild(createCheckMenuItem(gratColorNames[i], "",
+				[=]() { return mod->mainGraticuleColor == col; },
+				[=]() { mod->mainGraticuleColor = col; }
 			));
 		}
 
