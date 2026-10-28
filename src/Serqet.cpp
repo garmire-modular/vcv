@@ -2,7 +2,11 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <chrono>
+#include <GL/glew.h>
 #include <nanovg.h>
+#include <nanovg_gl.h>
+#include <GLFW/glfw3.h>
 
 // ─────────────────────────────────────────────────────────────────────
 //  SERQET — Dual-Preview CRT Oscilloscope & Video Crossfader (28 HP)
@@ -304,6 +308,45 @@ struct Serqet : Module {
 //  SerqetCrtWidget — Authentic Real-Time CRT Oscilloscope Display
 // ─────────────────────────────────────────────────────────────────────
 
+// Fast tone mapping and tanh lookup tables
+struct SerqetLut {
+	static constexpr int TONE_LUT_SIZE = 2048;
+	static constexpr int TANH_LUT_SIZE = 1024;
+	float toneLut[TONE_LUT_SIZE];
+	float tanhLut[TANH_LUT_SIZE];
+
+	SerqetLut() {
+		for (int i = 0; i < TONE_LUT_SIZE; i++) {
+			float x = (float)i * (16.0f / (float)(TONE_LUT_SIZE - 1));
+			toneLut[i] = 1.0f - std::exp(-0.18f * x);
+		}
+		for (int i = 0; i < TANH_LUT_SIZE; i++) {
+			float x = (float)i * (10.0f / (float)(TANH_LUT_SIZE - 1));
+			tanhLut[i] = std::tanh(x);
+		}
+	}
+
+	inline float fastTone(float x) const {
+		if (x <= 0.0f) return 0.0f;
+		float idxF = x * ((float)(TONE_LUT_SIZE - 1) / 16.0f);
+		int idx = (int)idxF;
+		if (idx >= TONE_LUT_SIZE - 1) return 1.0f - std::exp(-0.18f * x);
+		float t = idxF - (float)idx;
+		return (1.0f - t) * toneLut[idx] + t * toneLut[idx + 1];
+	}
+
+	inline float fastTanh(float x) const {
+		if (x <= 0.0f) return 0.0f;
+		if (x >= 10.0f) return 1.0f;
+		float idxF = x * ((float)(TANH_LUT_SIZE - 1) / 10.0f);
+		int idx = (int)idxF;
+		float t = idxF - (float)idx;
+		return (1.0f - t) * tanhLut[idx] + t * tanhLut[idx + 1];
+	}
+};
+
+static const SerqetLut g_serqetLut;
+
 struct SerqetCrtWidget : widget::TransparentWidget {
 	Serqet* module = nullptr;
 	bool isMainOut = true; // true = Main Out, false = Cue
@@ -324,8 +367,15 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 	// 32-bit RGBA output image buffer
 	std::vector<uint32_t> outputRgba;
 
+	// Precomputed vignette factor per coordinate
+	std::vector<float> vignetteTable;
+
+	GLuint glTexId = 0;
 	int nvgImageId = -1;
-	NVGcontext* cachedVg = nullptr;
+	NVGcontext* boundVg = nullptr;
+
+	std::chrono::steady_clock::time_point lastRenderTime;
+	bool hasRenderedFirstFrame = false;
 
 	SerqetCrtWidget(Serqet* m, bool mainOut) : module(m), isMainOut(mainOut) {
 		box.size = mm2px(Vec(66.0f, 66.0f));
@@ -345,13 +395,30 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		scatterTmp.assign(BLUR_RES_2 * BLUR_RES_2, 0.0f);
 
 		outputRgba.assign(CRT_RES * CRT_RES, 0xff0a1208); // Dark obsidian green glass
+
+		vignetteTable.resize(CRT_RES * CRT_RES);
+		for (int y = 0; y < CRT_RES; y++) {
+			float dy_v = ((float)y - 256.0f) / 256.0f;
+			for (int x = 0; x < CRT_RES; x++) {
+				float dx_v = ((float)x - 256.0f) / 256.0f;
+				float r2 = dx_v * dx_v + dy_v * dy_v;
+				vignetteTable[y * CRT_RES + x] = std::max(0.0f, std::min(1.0f, 1.0f - 0.22f * r2));
+			}
+		}
+
+		// Interleave initial timestamps so Cue Monitor and Main Out rasterize on alternating frames
+		lastRenderTime = std::chrono::steady_clock::now() - (mainOut ? std::chrono::milliseconds(16) : std::chrono::milliseconds(0));
 	}
 
 	~SerqetCrtWidget() {
-		if (nvgImageId >= 0 && cachedVg) {
-			nvgDeleteImage(cachedVg, nvgImageId);
-			nvgImageId = -1;
+		if (glTexId != 0) {
+			if (glfwGetCurrentContext()) {
+				glDeleteTextures(1, &glTexId);
+			}
+			glTexId = 0;
 		}
+		nvgImageId = -1;
+		boundVg = nullptr;
 	}
 
 	static inline float sampleBilinear(const float* buf, int w, int h, float fx, float fy) {
@@ -435,6 +502,7 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		float fadeAmount = 0.50f * std::pow(1.0f - effectiveDecay, 2.2f) + 0.015f;
 		float adjustedAfterglow = (0.25f + effectiveDecay * 3.0f) * 1.5f;
 		float minFade = 0.08f * (1.0f - clamp(adjustedAfterglow / 10.0f, 0.0f, 1.0f));
+		float invAfterglow = 1.0f / adjustedAfterglow;
 
 		for (int i = 0; i < CRT_RES * CRT_RES; i++) {
 			float r = accumR[i];
@@ -447,8 +515,8 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 				accumB[i] = 0.0f;
 				continue;
 			}
-			float x = std::min(lum / adjustedAfterglow, 10.0f);
-			float fade = fadeAmount * ((1.0f - minFade) * std::tanh(x) + minFade);
+			float x = std::min(lum * invAfterglow, 10.0f);
+			float fade = fadeAmount * ((1.0f - minFade) * g_serqetLut.fastTanh(x) + minFade);
 			fade = clamp(fade, 0.0f, fadeAmount);
 			float keep = std::max(0.0f, 1.0f - fade);
 			accumR[i] = r * keep;
@@ -664,14 +732,12 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		float scaleTight = (float)(BLUR_RES_1 - 1) / (float)(CRT_RES - 1);
 		float scaleScatter = (float)(BLUR_RES_2 - 1) / (float)(CRT_RES - 1);
 
-		float uExposure = 0.18f;
 		float uOverexposure = 0.5f * beamNorm;
 
 		for (int y = 0; y < CRT_RES; y++) {
 			float fyTight = (float)y * scaleTight;
 			float fyScatter = (float)y * scaleScatter;
 			int row = y * CRT_RES;
-			float dy_v = ((float)y - 256.0f) / 256.0f;
 
 			for (int x = 0; x < CRT_RES; x++) {
 				float fxTight = (float)x * scaleTight;
@@ -698,22 +764,21 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 				float gLight = gLine + gBloom;
 				float bLight = bLine + bBloom;
 
-				// Exponential Tone Mapping from sosci: tlight = 1.0 - exp(-uExposure * light)
-				float rTone = 1.0f - std::exp(-uExposure * rLight);
-				float gTone = 1.0f - std::exp(-uExposure * gLight);
-				float bTone = 1.0f - std::exp(-uExposure * bLight);
+				// Exponential Tone Mapping from sosci: tlight = 1.0 - exp(-uExposure * light) via fast LUT
+				float rTone = g_serqetLut.fastTone(rLight);
+				float gTone = g_serqetLut.fastTone(gLight);
+				float bTone = g_serqetLut.fastTone(bLight);
 
 				float s = std::max({rTone, gTone, bTone});
-				float whiteMix = clamp(std::pow(s, 4.0f) * uOverexposure, 0.0f, 1.0f);
+				float s2 = s * s;
+				float whiteMix = clamp(s2 * s2 * uOverexposure, 0.0f, 1.0f);
 
 				float outR = rTone * (1.0f - whiteMix) + s * whiteMix;
 				float outG = gTone * (1.0f - whiteMix) + s * whiteMix;
 				float outB = bTone * (1.0f - whiteMix) + s * whiteMix;
 
-				// CRT Dark Phosphorescent Obsidian Glass & Vignette
-				float dx_v = ((float)x - 256.0f) / 256.0f;
-				float r2 = dx_v * dx_v + dy_v * dy_v;
-				float vignette = clamp(1.0f - 0.22f * r2, 0.0f, 1.0f);
+				// CRT Dark Phosphorescent Obsidian Glass & Vignette (from precomputed table)
+				float vignette = vignetteTable[idx];
 
 				float crtBgR = 0.005f * vignette;
 				float crtBgG = 0.009f * vignette;
@@ -752,17 +817,41 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		}
 
 		// 1. Scissor clip to the 66x66 mm CRT scope screen area with 1.5mm corner radius
-		nvgScissor(args.vg, 0.0f, 0.0f, w, h);
+		nvgIntersectScissor(args.vg, 0.0f, 0.0f, w, h);
 
-		// 2. Render CPU-rasterized CRT simulation buffer
-		renderCrtSimulation(focusVal, beamVal, decayVal, bloomVal);
+		// 2. Interleaved 30 Hz updates per scope (~32ms) to ensure rock-solid 60 FPS UI performance without CPU spikes
+		auto now = std::chrono::steady_clock::now();
+		float elapsedMs = std::chrono::duration<float, std::milli>(now - lastRenderTime).count();
+		bool shouldUpdate = !hasRenderedFirstFrame || (elapsedMs >= 32.0f);
 
-		// 3. Upload and draw NanoVG texture
-		cachedVg = args.vg;
-		if (nvgImageId < 0) {
-			nvgImageId = nvgCreateImageRGBA(args.vg, CRT_RES, CRT_RES, 0, (const unsigned char*)outputRgba.data());
-		} else {
-			nvgUpdateImage(args.vg, nvgImageId, (const unsigned char*)outputRgba.data());
+		if (shouldUpdate) {
+			lastRenderTime = now;
+			hasRenderedFirstFrame = true;
+			renderCrtSimulation(focusVal, beamVal, decayVal, bloomVal);
+
+			// 3. Upload pixels directly to dedicated OpenGL texture
+			if (glTexId == 0) {
+				glGenTextures(1, &glTexId);
+				glBindTexture(GL_TEXTURE_2D, glTexId);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, CRT_RES, CRT_RES, 0, GL_RGBA, GL_UNSIGNED_BYTE, outputRgba.data());
+				glBindTexture(GL_TEXTURE_2D, 0);
+			} else {
+				glBindTexture(GL_TEXTURE_2D, glTexId);
+				glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, CRT_RES, CRT_RES, GL_RGBA, GL_UNSIGNED_BYTE, outputRgba.data());
+				glBindTexture(GL_TEXTURE_2D, 0);
+			}
+		}
+
+		// 4. Wrap dedicated OpenGL texture into NanoVG image handle (handles context changes across Rack views)
+		if (glTexId != 0) {
+			if (nvgImageId < 0 || boundVg != args.vg) {
+				boundVg = args.vg;
+				nvgImageId = nvglCreateImageFromHandleGL2(args.vg, glTexId, CRT_RES, CRT_RES, NVG_IMAGE_NODELETE);
+			}
 		}
 
 		if (nvgImageId >= 0) {
@@ -850,7 +939,6 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		nvgStrokeWidth(args.vg, 1.5f);
 		nvgStroke(args.vg);
 
-		nvgResetScissor(args.vg);
 		nvgRestore(args.vg);
 	}
 };
