@@ -15,11 +15,22 @@ def get_b64(path):
 node_b64 = get_b64(os.path.join(RES_DIR, 'Node.otf'))
 qs_b64 = get_b64(os.path.join(RES_DIR, 'Quicksand-Medium.ttf'))
 
-# Read plugin.json and all 33 SVGs
+# Read plugin.json and all SVGs
 with open(PLUGIN_JSON, 'r', encoding='utf-8') as f:
     pdata = json.load(f)
 
+PALETTE_JSON = os.path.join(PALETTE_DIR, "palette.json")
+palette_data = {}
+if os.path.exists(PALETTE_JSON):
+    with open(PALETTE_JSON, 'r', encoding='utf-8') as f:
+        try:
+            palette_data = json.load(f)
+        except Exception as e:
+            print(f"Error reading {PALETTE_JSON}: {e}")
+
 modules = []
+palette_updated = False
+
 for m in pdata.get('modules', []):
     slug = m.get('slug')
     name = m.get('name', slug)
@@ -38,6 +49,66 @@ for m in pdata.get('modules', []):
                 vb = tree.get("viewBox", "").split()
                 if len(vb) == 4:
                     hp = round(float(vb[2]) / 5.08)
+
+            # Check if SVG has an assigned badge that is not placeholder #5d5d5d
+            badge_el = None
+            for g in tree.iter():
+                if g.get('id') == 'palette-badge':
+                    badge_el = g
+                    break
+            if badge_el is not None and slug not in palette_data:
+                rects = [e for e in badge_el.iter() if e.tag.endswith('rect')]
+                fills = [r.get('fill') for r in rects if r.get('fill')]
+                if fills and not (len(fills) == 1 and fills[0].lower() == '#5d5d5d'):
+                    first_hex = fills[0].upper()
+                    if first_hex == '#1A1A1A':
+                        mode = 'Generate'
+                        anchor_label = 'charcoal'
+                    elif first_hex == '#E4DAC2':
+                        mode = 'Utility'
+                        anchor_label = 'bone'
+                    elif first_hex == '#BCC5CC':
+                        mode = 'Control'
+                        anchor_label = 'titanium'
+                    else:
+                        mode = 'Transform'
+                        anchor_label = 'white'
+
+                    heights = [float(r.get('height', '0')) for r in rects]
+                    total_h = sum(heights) or 88.9
+                    weights = [round((h / total_h) * 100) for h in heights]
+                    chromatic_high = ['#FFFFFF', '#E4DAC2', '#BCC5CC', '#EBEC72', '#56B4E9', '#B8A0E8', '#FF8866']
+                    bands = []
+                    for hx, wt, hm in zip(fills, weights, heights):
+                        bands.append({
+                            'hex': hx,
+                            'tier': 'HIGH' if (hx.upper() in chromatic_high) else 'LOW',
+                            'weight': wt,
+                            'heightMm': round(hm, 3)
+                        })
+                    palette_data[slug] = {
+                        'module': name,
+                        'slug': slug,
+                        'hp': hp,
+                        'mode': mode,
+                        'anchor': anchor_label,
+                        'anchorColor': first_hex,
+                        'anchorPos': 'top',
+                        'bandCount': len(fills),
+                        'bands': bands,
+                        'colors': fills,
+                        'weights': weights,
+                        'badgeGeometry': {
+                            'widthMm': 2.54,
+                            'heightMm': 88.9,
+                            'yOffsetMm': 0.0,
+                            'x': 0.0,
+                            'y': 19.8
+                        },
+                        'panelColor': '#6E6E6E',
+                        'savedAt': 'from-svg'
+                    }
+                    palette_updated = True
         except Exception as e:
             print(f"Error parsing {slug}: {e}")
     
@@ -48,7 +119,16 @@ for m in pdata.get('modules', []):
         "svg": svg_content
     })
 
+if palette_updated:
+    try:
+        with open(PALETTE_JSON, 'w', encoding='utf-8') as f:
+            json.dump(palette_data, f, indent=2)
+        print(f"Updated {PALETTE_JSON} with newly discovered SVG badges")
+    except Exception as e:
+        print(f"Error saving updated {PALETTE_JSON}: {e}")
+
 modules_json_str = json.dumps(modules)
+palettes_json_str = json.dumps(palette_data)
 
 html_content = f'''<!DOCTYPE html>
 <html lang="en">
@@ -530,6 +610,12 @@ html_content = f'''<!DOCTYPE html>
 
         <div class="divider"></div>
 
+        <button class="btn-disk" onclick="document.getElementById('palette-file-input').click()" title="Import palette.json from disk">
+          <span>&#x21e7;</span>
+          <span>Import JSON</span>
+        </button>
+        <input type="file" id="palette-file-input" accept=".json" onchange="importPaletteFile(event)" style="display:none">
+
         <button class="btn-disk" id="btn-file-sync" onclick="handleFileSync()" title="Link local palette.json for direct file writing">
           <span id="disk-icon">&#x21e9;</span>
           <span id="disk-label">Export JSON</span>
@@ -624,7 +710,8 @@ html_content = f'''<!DOCTYPE html>
       'Control':   {{ hex: '#BCC5CC', tier: 'HIGH', label: 'titanium' }}
     }};
 
-    let savedPalettes = {{}};
+    const EMBEDDED_PALETTES = {palettes_json_str};
+    let savedPalettes = Object.assign({{}}, EMBEDDED_PALETTES);
     let currentModule = null;
     let bandCount = 3;
     let moduleMode = 'Transform'; // 'Transform' | 'Generate' | 'Utility' | 'Control'
@@ -677,13 +764,21 @@ html_content = f'''<!DOCTYPE html>
       return valid[Math.floor(Math.random() * valid.length)];
     }}
 
-    function init() {{
+    async function init() {{
+      // 1. Initialize from embedded palettes (baked in at build time)
+      savedPalettes = Object.assign({{}}, EMBEDDED_PALETTES);
+
+      // 2. Overlay any cached edits from localStorage
       const cached = localStorage.getItem('palette_manager_json');
       if (cached) {{
         try {{
-          savedPalettes = JSON.parse(cached);
+          const parsed = JSON.parse(cached);
+          savedPalettes = Object.assign(savedPalettes, parsed);
         }} catch (e) {{}}
       }}
+
+      // 3. Fallback scan: Detect any modules with non-placeholder badges directly from their SVG
+      scanSvgBadges();
 
       if ('showSaveFilePicker' in window) {{
         document.getElementById('disk-label').textContent = 'Link File';
@@ -695,6 +790,127 @@ html_content = f'''<!DOCTYPE html>
       if (MODULES.length > 0) {{
         selectModule(MODULES[0].slug);
       }}
+
+      // 4. If running on a web server (http / https), actively fetch live palette.json
+      if (window.location.protocol.startsWith('http')) {{
+        await fetchPaletteJson();
+      }}
+    }}
+
+    async function fetchPaletteJson() {{
+      const candidateUrls = [
+        'palette.json',
+        './palette.json',
+        '/palette.json',
+        'scratch/palette/palette.json',
+        '/scratch/palette/palette.json'
+      ];
+
+      for (const url of candidateUrls) {{
+        try {{
+          const res = await fetch(url + '?_t=' + Date.now());
+          if (res.ok) {{
+            const data = await res.json();
+            if (data && typeof data === 'object' && Object.keys(data).length > 0) {{
+              console.log('Successfully fetched palette database from', url);
+              savedPalettes = Object.assign({{}}, savedPalettes, data);
+              populateDropdown();
+              if (currentModule && savedPalettes[currentModule.slug]) {{
+                selectModule(currentModule.slug);
+              }}
+              break;
+            }}
+          }}
+        }} catch (e) {{
+          // Try next url
+        }}
+      }}
+    }}
+
+    function scanSvgBadges() {{
+      const parser = new DOMParser();
+      let added = false;
+      MODULES.forEach(m => {{
+        if (savedPalettes[m.slug]) return; // Already registered
+        if (!m.svg) return;
+        try {{
+          const doc = parser.parseFromString(m.svg, 'image/svg+xml');
+          const badge = doc.getElementById('palette-badge');
+          if (!badge) return;
+          const rects = Array.from(badge.querySelectorAll('rect'));
+          if (rects.length === 0) return;
+          const fills = rects.map(r => r.getAttribute('fill')).filter(Boolean);
+          if (fills.length === 1 && fills[0].toLowerCase() === '#5d5d5d') return; // Placeholder
+          
+          const heights = rects.map(r => parseFloat(r.getAttribute('height')) || 0);
+          const totalH = heights.reduce((a, b) => a + b, 0) || BADGE_HEIGHT_MM;
+          const weights = heights.map(h => Math.round((h / totalH) * 100));
+          const firstHex = (fills[0] || '').toUpperCase();
+          let mode = 'Transform';
+          let anchorLabel = 'white';
+          if (firstHex === '#1A1A1A') {{ mode = 'Generate'; anchorLabel = 'charcoal'; }}
+          else if (firstHex === '#E4DAC2') {{ mode = 'Utility'; anchorLabel = 'bone'; }}
+          else if (firstHex === '#BCC5CC') {{ mode = 'Control'; anchorLabel = 'titanium'; }}
+
+          const bands = fills.map((hx, idx) => ({{
+            hex: hx,
+            tier: (hx === '#FFFFFF' || hx === '#E4DAC2' || hx === '#BCC5CC' || CHROMATIC_HIGH.includes(hx)) ? 'HIGH' : 'LOW',
+            weight: weights[idx] || 1,
+            heightMm: Number((heights[idx] || 0).toFixed(3))
+          }}));
+
+          savedPalettes[m.slug] = {{
+            module: m.name,
+            slug: m.slug,
+            hp: m.hp,
+            mode: mode,
+            anchor: anchorLabel,
+            anchorColor: firstHex,
+            anchorPos: 'top',
+            bandCount: fills.length,
+            bands: bands,
+            colors: fills,
+            weights: weights,
+            badgeGeometry: {{
+              widthMm: BADGE_WIDTH_MM,
+              heightMm: BADGE_HEIGHT_MM,
+              yOffsetMm: BADGE_Y_OFFSET,
+              x: 0.0,
+              y: 19.8
+            }},
+            panelColor: PANEL_COLOR,
+            savedAt: 'from-svg'
+          }};
+          added = true;
+        }} catch (err) {{}}
+      }});
+      return added;
+    }}
+
+    function importPaletteFile(event) {{
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {{
+        try {{
+          const data = JSON.parse(e.target.result);
+          if (data && typeof data === 'object') {{
+            savedPalettes = Object.assign({{}}, savedPalettes, data);
+            localStorage.setItem('palette_manager_json', JSON.stringify(savedPalettes, null, 2));
+            populateDropdown();
+            if (currentModule) {{
+              selectModule(currentModule.slug);
+            }}
+            showToast(`✓ Imported ${{Object.keys(data).length}} module palettes from ${{file.name}}`);
+          }} else {{
+            showToast('⚠️ Invalid JSON format');
+          }}
+        }} catch (err) {{
+          showToast('⚠️ Error reading JSON file: ' + err.message);
+        }}
+        event.target.value = '';
+      }};
+      reader.readAsText(file);
     }}
 
     function populateDropdown() {{

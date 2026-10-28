@@ -478,6 +478,12 @@
 
         <div class="divider"></div>
 
+        <button class="btn-disk" onclick="document.getElementById('palette-file-input').click()" title="Import palette.json from disk">
+          <span>&#x21e7;</span>
+          <span>Import JSON</span>
+        </button>
+        <input type="file" id="palette-file-input" accept=".json" onchange="importPaletteFile(event)" style="display:none">
+
         <button class="btn-disk" id="btn-file-sync" onclick="handleFileSync()" title="Link local palette.json for direct file writing">
           <span id="disk-icon">&#x21e9;</span>
           <span id="disk-label">Export JSON</span>
@@ -572,7 +578,8 @@
       'Control':   { hex: '#BCC5CC', tier: 'HIGH', label: 'titanium' }
     };
 
-    let savedPalettes = {};
+    const EMBEDDED_PALETTES = {"Chromance": {"module": "Chromance", "slug": "Chromance", "hp": 10, "mode": "Generate", "anchor": "charcoal", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#1A1A1A", "tier": "LOW", "weight": 50, "heightMm": 44.45}, {"hex": "#F0E442", "tier": "HIGH", "weight": 32, "heightMm": 28.448}, {"hex": "#CC79A7", "tier": "LOW", "weight": 18, "heightMm": 16.002}], "colors": ["#1A1A1A", "#F0E442", "#CC79A7"], "weights": [50, 32, 18], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T18:53:35.511Z"}, "Ants": {"module": "Ants", "slug": "Ants", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 18, "heightMm": 16.002}, {"hex": "#442288", "tier": "LOW", "weight": 50, "heightMm": 44.45}, {"hex": "#FF8866", "tier": "HIGH", "weight": 32, "heightMm": 28.448}], "colors": ["#FFFFFF", "#442288", "#FF8866"], "weights": [18, 50, 32], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:39:30.236Z"}, "HsvRgb": {"module": "HSV / HSL to RGB", "slug": "HsvRgb", "hp": 6, "mode": "Generate", "anchor": "charcoal", "anchorPos": "top", "bandCount": 4, "bands": [{"hex": "#1A1A1A", "tier": "LOW", "weight": 40, "heightMm": 35.56}, {"hex": "#B8A0E8", "tier": "HIGH", "weight": 18, "heightMm": 16.002}, {"hex": "#D55E00", "tier": "LOW", "weight": 26, "heightMm": 23.114}, {"hex": "#EBEC72", "tier": "HIGH", "weight": 16, "heightMm": 14.224}], "colors": ["#1A1A1A", "#B8A0E8", "#D55E00", "#EBEC72"], "weights": [40, 18, 26, 16], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:39:50.562Z"}, "OklchRgb": {"module": "OKLCH", "slug": "OklchRgb", "hp": 6, "mode": "Generate", "anchor": "charcoal", "anchorColor": "#1A1A1A", "anchorPos": "top", "bandCount": 4, "bands": [{"hex": "#1A1A1A", "tier": "LOW", "weight": 24, "heightMm": 21.336}, {"hex": "#56B4E9", "tier": "HIGH", "weight": 14, "heightMm": 12.446}, {"hex": "#882255", "tier": "LOW", "weight": 38, "heightMm": 33.782}, {"hex": "#EBEC72", "tier": "HIGH", "weight": 24, "heightMm": 21.336}], "colors": ["#1A1A1A", "#56B4E9", "#882255", "#EBEC72"], "weights": [24, 14, 38, 24], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-27T20:04:58.158Z"}, "Rgb": {"module": "RGB", "slug": "Rgb", "hp": 6, "mode": "Generate", "anchor": "charcoal", "anchorPos": "top", "bandCount": 4, "bands": [{"hex": "#1A1A1A", "tier": "LOW", "weight": 16, "heightMm": 14.224}, {"hex": "#EBEC72", "tier": "HIGH", "weight": 28, "heightMm": 24.892}, {"hex": "#882255", "tier": "LOW", "weight": 20, "heightMm": 17.78}, {"hex": "#56B4E9", "tier": "HIGH", "weight": 36, "heightMm": 32.004}], "colors": ["#1A1A1A", "#EBEC72", "#882255", "#56B4E9"], "weights": [16, 28, 20, 36], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:40:14.090Z"}, "Instability": {"module": "Instability", "slug": "Instability", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 2, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 57, "heightMm": 50.673}, {"hex": "#005566", "tier": "LOW", "weight": 43, "heightMm": 38.227}], "colors": ["#FFFFFF", "#005566"], "weights": [57, 43], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:40:22.880Z"}, "Scale": {"module": "Scale (X/Y)", "slug": "Scale", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 46, "heightMm": 40.894}, {"hex": "#005566", "tier": "LOW", "weight": 32, "heightMm": 28.448}, {"hex": "#EBEC72", "tier": "HIGH", "weight": 22, "heightMm": 19.558}], "colors": ["#FFFFFF", "#005566", "#EBEC72"], "weights": [46, 32, 22], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:40:32.094Z"}, "Position": {"module": "Position (X/Y)", "slug": "Position", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 18, "heightMm": 16.002}, {"hex": "#442288", "tier": "LOW", "weight": 50, "heightMm": 44.45}, {"hex": "#56B4E9", "tier": "HIGH", "weight": 32, "heightMm": 28.448}], "colors": ["#FFFFFF", "#442288", "#56B4E9"], "weights": [18, 50, 32], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:40:37.318Z"}, "Rotate": {"module": "Rotate (X/Y)", "slug": "Rotate", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 32, "heightMm": 28.448}, {"hex": "#0072B2", "tier": "LOW", "weight": 18, "heightMm": 16.002}, {"hex": "#EBEC72", "tier": "HIGH", "weight": 50, "heightMm": 44.45}], "colors": ["#FFFFFF", "#0072B2", "#EBEC72"], "weights": [32, 18, 50], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:40:42.242Z"}, "Spin": {"module": "Spin (X/Y)", "slug": "Spin", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 32, "heightMm": 28.448}, {"hex": "#0072B2", "tier": "LOW", "weight": 18, "heightMm": 16.002}, {"hex": "#FF8866", "tier": "HIGH", "weight": 50, "heightMm": 44.45}], "colors": ["#FFFFFF", "#0072B2", "#FF8866"], "weights": [32, 18, 50], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:40:46.758Z"}, "Fold": {"module": "Fold (X/Y)", "slug": "Fold", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 32, "heightMm": 28.448}, {"hex": "#442288", "tier": "LOW", "weight": 22, "heightMm": 19.558}, {"hex": "#B8A0E8", "tier": "HIGH", "weight": 46, "heightMm": 40.894}], "colors": ["#FFFFFF", "#442288", "#B8A0E8"], "weights": [32, 22, 46], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:40:51.780Z"}, "Stretch": {"module": "Stretch (X/Y)", "slug": "Stretch", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 48, "heightMm": 42.672}, {"hex": "#005566", "tier": "LOW", "weight": 20, "heightMm": 17.78}, {"hex": "#B8A0E8", "tier": "HIGH", "weight": 32, "heightMm": 28.448}], "colors": ["#FFFFFF", "#005566", "#B8A0E8"], "weights": [48, 20, 32], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:40:56.802Z"}, "Shear": {"module": "Shear (X/Y)", "slug": "Shear", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 32, "heightMm": 28.448}, {"hex": "#D55E00", "tier": "LOW", "weight": 18, "heightMm": 16.002}, {"hex": "#B8A0E8", "tier": "HIGH", "weight": 50, "heightMm": 44.45}], "colors": ["#FFFFFF", "#D55E00", "#B8A0E8"], "weights": [32, 18, 50], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:41:00.792Z"}, "Smooth": {"module": "Smooth (X/Y)", "slug": "Smooth", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 18, "heightMm": 16.002}, {"hex": "#005566", "tier": "LOW", "weight": 50, "heightMm": 44.45}, {"hex": "#FF8866", "tier": "HIGH", "weight": 32, "heightMm": 28.448}], "colors": ["#FFFFFF", "#005566", "#FF8866"], "weights": [18, 50, 32], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:41:04.656Z"}, "Wiggle": {"module": "Wiggle (X/Y)", "slug": "Wiggle", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 32, "heightMm": 28.448}, {"hex": "#CC79A7", "tier": "LOW", "weight": 48, "heightMm": 42.672}, {"hex": "#B8A0E8", "tier": "HIGH", "weight": 20, "heightMm": 17.78}], "colors": ["#FFFFFF", "#CC79A7", "#B8A0E8"], "weights": [32, 48, 20], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:41:07.138Z"}, "Crest": {"module": "Crest (X/Y)", "slug": "Crest", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 48, "heightMm": 42.672}, {"hex": "#882255", "tier": "LOW", "weight": 20, "heightMm": 17.78}, {"hex": "#56B4E9", "tier": "HIGH", "weight": 32, "heightMm": 28.448}], "colors": ["#FFFFFF", "#882255", "#56B4E9"], "weights": [48, 20, 32], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:59:59.941Z"}, "Quake": {"module": "Quake (X/Y)", "slug": "Quake", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 50, "heightMm": 44.45}, {"hex": "#0072B2", "tier": "LOW", "weight": 32, "heightMm": 28.448}, {"hex": "#56B4E9", "tier": "HIGH", "weight": 18, "heightMm": 16.002}], "colors": ["#FFFFFF", "#0072B2", "#56B4E9"], "weights": [50, 32, 18], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:41:15.170Z"}, "Steps": {"module": "Steps (X/Y)", "slug": "Steps", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 20, "heightMm": 17.78}, {"hex": "#882255", "tier": "LOW", "weight": 32, "heightMm": 28.448}, {"hex": "#EBEC72", "tier": "HIGH", "weight": 48, "heightMm": 42.672}], "colors": ["#FFFFFF", "#882255", "#EBEC72"], "weights": [20, 32, 48], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:41:18.014Z"}, "Copycat": {"module": "Copycat", "slug": "Copycat", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 50, "heightMm": 44.45}, {"hex": "#CC79A7", "tier": "LOW", "weight": 32, "heightMm": 28.448}, {"hex": "#EBEC72", "tier": "HIGH", "weight": 18, "heightMm": 16.002}], "colors": ["#FFFFFF", "#CC79A7", "#EBEC72"], "weights": [50, 32, 18], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:41:34.282Z"}, "Petals": {"module": "Petals", "slug": "Petals", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 50, "heightMm": 44.45}, {"hex": "#CC79A7", "tier": "LOW", "weight": 32, "heightMm": 28.448}, {"hex": "#56B4E9", "tier": "HIGH", "weight": 18, "heightMm": 16.002}], "colors": ["#FFFFFF", "#CC79A7", "#56B4E9"], "weights": [50, 32, 18], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:42:07.494Z"}, "Unfold": {"module": "Unfold", "slug": "Unfold", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 50, "heightMm": 44.45}, {"hex": "#D55E00", "tier": "LOW", "weight": 32, "heightMm": 28.448}, {"hex": "#FF8866", "tier": "HIGH", "weight": 18, "heightMm": 16.002}], "colors": ["#FFFFFF", "#D55E00", "#FF8866"], "weights": [50, 32, 18], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:42:19.396Z"}, "Vortex": {"module": "Vortex", "slug": "Vortex", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 32, "heightMm": 28.448}, {"hex": "#D55E00", "tier": "LOW", "weight": 22, "heightMm": 19.558}, {"hex": "#56B4E9", "tier": "HIGH", "weight": 46, "heightMm": 40.894}], "colors": ["#FFFFFF", "#D55E00", "#56B4E9"], "weights": [32, 22, 46], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:42:25.404Z"}, "Trough": {"module": "Trough (X/Y)", "slug": "Trough", "hp": 6, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 46, "heightMm": 40.894}, {"hex": "#882255", "tier": "LOW", "weight": 32, "heightMm": 28.448}, {"hex": "#B8A0E8", "tier": "HIGH", "weight": 22, "heightMm": 19.558}], "colors": ["#FFFFFF", "#882255", "#B8A0E8"], "weights": [46, 32, 22], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:42:34.948Z"}, "Switch": {"module": "Switch (X/Y)", "slug": "Switch", "hp": 3, "mode": "Utility", "anchor": "bone", "anchorColor": "#E4DAC2", "anchorPos": "top", "bandCount": 2, "bands": [{"hex": "#E4DAC2", "tier": "HIGH", "weight": 43, "heightMm": 38.227}, {"hex": "#442288", "tier": "LOW", "weight": 57, "heightMm": 50.673}], "colors": ["#E4DAC2", "#442288"], "weights": [43, 57], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-27T20:05:34.996Z"}, "Route": {"module": "Route (X/Y)", "slug": "Route", "hp": 3, "mode": "Utility", "anchor": "bone", "anchorColor": "#E4DAC2", "anchorPos": "top", "bandCount": 2, "bands": [{"hex": "#E4DAC2", "tier": "HIGH", "weight": 57, "heightMm": 50.673}, {"hex": "#D55E00", "tier": "LOW", "weight": 43, "heightMm": 38.227}], "colors": ["#E4DAC2", "#D55E00"], "weights": [57, 43], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-27T20:05:40.306Z"}, "SumMult": {"module": "Sum/Mult", "slug": "SumMult", "hp": 3, "mode": "Utility", "anchor": "bone", "anchorColor": "#E4DAC2", "anchorPos": "top", "bandCount": 2, "bands": [{"hex": "#E4DAC2", "tier": "HIGH", "weight": 32, "heightMm": 28.448}, {"hex": "#CC79A7", "tier": "LOW", "weight": 68, "heightMm": 60.452}], "colors": ["#E4DAC2", "#CC79A7"], "weights": [32, 68], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-27T20:05:54.854Z"}, "SwitchXL": {"module": "Switch XL", "slug": "SwitchXL", "hp": 8, "mode": "Utility", "anchor": "bone", "anchorColor": "#E4DAC2", "anchorPos": "top", "bandCount": 4, "bands": [{"hex": "#E4DAC2", "tier": "HIGH", "weight": 28, "heightMm": 24.892}, {"hex": "#442288", "tier": "LOW", "weight": 20, "heightMm": 17.78}, {"hex": "#56B4E9", "tier": "HIGH", "weight": 36, "heightMm": 32.004}, {"hex": "#CC79A7", "tier": "LOW", "weight": 16, "heightMm": 14.224}], "colors": ["#E4DAC2", "#442288", "#56B4E9", "#CC79A7"], "weights": [28, 20, 36, 16], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-27T20:06:09.908Z"}, "RouteXL": {"module": "Route XL", "slug": "RouteXL", "hp": 8, "mode": "Utility", "anchor": "bone", "anchorColor": "#E4DAC2", "anchorPos": "top", "bandCount": 4, "bands": [{"hex": "#E4DAC2", "tier": "HIGH", "weight": 20, "heightMm": 17.78}, {"hex": "#D55E00", "tier": "LOW", "weight": 36, "heightMm": 32.004}, {"hex": "#B8A0E8", "tier": "HIGH", "weight": 16, "heightMm": 14.224}, {"hex": "#0072B2", "tier": "LOW", "weight": 28, "heightMm": 24.892}], "colors": ["#E4DAC2", "#D55E00", "#B8A0E8", "#0072B2"], "weights": [20, 36, 16, 28], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-27T20:06:48.796Z"}, "SumMixXL": {"module": "Sum/Mix XL", "slug": "SumMixXL", "hp": 8, "mode": "Utility", "anchor": "bone", "anchorColor": "#E4DAC2", "anchorPos": "top", "bandCount": 4, "bands": [{"hex": "#E4DAC2", "tier": "HIGH", "weight": 36, "heightMm": 32.004}, {"hex": "#CC79A7", "tier": "LOW", "weight": 16, "heightMm": 14.224}, {"hex": "#FF8866", "tier": "HIGH", "weight": 28, "heightMm": 24.892}, {"hex": "#0072B2", "tier": "LOW", "weight": 20, "heightMm": 17.78}], "colors": ["#E4DAC2", "#CC79A7", "#FF8866", "#0072B2"], "weights": [36, 16, 28, 20], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-27T20:06:58.088Z"}, "Andxy": {"module": "Andxy", "slug": "Andxy", "hp": 3, "mode": "Utility", "anchor": "bone", "anchorColor": "#E4DAC2", "anchorPos": "top", "bandCount": 2, "bands": [{"hex": "#E4DAC2", "tier": "HIGH", "weight": 62, "heightMm": 55.118}, {"hex": "#0072B2", "tier": "LOW", "weight": 38, "heightMm": 33.782}], "colors": ["#E4DAC2", "#0072B2"], "weights": [62, 38], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-27T20:08:05.672Z"}, "Orxy": {"module": "Orxy", "slug": "Orxy", "hp": 3, "mode": "Utility", "anchor": "bone", "anchorColor": "#E4DAC2", "anchorPos": "top", "bandCount": 2, "bands": [{"hex": "#E4DAC2", "tier": "HIGH", "weight": 43, "heightMm": 38.227}, {"hex": "#005566", "tier": "LOW", "weight": 57, "heightMm": 50.673}], "colors": ["#E4DAC2", "#005566"], "weights": [43, 57], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-27T20:08:12.894Z"}, "Xorxy": {"module": "Xorxy", "slug": "Xorxy", "hp": 3, "mode": "Utility", "anchor": "bone", "anchorColor": "#E4DAC2", "anchorPos": "top", "bandCount": 2, "bands": [{"hex": "#E4DAC2", "tier": "HIGH", "weight": 57, "heightMm": 50.673}, {"hex": "#882255", "tier": "LOW", "weight": 43, "heightMm": 38.227}], "colors": ["#E4DAC2", "#882255"], "weights": [57, 43], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-27T20:08:18.006Z"}, "ChopXL": {"module": "Chop XL", "slug": "ChopXL", "hp": 12, "mode": "Effect", "anchor": "white", "anchorPos": "top", "bandCount": 4, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 36, "heightMm": 32.004}, {"hex": "#882255", "tier": "LOW", "weight": 16, "heightMm": 14.224}, {"hex": "#FF8866", "tier": "HIGH", "weight": 28, "heightMm": 24.892}, {"hex": "#D55E00", "tier": "LOW", "weight": 20, "heightMm": 17.78}], "colors": ["#FFFFFF", "#882255", "#FF8866", "#D55E00"], "weights": [36, 16, 28, 20], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "savedAt": "2026-09-27T19:45:48.984Z"}, "Rescale": {"module": "Rescale", "slug": "Rescale", "hp": 6, "mode": "Utility", "anchor": "bone", "anchorColor": "#E4DAC2", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#E4DAC2", "tier": "HIGH", "weight": 48, "heightMm": 42.672}, {"hex": "#005566", "tier": "LOW", "weight": 20, "heightMm": 17.78}, {"hex": "#EBEC72", "tier": "HIGH", "weight": 32, "heightMm": 28.448}], "colors": ["#E4DAC2", "#005566", "#EBEC72"], "weights": [48, 20, 32], "badgeGeometry": {"widthMm": 2.5, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-28T00:24:26.877Z"}, "Bleed": {"module": "Bleed", "slug": "Bleed", "hp": 6, "mode": "Transform", "anchor": "white", "anchorColor": "#FFFFFF", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 18, "heightMm": 16.002}, {"hex": "#882255", "tier": "LOW", "weight": 50, "heightMm": 44.45}, {"hex": "#FF8866", "tier": "HIGH", "weight": 32, "heightMm": 28.448}], "colors": ["#FFFFFF", "#882255", "#FF8866"], "weights": [18, 50, 32], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#7C7C7C", "savedAt": "2026-09-28T01:15:54.127Z"}, "Lisa": {"module": "Lisa", "slug": "Lisa", "hp": 6, "mode": "Generate", "anchor": "charcoal", "anchorColor": "#1A1A1A", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#1A1A1A", "tier": "LOW", "weight": 32, "heightMm": 28.448}, {"hex": "#B8A0E8", "tier": "HIGH", "weight": 22, "heightMm": 19.558}, {"hex": "#005566", "tier": "LOW", "weight": 46, "heightMm": 40.894}], "colors": ["#1A1A1A", "#B8A0E8", "#005566"], "weights": [32, 22, 46], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-28T01:20:18.684Z"}, "Rose": {"module": "Rose", "slug": "Rose", "hp": 6, "mode": "Generate", "anchor": "charcoal", "anchorColor": "#1A1A1A", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#1A1A1A", "tier": "LOW", "weight": 18, "heightMm": 16.002}, {"hex": "#FF8866", "tier": "HIGH", "weight": 50, "heightMm": 44.45}, {"hex": "#005566", "tier": "LOW", "weight": 32, "heightMm": 28.448}], "colors": ["#1A1A1A", "#FF8866", "#005566"], "weights": [18, 50, 32], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-28T02:35:59.400Z"}, "Daisy": {"module": "Daisy", "slug": "Daisy", "hp": 8, "mode": "Generate", "anchor": "charcoal", "anchorColor": "#1A1A1A", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#1A1A1A", "tier": "LOW", "weight": 20, "heightMm": 17.78}, {"hex": "#EBEC72", "tier": "HIGH", "weight": 32, "heightMm": 28.448}, {"hex": "#005566", "tier": "LOW", "weight": 48, "heightMm": 42.672}], "colors": ["#1A1A1A", "#EBEC72", "#005566"], "weights": [20, 32, 48], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-29T02:00:37.005Z"}, "Polly": {"module": "Polly", "slug": "Polly", "hp": 14, "mode": "Generate", "anchor": "charcoal", "anchorColor": "#1A1A1A", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#1A1A1A", "tier": "LOW", "weight": 32, "heightMm": 28.448}, {"hex": "#FF8866", "tier": "HIGH", "weight": 22, "heightMm": 19.558}, {"hex": "#0072B2", "tier": "LOW", "weight": 46, "heightMm": 40.894}], "colors": ["#1A1A1A", "#FF8866", "#0072B2"], "weights": [32, 22, 46], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-29T02:00:50.026Z"}, "Circe": {"module": "Circe", "slug": "Circe", "hp": 8, "mode": "Generate", "anchor": "charcoal", "anchorColor": "#1A1A1A", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#1A1A1A", "tier": "LOW", "weight": 32, "heightMm": 28.448}, {"hex": "#EBEC72", "tier": "HIGH", "weight": 22, "heightMm": 19.558}, {"hex": "#882255", "tier": "LOW", "weight": 46, "heightMm": 40.894}], "colors": ["#1A1A1A", "#EBEC72", "#882255"], "weights": [32, 22, 46], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-29T02:00:57.363Z"}, "Maude": {"module": "Maude", "slug": "Maude", "hp": 12, "mode": "Generate", "anchor": "charcoal", "anchorColor": "#1A1A1A", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#1A1A1A", "tier": "LOW", "weight": 32, "heightMm": 28.448}, {"hex": "#56B4E9", "tier": "HIGH", "weight": 22, "heightMm": 19.558}, {"hex": "#882255", "tier": "LOW", "weight": 46, "heightMm": 40.894}], "colors": ["#1A1A1A", "#56B4E9", "#882255"], "weights": [32, 22, 46], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-29T02:01:07.107Z"}, "Knots": {"module": "Knots", "slug": "Knots", "hp": 6, "mode": "Transform", "anchor": "white", "anchorColor": "#FFFFFF", "anchorPos": "top", "bandCount": 3, "bands": [{"hex": "#FFFFFF", "tier": "HIGH", "weight": 50, "heightMm": 44.45}, {"hex": "#D55E00", "tier": "LOW", "weight": 32, "heightMm": 28.448}, {"hex": "#FF8866", "tier": "HIGH", "weight": 18, "heightMm": 16.002}], "colors": ["#FFFFFF", "#D55E00", "#FF8866"], "weights": [50, 32, 18], "badgeGeometry": {"widthMm": 2.54, "heightMm": 88.9, "yOffsetMm": 0, "x": 0, "y": 19.8}, "panelColor": "#6E6E6E", "savedAt": "2026-09-27T18:53:35.511Z"}};
+    let savedPalettes = Object.assign({}, EMBEDDED_PALETTES);
     let currentModule = null;
     let bandCount = 3;
     let moduleMode = 'Transform'; // 'Transform' | 'Generate' | 'Utility' | 'Control'
@@ -625,13 +632,21 @@
       return valid[Math.floor(Math.random() * valid.length)];
     }
 
-    function init() {
+    async function init() {
+      // 1. Initialize from embedded palettes (baked in at build time)
+      savedPalettes = Object.assign({}, EMBEDDED_PALETTES);
+
+      // 2. Overlay any cached edits from localStorage
       const cached = localStorage.getItem('palette_manager_json');
       if (cached) {
         try {
-          savedPalettes = JSON.parse(cached);
+          const parsed = JSON.parse(cached);
+          savedPalettes = Object.assign(savedPalettes, parsed);
         } catch (e) {}
       }
+
+      // 3. Fallback scan: Detect any modules with non-placeholder badges directly from their SVG
+      scanSvgBadges();
 
       if ('showSaveFilePicker' in window) {
         document.getElementById('disk-label').textContent = 'Link File';
@@ -643,6 +658,127 @@
       if (MODULES.length > 0) {
         selectModule(MODULES[0].slug);
       }
+
+      // 4. If running on a web server (http / https), actively fetch live palette.json
+      if (window.location.protocol.startsWith('http')) {
+        await fetchPaletteJson();
+      }
+    }
+
+    async function fetchPaletteJson() {
+      const candidateUrls = [
+        'palette.json',
+        './palette.json',
+        '/palette.json',
+        'scratch/palette/palette.json',
+        '/scratch/palette/palette.json'
+      ];
+
+      for (const url of candidateUrls) {
+        try {
+          const res = await fetch(url + '?_t=' + Date.now());
+          if (res.ok) {
+            const data = await res.json();
+            if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+              console.log('Successfully fetched palette database from', url);
+              savedPalettes = Object.assign({}, savedPalettes, data);
+              populateDropdown();
+              if (currentModule && savedPalettes[currentModule.slug]) {
+                selectModule(currentModule.slug);
+              }
+              break;
+            }
+          }
+        } catch (e) {
+          // Try next url
+        }
+      }
+    }
+
+    function scanSvgBadges() {
+      const parser = new DOMParser();
+      let added = false;
+      MODULES.forEach(m => {
+        if (savedPalettes[m.slug]) return; // Already registered
+        if (!m.svg) return;
+        try {
+          const doc = parser.parseFromString(m.svg, 'image/svg+xml');
+          const badge = doc.getElementById('palette-badge');
+          if (!badge) return;
+          const rects = Array.from(badge.querySelectorAll('rect'));
+          if (rects.length === 0) return;
+          const fills = rects.map(r => r.getAttribute('fill')).filter(Boolean);
+          if (fills.length === 1 && fills[0].toLowerCase() === '#5d5d5d') return; // Placeholder
+          
+          const heights = rects.map(r => parseFloat(r.getAttribute('height')) || 0);
+          const totalH = heights.reduce((a, b) => a + b, 0) || BADGE_HEIGHT_MM;
+          const weights = heights.map(h => Math.round((h / totalH) * 100));
+          const firstHex = (fills[0] || '').toUpperCase();
+          let mode = 'Transform';
+          let anchorLabel = 'white';
+          if (firstHex === '#1A1A1A') { mode = 'Generate'; anchorLabel = 'charcoal'; }
+          else if (firstHex === '#E4DAC2') { mode = 'Utility'; anchorLabel = 'bone'; }
+          else if (firstHex === '#BCC5CC') { mode = 'Control'; anchorLabel = 'titanium'; }
+
+          const bands = fills.map((hx, idx) => ({
+            hex: hx,
+            tier: (hx === '#FFFFFF' || hx === '#E4DAC2' || hx === '#BCC5CC' || CHROMATIC_HIGH.includes(hx)) ? 'HIGH' : 'LOW',
+            weight: weights[idx] || 1,
+            heightMm: Number((heights[idx] || 0).toFixed(3))
+          }));
+
+          savedPalettes[m.slug] = {
+            module: m.name,
+            slug: m.slug,
+            hp: m.hp,
+            mode: mode,
+            anchor: anchorLabel,
+            anchorColor: firstHex,
+            anchorPos: 'top',
+            bandCount: fills.length,
+            bands: bands,
+            colors: fills,
+            weights: weights,
+            badgeGeometry: {
+              widthMm: BADGE_WIDTH_MM,
+              heightMm: BADGE_HEIGHT_MM,
+              yOffsetMm: BADGE_Y_OFFSET,
+              x: 0.0,
+              y: 19.8
+            },
+            panelColor: PANEL_COLOR,
+            savedAt: 'from-svg'
+          };
+          added = true;
+        } catch (err) {}
+      });
+      return added;
+    }
+
+    function importPaletteFile(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data && typeof data === 'object') {
+            savedPalettes = Object.assign({}, savedPalettes, data);
+            localStorage.setItem('palette_manager_json', JSON.stringify(savedPalettes, null, 2));
+            populateDropdown();
+            if (currentModule) {
+              selectModule(currentModule.slug);
+            }
+            showToast(`✓ Imported ${Object.keys(data).length} module palettes from ${file.name}`);
+          } else {
+            showToast('⚠️ Invalid JSON format');
+          }
+        } catch (err) {
+          showToast('⚠️ Error reading JSON file: ' + err.message);
+        }
+        event.target.value = '';
+      };
+      reader.readAsText(file);
     }
 
     function populateDropdown() {
