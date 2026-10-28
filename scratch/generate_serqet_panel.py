@@ -86,7 +86,7 @@ def generate_serqet_panel(skin):
     # Module Title: Fixed Y = 8.000 mm (D-DIN-Bold 16 pt, centered)
     svg.append(render_text(ddin_bold, 'SERQET', mid_x, 8.000, 16.0, title_color))
     # Version Tag: Fixed Y = 8.000 mm (Quicksand-Regular 4.5 pt, X = W - 2.15 mm)
-    svg.append(render_text(quicksand, 'v1.5.0', panel_w - 2.15, 8.000, 4.5, version_color))
+    svg.append(render_text(quicksand, 'v1.5.1', panel_w - 2.15, 8.000, 4.5, version_color))
     
     # ── ZONE 2: SIDE-BY-SIDE DUAL CRT SCOPES ──
     # Scope 1 (CUE MONITOR): 66 x 66 mm, 1.5 mm corner radius, Center (37.00, 43.50)
@@ -140,10 +140,7 @@ def generate_serqet_panel(skin):
         # Below slot
         svg.append(f'  <line x1="{tx:.3f}" y1="{fader_cy + 1.80:.2f}" x2="{tx:.3f}" y2="{fader_cy + 1.80 + h_tick:.2f}" stroke="{fader_hash_color}" stroke-width="{sw:.2f}" />')
     
-    # Delineator Line separating Fader from Knobs/Jacks (Y = 94.00 mm, 10mm above row at 104mm)
-    svg.append(f'  <line x1="4.00" y1="93.92" x2="{panel_w - 4.00:.2f}" y2="93.92" stroke="{hi_color}" stroke-width="0.15" />')
-    svg.append(f'  <line x1="4.00" y1="94.08" x2="{panel_w - 4.00:.2f}" y2="94.08" stroke="{sh_color}" stroke-width="0.15" />')
-    
+
     # ── LABELS ABOVE ROW AT Y = 104 mm (Y baseline: 99.00 mm) ──
     # CH 1 (label) Center X: 32.648
     svg.append(render_text(ddin_cond_bold, 'CH 1', 32.648, 99.00, 8.0, label_color))
