@@ -94,7 +94,7 @@ def generate_serqet_panel(skin):
     
     # Module Title & Version
     svg.append(render_text(ddin_bold, 'SERQET', col3_x, 8.000, 16.0, title_color))
-    svg.append(render_text(quicksand, 'v1.1.0', panel_w - 2.15, 8.000, 4.5, version_color))
+    svg.append(render_text(quicksand, 'v1.2.0', panel_w - 2.15, 8.000, 4.5, version_color))
     
     # CRT Control Knobs in Columns 1 & 2
     # Row 1 (Y = 18.00 mm): FOCUS, BEAM (10 pt D-DINCondensed-Bold, baseline Y = 18.00 - 5.75 = 12.25 mm)
@@ -105,9 +105,12 @@ def generate_serqet_panel(skin):
     svg.append(render_text(ddin_cond_bold, 'DECAY', col1_x, 28.25, 10.0, label_color))
     svg.append(render_text(ddin_cond_bold, 'BLOOM', col2_x, 28.25, 10.0, label_color))
     
-    # Row 3 (Y = 47.00 mm): GRATICULE Trimpot (8 pt D-DINCondensed, baseline Y = 47.00 - 4.00 = 43.00 mm)
+    # Row 3 (Y = 47.00 mm): DUAL GRATICULE Trimpots (MAIN at col1_x, CUE at col2_x)
+    # Centered Header: GRATICULE (8 pt D-DINCondensed, baseline Y = 47.00 - 4.00 = 43.00 mm)
     mid_knobs = (col1_x + col2_x) / 2.0  # 13.66 mm
     svg.append(render_text(ddin_cond, 'GRATICULE', mid_knobs, 43.00, 8.0, label_color))
+    svg.append(render_text(ddin_cond, 'MAIN', col1_x, 53.50, 7.0, label_color))
+    svg.append(render_text(ddin_cond, 'CUE', col2_x, 53.50, 7.0, label_color))
     
     # Delineator Line 2 separating CRT Controls from Input Jacks (Y = 55.00 mm, 10mm above jack row 65mm)
     svg.append(f'  <line x1="3.00" y1="54.92" x2="27.50" y2="54.92" stroke="{hi_color}" stroke-width="0.15" />')

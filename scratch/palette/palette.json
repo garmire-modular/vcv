@@ -1961,5 +1961,54 @@
     },
     "panelColor": "#6E6E6E",
     "savedAt": "2026-09-29T02:01:07.107Z"
+  },
+  "Knots": {
+    "module": "Knots",
+    "slug": "Knots",
+    "hp": 6,
+    "mode": "Transform",
+    "anchor": "white",
+    "anchorColor": "#FFFFFF",
+    "anchorPos": "top",
+    "bandCount": 3,
+    "bands": [
+      {
+        "hex": "#FFFFFF",
+        "tier": "HIGH",
+        "weight": 50,
+        "heightMm": 44.45
+      },
+      {
+        "hex": "#D55E00",
+        "tier": "LOW",
+        "weight": 32,
+        "heightMm": 28.448
+      },
+      {
+        "hex": "#FF8866",
+        "tier": "HIGH",
+        "weight": 18,
+        "heightMm": 16.002
+      }
+    ],
+    "colors": [
+      "#FFFFFF",
+      "#D55E00",
+      "#FF8866"
+    ],
+    "weights": [
+      50,
+      32,
+      18
+    ],
+    "badgeGeometry": {
+      "widthMm": 2.54,
+      "heightMm": 88.9,
+      "yOffsetMm": 0,
+      "x": 0,
+      "y": 19.8
+    },
+    "panelColor": "#6E6E6E",
+    "savedAt": "2026-09-27T18:53:35.511Z"
   }
 }
