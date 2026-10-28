@@ -69,6 +69,8 @@ struct Serqet : Module {
 		CROSSFADE_PARAM,
 		CUE_CH1_PARAM,
 		CUE_CH2_PARAM,
+		BUMPER_CH1_PARAM,
+		BUMPER_CH2_PARAM,
 		PARAMS_LEN
 	};
 
@@ -135,6 +137,9 @@ struct Serqet : Module {
 	int cueSource = 0;
 	dsp::BooleanTrigger ch1BtnTrigger;
 	dsp::BooleanTrigger ch2BtnTrigger;
+	dsp::BooleanTrigger bumperCh1Trigger;
+	dsp::BooleanTrigger bumperCh2Trigger;
+	std::atomic<float> effectiveAlpha{0.0f};
 
 	// Dual ring buffers for CRT displays
 	SerqetRingBuffer mainBuffer;
@@ -146,19 +151,21 @@ struct Serqet : Module {
 		// CRT Emulation Attenuverter Knobs
 		configParam(GRATICULE_CUE_PARAM, 0.0f, 1.0f, 0.25f, "Cue graticule opacity", "%", 0.0f, 100.0f);
 		configParam(GRATICULE_MAIN_PARAM, 0.0f, 1.0f, 0.0f, "Main graticule opacity", "%", 0.0f, 100.0f);
-		// Focus: 0.06mm (0%) to 0.725mm (100%), default 10% (~0.13mm)
-		configParam(FOCUS_PARAM, 0.0f, 1.0f, 0.10f, "Focus", "%", 0.0f, 100.0f);
-		// Beam Intensity: 25% (0%) to 150% (100%), default 0%
-		configParam(BEAM_PARAM, 0.0f, 1.0f, 0.00f, "Beam intensity", "%", 0.0f, 100.0f);
+		// Focus: min = current 40%, max = current 200%, default = current 50%
+		configParam(FOCUS_PARAM, 0.0f, 1.0f, 0.50f, "Focus", "%", 0.0f, 100.0f);
+		// Beam Intensity: default 50%
+		configParam(BEAM_PARAM, 0.0f, 1.0f, 0.50f, "Beam intensity", "%", 0.0f, 100.0f);
 		// Phosphor Decay: non-linear tanh afterglow, max 75%, default 5%
 		configParam(DECAY_PARAM, 0.0f, 1.0f, 0.05f, "Phosphor decay", "%", 0.0f, 100.0f);
-		// Optical Bloom: dual-scale halation and glass scatter, default 30%
-		configParam(BLOOM_PARAM, 0.0f, 1.0f, 0.30f, "Bloom", "%", 0.0f, 100.0f);
+		// Optical Bloom: dual-scale halation and glass scatter, default 25%
+		configParam(BLOOM_PARAM, 0.0f, 1.0f, 0.25f, "Bloom", "%", 0.0f, 100.0f);
 
-		// Horizontal Crossfade Slider & Cue Buttons
+		// Horizontal Crossfade Slider, Cue Buttons & Bumper Buttons
 		configParam(CROSSFADE_PARAM, 0.0f, 1.0f, 0.0f, "Crossfade", "%", 0.0f, 100.0f);
 		configButton(CUE_CH1_PARAM, "Cue channel 1");
 		configButton(CUE_CH2_PARAM, "Cue channel 2");
+		configButton(BUMPER_CH1_PARAM, "Channel 1 crossfader bumper");
+		configButton(BUMPER_CH2_PARAM, "Channel 2 crossfader bumper");
 
 		// Inputs
 		configInput(CH1_X_INPUT, "Ch 1 X");
@@ -241,6 +248,14 @@ struct Serqet : Module {
 			cueSource = 1;
 		}
 
+		// 1b. Process Bumper Buttons to immediately snap crossfader
+		if (bumperCh1Trigger.process(params[BUMPER_CH1_PARAM].getValue() > 0.5f)) {
+			params[CROSSFADE_PARAM].setValue(0.0f);
+		}
+		if (bumperCh2Trigger.process(params[BUMPER_CH2_PARAM].getValue() > 0.5f)) {
+			params[CROSSFADE_PARAM].setValue(1.0f);
+		}
+
 		// 2. Crossfade alpha
 		// Fader value 0.0 = Left (Ch 1), value 1.0 = Right (Ch 2)
 		float fader = params[CROSSFADE_PARAM].getValue();
@@ -248,6 +263,7 @@ struct Serqet : Module {
 			fader += inputs[XFADE_CV_INPUT].getVoltage() * 0.1f; // Positive CV pushes towards Ch 2 (right)
 		}
 		float alpha = clamp(fader, 0.0f, 1.0f); // 0.0 = Ch 1, 1.0 = Ch 2
+		effectiveAlpha.store(alpha, std::memory_order_relaxed);
 		float mixGain2 = computeCrossfadeRatio(alpha);
 		float mixGain1 = (xfadeCurve == XFADE_CONSTANT_POWER) ? std::cos(alpha * 1.57079632679f) : (1.0f - mixGain2);
 
@@ -526,10 +542,13 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 
 		// 2. Electron Beam Spot & Intensity Setup (Analytical erf Gaussian Integration)
 		// Calibrated Focus Range:
-		// focusNorm = 0.0 (0%) -> sigma = 0.40 px (razor-thin sub-pixel beam, FWHM 0.94 px)
-		// focusNorm = 0.10 (10% default) -> sigma = 0.445 px (FWHM 1.05 px, visible width 2.5 - 3 px matching sosci)
-		// focusNorm = 1.0 (100%) -> sigma = 0.85 px (FWHM 2.0 px, visible width 5 px)
-		float sigma = 0.40f + focusNorm * 0.45f;
+		// knob 0% (min) -> current 40% (sigma = 0.58 px)
+		// knob 50% (default) -> current 50% (sigma = 0.625 px)
+		// knob 100% (max) -> current 200% (sigma = 1.30 px)
+		float currentPercent = (focusNorm <= 0.5f)
+			? (0.40f + focusNorm * 0.20f)
+			: (0.50f + (focusNorm - 0.50f) * 3.0f);
+		float sigma = 0.40f + currentPercent * 0.45f;
 		float inv2Sigma2 = 1.0f / (2.0f * sigma * sigma);
 		float sqrt2Sigma = 1.41421356f * sigma;
 
@@ -966,10 +985,18 @@ struct SerqetButton : app::SvgSwitch {
 	}
 };
 
+struct SerqetBumperButton : app::SvgSwitch {
+	SerqetBumperButton() {
+		momentary = true;
+		addFrame(Svg::load(asset::plugin(pluginInstance, "res/btn_bumper_0.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance, "res/btn_bumper_1.svg")));
+	}
+};
+
 struct SerqetFader : app::SvgSlider {
 	SerqetFader() {
 		horizontal = true;
-		box.size = mm2px(math::Vec(128.24f, 10.00f));
+		box.size = mm2px(math::Vec(108.24f, 10.00f));
 		fb->box.size = box.size;
 		setHandleSvg(Svg::load(asset::plugin(pluginInstance, "res/crossfader.svg")));
 		float halfHandleX = handle->box.size.x / 2.0f;
@@ -978,6 +1005,15 @@ struct SerqetFader : app::SvgSlider {
 			math::Vec(halfHandleX, cy),                  // minValue (0.0, Ch 1) at LEFT
 			math::Vec(box.size.x - halfHandleX, cy)     // maxValue (1.0, Ch 2) at RIGHT
 		);
+	}
+
+	void step() override {
+		SvgSlider::step();
+		auto* mod = dynamic_cast<Serqet*>(module);
+		if (mod && handle) {
+			float norm = mod->effectiveAlpha.load(std::memory_order_relaxed);
+			handle->box.pos = minHandlePos.plus(maxHandlePos.minus(minHandlePos).mult(norm));
+		}
 	}
 };
 
@@ -1119,8 +1155,13 @@ struct SerqetWidget : ModuleWidget {
 		addParam(createParamCentered<SerqetButton>(mm2px(Vec(7.00f, 80.00f)), module, Serqet::CUE_CH1_PARAM));
 		addParam(createParamCentered<SerqetButton>(mm2px(Vec(67.00f, 80.00f)), module, Serqet::CUE_CH2_PARAM));
 
-		// ── Horizontal Crossfader Slider (Center X = 71.12 mm, Center Y = 88.50 mm) ──
+		// ── Horizontal Crossfader Slider (Center X = 71.12 mm, Center Y = 88.50 mm, Travel = 108.24 mm) ──
 		addParam(createParamCentered<SerqetFader>(mm2px(Vec(71.12f, 88.50f)), module, Serqet::CROSSFADE_PARAM));
+
+		// ── Crossfader Bumper Buttons (8x8mm, Center Y = 88.50 mm) ──
+		// Ch 1 bumper at Center X = 9.00 mm, Ch 2 bumper at Center X = 133.24 mm
+		addParam(createParamCentered<SerqetBumperButton>(mm2px(Vec(9.00f, 88.50f)), module, Serqet::BUMPER_CH1_PARAM));
+		addParam(createParamCentered<SerqetBumperButton>(mm2px(Vec(133.24f, 88.50f)), module, Serqet::BUMPER_CH2_PARAM));
 
 		// ── Row 1 (Center Y = 104.00 mm) ──
 		// CH 1 Inputs (X, Y, R, G, B)

@@ -86,7 +86,7 @@ def generate_serqet_panel(skin):
     # Module Title: Fixed Y = 8.000 mm (D-DIN-Bold 16 pt, centered)
     svg.append(render_text(ddin_bold, 'SERQET', mid_x, 8.000, 16.0, title_color))
     # Version Tag: Fixed Y = 8.000 mm (Quicksand-Regular 4.5 pt, X = W - 2.15 mm)
-    svg.append(render_text(quicksand, 'v1.4.1', panel_w - 2.15, 8.000, 4.5, version_color))
+    svg.append(render_text(quicksand, 'v1.5.0', panel_w - 2.15, 8.000, 4.5, version_color))
     
     # ── ZONE 2: SIDE-BY-SIDE DUAL CRT SCOPES ──
     # Scope 1 (CUE MONITOR): 66 x 66 mm, 1.5 mm corner radius, Center (37.00, 43.50)
@@ -112,13 +112,13 @@ def generate_serqet_panel(skin):
     svg.append(render_text(ddin_cond_bold, 'MAIN OUT', 105.24, lbl_y, 8.0, label_color))
     
     # ── HORIZONTAL CROSSFADER SLIDER ──
-    # Width: 128.24 mm, Center X: 71.12, Center Y: 88.50
-    # Slot from X = 7.00 to 135.24 mm
-    fader_w = 128.24
+    # Width: 108.24 mm, Center X: 71.12, Center Y: 88.50
+    # Slot from X = 17.00 to 125.24 mm
+    fader_w = 108.24
     fader_cx = 71.12
     fader_cy = 88.50
-    slot_x0 = fader_cx - fader_w / 2.0  # 7.00 mm
-    slot_x1 = fader_cx + fader_w / 2.0  # 135.24 mm
+    slot_x0 = fader_cx - fader_w / 2.0  # 17.00 mm
+    slot_x1 = fader_cx + fader_w / 2.0  # 125.24 mm
     
     svg.append('  <!-- Horizontal Fader Slot Graphic -->')
     svg.append(f'  <rect x="{slot_x0:.2f}" y="{fader_cy - 1.20:.2f}" width="{fader_w:.2f}" height="2.40" rx="1.2" ry="1.2" fill="#181818" stroke="{border_color}" stroke-width="0.3" />')
@@ -126,8 +126,8 @@ def generate_serqet_panel(skin):
     # Crossfader scale hash marks: alternating full height (3.0mm) and 2/3 height (2.0mm)
     # Extremities thicker than the rest. White for Medium/Dark, border_color for Light.
     fader_hash_color = '#ffffff' if skin['name'] in ['Medium', 'Dark'] else skin['border_color']
-    num_ticks = 21  # 20 intervals of 6.412 mm across 128.24 mm
-    tick_step = fader_w / (num_ticks - 1)  # 6.412 mm
+    num_ticks = 17  # 16 intervals of 6.765 mm across 108.24 mm, center tick at k=8 (X=71.12 mm)
+    tick_step = fader_w / (num_ticks - 1)  # 6.765 mm
     for k in range(num_ticks):
         tx = slot_x0 + k * tick_step
         is_extremity = (k == 0 or k == num_ticks - 1)
