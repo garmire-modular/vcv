@@ -3,12 +3,6 @@
 #include <cmath>
 #include <algorithm>
 
-#if defined(ARCH_WIN) || defined(ARCH_MAC) || defined(ARCH_LIN)
-#define GLEW_STATIC
-#define GLEW_NO_GLU
-#include <GL/glew.h>
-#endif
-
 // ─────────────────────────────────────────────────────────────────────
 //  SERQET — Dual-Input Dual-Preview CRT Oscilloscope & Video Crossfader
 //  Columns:
@@ -21,10 +15,6 @@
 
 namespace SerqetConstants {
 	static constexpr size_t BUFFER_SIZE = 16384;
-	static constexpr float DEFAULT_FOCUS = 0.008f;
-	static constexpr float DEFAULT_INTENSITY = 1.0f;
-	static constexpr float DEFAULT_AFTERGLOW = 1.0f;
-	static constexpr float DEFAULT_EXPOSURE = 1.0f;
 }
 
 struct SerqetSample {
@@ -127,7 +117,7 @@ struct Serqet : Module {
 	dsp::BooleanTrigger ch1BtnTrigger;
 	dsp::BooleanTrigger ch2BtnTrigger;
 
-	// Dual ring buffers for OpenGL displays
+	// Dual ring buffers for CRT displays
 	SerqetRingBuffer mainBuffer;
 	SerqetRingBuffer cueBuffer;
 
@@ -278,143 +268,54 @@ struct Serqet : Module {
 //  SerqetCrtWidget — Standalone Real-Time CRT Oscilloscope Display
 // ─────────────────────────────────────────────────────────────────────
 
-struct SerqetCrtWidget : widget::OpenGlWidget {
+struct SerqetCrtWidget : widget::TransparentWidget {
 	Serqet* module = nullptr;
 	bool isMainOut = true; // true = Main Out, false = Cue
-
-	// OpenGL Resources
-	GLuint vao = 0;
-	GLuint vbo = 0;
-	GLuint beamProgram = 0;
-
-	// Framebuffer for CRT display
-	GLuint lineFbo = 0;
-	GLuint lineTex = 0;
-	int fboW = 256;
-	int fboH = 256;
 
 	SerqetCrtWidget(Serqet* m, bool mainOut) : module(m), isMainOut(mainOut) {
 		box.size = mm2px(Vec(44.0f, 44.0f));
 	}
 
-	~SerqetCrtWidget() {
-		cleanupGl();
-	}
-
-	void cleanupGl() {
-#if defined(ARCH_WIN) || defined(ARCH_MAC) || defined(ARCH_LIN)
-		if (lineFbo) { glDeleteFramebuffers(1, &lineFbo); lineFbo = 0; }
-		if (lineTex) { glDeleteTextures(1, &lineTex); lineTex = 0; }
-		if (vbo) { glDeleteBuffers(1, &vbo); vbo = 0; }
-		if (vao) { glDeleteVertexArrays(1, &vao); vao = 0; }
-		if (beamProgram) { glDeleteProgram(beamProgram); beamProgram = 0; }
-#endif
-	}
-
-	void initGl() {
-#if defined(ARCH_WIN) || defined(ARCH_MAC) || defined(ARCH_LIN)
-		if (lineTex != 0) return;
-
-		// 1. Setup Texture & FBO
-		glGenTextures(1, &lineTex);
-		glBindTexture(GL_TEXTURE_2D, lineTex);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fboW, fboH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		glGenFramebuffers(1, &lineFbo);
-		glBindFramebuffer(GL_FRAMEBUFFER, lineFbo);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, lineTex, 0);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-		// 2. Vertex & Index Buffers
-		glGenVertexArrays(1, &vao);
-		glGenBuffers(1, &vbo);
-#endif
-	}
-
-	void drawFramebuffer() override {
-#if defined(ARCH_WIN) || defined(ARCH_MAC) || defined(ARCH_LIN)
-		initGl();
-
-		GLint prevFbo = 0;
-		GLint prevVp[4];
-		glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFbo);
-		glGetIntegerv(GL_VIEWPORT, prevVp);
-
-		// Render trajectory into FBO
-		glBindFramebuffer(GL_FRAMEBUFFER, lineFbo);
-		glViewport(0, 0, fboW, fboH);
-		glClearColor(0.04f, 0.05f, 0.04f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-
-		// Retrieve latest 512 samples from module ring buffer
-		if (module) {
-			const SerqetRingBuffer& rb = isMainOut ? module->mainBuffer : module->cueBuffer;
-			uint32_t head = rb.getHead();
-
-			// Draw analytical beam lines
-			glMatrixMode(GL_PROJECTION);
-			glPushMatrix();
-			glLoadIdentity();
-			glOrtho(-1.1, 1.1, -1.1, 1.1, -1.0, 1.0);
-
-			glMatrixMode(GL_MODELVIEW);
-			glPushMatrix();
-			glLoadIdentity();
-
-			// CRT Phosphor glow line passes (Wide soft glow + sharp core)
-			for (int pass = 0; pass < 2; pass++) {
-				if (pass == 0) {
-					glLineWidth(3.0f);
-				} else {
-					glLineWidth(1.0f);
-				}
-
-				glBegin(GL_LINE_STRIP);
-				for (size_t i = 0; i < 512; i += 2) {
-					SerqetSample s = rb.readOffset(head, 512 - i);
-					float r = clamp(s.r, 0.0f, 1.0f);
-					float g = clamp(s.g, 0.0f, 1.0f);
-					float b = clamp(s.b, 0.0f, 1.0f);
-					if (pass == 0) {
-						// Soft outer phosphor halo
-						glColor4f(r * 0.4f, g * 0.4f, b * 0.4f, 0.25f);
-					} else {
-						// Core white-hot beam
-						glColor4f(std::min(1.0f, r + 0.3f), std::min(1.0f, g + 0.3f), std::min(1.0f, b + 0.3f), 0.85f);
-					}
-					glVertex2f(s.x, s.y);
-				}
-				glEnd();
-			}
-
-			glPopMatrix();
-			glMatrixMode(GL_PROJECTION);
-			glPopMatrix();
-		}
-
-		glBindFramebuffer(GL_FRAMEBUFFER, prevFbo);
-		glViewport(prevVp[0], prevVp[1], prevVp[2], prevVp[3]);
-#endif
-	}
-
 	void draw(const DrawArgs& args) override {
-		// Draw Framebuffer texture via NanoVG
-		widget::OpenGlWidget::draw(args);
+		nvgSave(args.vg);
 
-		// Draw CRT Vector Graticule Grid
-		nvgBeginPath(args.vg);
 		float w = box.size.x;
 		float h = box.size.y;
 		float cx = w * 0.5f;
 		float cy = h * 0.5f;
+		float scaleFactor = cx * 0.88f;
 
-		// Subtle Graticule crosshair
-		nvgStrokeColor(args.vg, nvgRGBA(0x00, 0xff, 0x66, 0x22));
+		// 1. Scissor clip to the 44x44 mm CRT scope screen area
+		nvgScissor(args.vg, 0.0f, 0.0f, w, h);
+
+		// 2. Draw CRT screen glass background (deep phosphorescent dark obsidian green)
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.0f, 0.0f, w, h, mm2px(2.5f));
+		nvgFillColor(args.vg, nvgRGBA(0x06, 0x0c, 0x08, 0xff));
+		nvgFill(args.vg);
+
+		// 3. Draw CRT Graticule Grid (8x8 divisions)
+		nvgBeginPath(args.vg);
+		nvgStrokeColor(args.vg, nvgRGBA(0x00, 0xee, 0x66, 0x22));
+		nvgStrokeWidth(args.vg, 0.6f);
+
+		for (int i = 1; i < 4; i++) {
+			float offset = cx * (i / 4.0f);
+			nvgMoveTo(args.vg, cx - offset, 0.0f);
+			nvgLineTo(args.vg, cx - offset, h);
+			nvgMoveTo(args.vg, cx + offset, 0.0f);
+			nvgLineTo(args.vg, cx + offset, h);
+
+			nvgMoveTo(args.vg, 0.0f, cy - offset);
+			nvgLineTo(args.vg, w, cy - offset);
+			nvgMoveTo(args.vg, 0.0f, cy + offset);
+			nvgLineTo(args.vg, w, cy + offset);
+		}
+		nvgStroke(args.vg);
+
+		// Major axes crosshair
+		nvgBeginPath(args.vg);
+		nvgStrokeColor(args.vg, nvgRGBA(0x00, 0xff, 0x77, 0x48));
 		nvgStrokeWidth(args.vg, 0.8f);
 		nvgMoveTo(args.vg, 0.0f, cy);
 		nvgLineTo(args.vg, w, cy);
@@ -422,19 +323,145 @@ struct SerqetCrtWidget : widget::OpenGlWidget {
 		nvgLineTo(args.vg, cx, h);
 		nvgStroke(args.vg);
 
-		// CRT Inner Reticle Sub-divisions
+		// Reticle sub-division ticks on center crosshair
 		nvgBeginPath(args.vg);
-		nvgStrokeColor(args.vg, nvgRGBA(0x00, 0xff, 0x66, 0x15));
-		nvgStrokeWidth(args.vg, 0.5f);
-		for (int i = 1; i <= 4; i++) {
-			float dx = (w * 0.5f) * (i / 4.0f);
-			float dy = (h * 0.5f) * (i / 4.0f);
-			nvgMoveTo(args.vg, cx - dx, cy - 3.0f); nvgLineTo(args.vg, cx - dx, cy + 3.0f);
-			nvgMoveTo(args.vg, cx + dx, cy - 3.0f); nvgLineTo(args.vg, cx + dx, cy + 3.0f);
-			nvgMoveTo(args.vg, cx - 3.0f, cy - dy); nvgLineTo(args.vg, cx + 3.0f, cy - dy);
-			nvgMoveTo(args.vg, cx - 3.0f, cy + dy); nvgLineTo(args.vg, cx + 3.0f, cy + dy);
+		nvgStrokeColor(args.vg, nvgRGBA(0x00, 0xff, 0x77, 0x66));
+		nvgStrokeWidth(args.vg, 0.8f);
+		for (int i = 1; i <= 8; i++) {
+			float d = cx * (i / 8.0f);
+			nvgMoveTo(args.vg, cx - d, cy - 2.5f); nvgLineTo(args.vg, cx - d, cy + 2.5f);
+			nvgMoveTo(args.vg, cx + d, cy - 2.5f); nvgLineTo(args.vg, cx + d, cy + 2.5f);
+			nvgMoveTo(args.vg, cx - 2.5f, cy - d); nvgLineTo(args.vg, cx + 2.5f, cy - d);
+			nvgMoveTo(args.vg, cx - 2.5f, cy + d); nvgLineTo(args.vg, cx + 2.5f, cy + d);
 		}
 		nvgStroke(args.vg);
+
+		// 4. Retrieve audio/video trajectory from module
+		if (module) {
+			const SerqetRingBuffer& rb = isMainOut ? module->mainBuffer : module->cueBuffer;
+			uint32_t head = rb.getHead();
+
+			// Detect connection state for smart auto-sweep timebase
+			bool ch1XConn = module->inputs[Serqet::CH1_X_INPUT].isConnected();
+			bool ch1YConn = module->inputs[Serqet::CH1_Y_INPUT].isConnected();
+			bool ch2XConn = module->inputs[Serqet::CH2_X_INPUT].isConnected();
+			bool ch2YConn = module->inputs[Serqet::CH2_Y_INPUT].isConnected();
+
+			bool isXConnected = isMainOut ? (ch1XConn || ch2XConn) : (module->cueSource == 0 ? ch1XConn : ch2XConn);
+			bool isYConnected = isMainOut ? (ch1YConn || ch2YConn) : (module->cueSource == 0 ? ch1YConn : ch2YConn);
+
+			static constexpr size_t NUM_POINTS = 256;
+			Vec pts[NUM_POINTS];
+			float avgR = 0.0f, avgG = 0.0f, avgB = 0.0f;
+			bool isStationary = true;
+
+			for (size_t i = 0; i < NUM_POINTS; i++) {
+				SerqetSample s = rb.readOffset(head, (NUM_POINTS - 1 - i) * 2);
+				float px = cx;
+				float py = cy;
+
+				if (isXConnected && isYConnected) {
+					// True XY Lissajous Vector Mode
+					px = cx + clamp(s.x, -1.15f, 1.15f) * scaleFactor;
+					py = cy - clamp(s.y, -1.15f, 1.15f) * scaleFactor;
+				} else if (!isXConnected && isYConnected) {
+					// Auto Time-Domain Sweep along X
+					float sweepNorm = -1.0f + 2.0f * ((float)i / (NUM_POINTS - 1));
+					px = cx + sweepNorm * scaleFactor;
+					py = cy - clamp(s.y, -1.15f, 1.15f) * scaleFactor;
+				} else if (isXConnected && !isYConnected) {
+					// Horizontal deflection only
+					px = cx + clamp(s.x, -1.15f, 1.15f) * scaleFactor;
+					py = cy;
+				} else {
+					// Idle / Unpatched Mode: Beam rests at center
+					px = cx;
+					py = cy;
+				}
+
+				pts[i] = Vec(px, py);
+
+				float r = clamp(s.r, 0.0f, 1.0f);
+				float g = clamp(s.g, 0.0f, 1.0f);
+				float b = clamp(s.b, 0.0f, 1.0f);
+				avgR += r;
+				avgG += g;
+				avgB += b;
+
+				if (std::abs(px - cx) > 1.0f || std::abs(py - cy) > 1.0f) {
+					isStationary = false;
+				}
+			}
+
+			avgR /= NUM_POINTS;
+			avgG /= NUM_POINTS;
+			avgB /= NUM_POINTS;
+
+			// If color inputs are inactive / blank, default to CRT green (Ch 1) or warm amber (Ch 2)
+			if (avgR + avgG + avgB < 0.05f) {
+				if (isMainOut) {
+					avgG = 1.0f;
+				} else {
+					if (module->cueSource == 0) { avgG = 1.0f; }
+					else { avgR = 1.0f; avgG = 0.5f; }
+				}
+			}
+
+			if (!isStationary) {
+				// Pass 1: Soft outer phosphor diffusion halo
+				nvgBeginPath(args.vg);
+				for (size_t i = 0; i < NUM_POINTS; i++) {
+					if (i == 0) nvgMoveTo(args.vg, pts[i].x, pts[i].y);
+					else nvgLineTo(args.vg, pts[i].x, pts[i].y);
+				}
+				nvgStrokeColor(args.vg, nvgRGBAf(avgR, avgG, avgB, 0.30f));
+				nvgStrokeWidth(args.vg, 4.0f);
+				nvgStroke(args.vg);
+
+				// Pass 2: Mid-intensity luminous phosphor beam
+				nvgBeginPath(args.vg);
+				for (size_t i = 0; i < NUM_POINTS; i++) {
+					if (i == 0) nvgMoveTo(args.vg, pts[i].x, pts[i].y);
+					else nvgLineTo(args.vg, pts[i].x, pts[i].y);
+				}
+				nvgStrokeColor(args.vg, nvgRGBAf(std::min(1.0f, avgR * 1.2f), std::min(1.0f, avgG * 1.2f), std::min(1.0f, avgB * 1.2f), 0.75f));
+				nvgStrokeWidth(args.vg, 1.8f);
+				nvgStroke(args.vg);
+
+				// Pass 3: White-hot sharp cathode beam core
+				nvgBeginPath(args.vg);
+				for (size_t i = 0; i < NUM_POINTS; i++) {
+					if (i == 0) nvgMoveTo(args.vg, pts[i].x, pts[i].y);
+					else nvgLineTo(args.vg, pts[i].x, pts[i].y);
+				}
+				nvgStrokeColor(args.vg, nvgRGBAf(std::min(1.0f, avgR + 0.5f), std::min(1.0f, avgG + 0.5f), std::min(1.0f, avgB + 0.5f), 0.95f));
+				nvgStrokeWidth(args.vg, 0.75f);
+				nvgStroke(args.vg);
+			}
+
+			// Cathode Ray Beam Spot (at current head position)
+			Vec currentPos = pts[NUM_POINTS - 1];
+			// Outer spot halo
+			nvgBeginPath(args.vg);
+			nvgCircle(args.vg, currentPos.x, currentPos.y, 4.5f);
+			nvgFillColor(args.vg, nvgRGBAf(avgR, avgG, avgB, 0.40f));
+			nvgFill(args.vg);
+			// Inner hot spot core
+			nvgBeginPath(args.vg);
+			nvgCircle(args.vg, currentPos.x, currentPos.y, 1.5f);
+			nvgFillColor(args.vg, nvgRGBAf(std::min(1.0f, avgR + 0.6f), std::min(1.0f, avgG + 0.6f), std::min(1.0f, avgB + 0.6f), 0.95f));
+			nvgFill(args.vg);
+		}
+
+		// 5. CRT Glass Vignette Inner Shadow
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.5f, 0.5f, w - 1.0f, h - 1.0f, mm2px(2.5f));
+		nvgStrokeColor(args.vg, nvgRGBA(0x00, 0x00, 0x00, 0x77));
+		nvgStrokeWidth(args.vg, 1.5f);
+		nvgStroke(args.vg);
+
+		nvgResetScissor(args.vg);
+		nvgRestore(args.vg);
 	}
 };
 

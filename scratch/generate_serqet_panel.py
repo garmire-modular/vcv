@@ -94,7 +94,7 @@ def generate_serqet_panel(skin):
     
     # Module Title & Version
     svg.append(render_text(ddin_bold, 'SERQET', col3_x, 8.000, 16.0, title_color))
-    svg.append(render_text(quicksand, 'v1.0.0', panel_w - 2.15, 8.000, 4.5, version_color))
+    svg.append(render_text(quicksand, 'v1.0.1', panel_w - 2.15, 8.000, 4.5, version_color))
     
     # Column Headers (strictly 8 pt D-DINCondensed-Bold at Y = 13.00 mm)
     svg.append(render_text(ddin_cond_bold, 'CH 1', col1_x, 13.00, 8.0, label_color))
