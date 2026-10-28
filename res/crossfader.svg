@@ -1,1 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="5.00mm" height="10.00mm" viewBox="0 0 14.173 28.346"><defs><style>.cls-1{fill:#231f20;}.cls-2{fill:#fff;}.cls-3{fill:#333;}</style></defs><g id="Layer_2" data-name="Layer 2"><g id="Components"><rect class="cls-1" width="14.173" height="28.346"/><rect class="cls-2" x="-7.087" y="12.84" width="28.346" height="2.66" transform="translate(21.26 7.087) rotate(90)"/><polygon class="cls-3" points="5.33 11.52 5.33 16.83 0 28.346 0 0 5.33 11.52"/><polygon class="cls-3" points="8.84 11.52 8.84 16.83 14.173 28.346 14.173 0 8.84 11.52"/></g></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="5.00mm" height="10.00mm" viewBox="0 0 5.00 10.00">
+  <rect x="0" y="0" width="5.00" height="10.00" rx="0.5" fill="#242424" stroke="#121212" stroke-width="0.1" />
+  <polygon points="0,0 1.2,1.2 1.2,8.8 0,10.0" fill="#1a1a1a" />
+  <polygon points="5.0,0 3.8,1.2 3.8,8.8 5.0,10.0" fill="#1a1a1a" />
+  <rect x="1.2" y="0" width="2.6" height="10.0" fill="#383838" />
+  <line x1="0.3" y1="3.5" x2="1.0" y2="3.5" stroke="#484848" stroke-width="0.3" />
+  <line x1="0.3" y1="5.0" x2="1.0" y2="5.0" stroke="#484848" stroke-width="0.3" />
+  <line x1="0.3" y1="6.5" x2="1.0" y2="6.5" stroke="#484848" stroke-width="0.3" />
+  <line x1="4.0" y1="3.5" x2="4.7" y2="3.5" stroke="#484848" stroke-width="0.3" />
+  <line x1="4.0" y1="5.0" x2="4.7" y2="5.0" stroke="#484848" stroke-width="0.3" />
+  <line x1="4.0" y1="6.5" x2="4.7" y2="6.5" stroke="#484848" stroke-width="0.3" />
+  <line x1="0.5" y1="0.2" x2="4.5" y2="0.2" stroke="#666666" stroke-width="0.3" />
+  <line x1="0.5" y1="9.8" x2="4.5" y2="9.8" stroke="#111111" stroke-width="0.3" />
+  <rect x="2.15" y="0" width="0.70" height="10.00" fill="#ffffff" />
+</svg>

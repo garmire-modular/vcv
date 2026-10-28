@@ -131,14 +131,14 @@ struct Serqet : Module {
 		// CRT Emulation Attenuverter Knobs
 		configParam(GRATICULE_CUE_PARAM, 0.0f, 1.0f, 0.25f, "Cue graticule opacity", "%", 0.0f, 100.0f);
 		configParam(GRATICULE_MAIN_PARAM, 0.0f, 1.0f, 0.0f, "Main graticule opacity", "%", 0.0f, 100.0f);
-		// Focus: 0.25mm (0%) to 5.00mm (100%), default 20% (~1.20mm)
-		configParam(FOCUS_PARAM, 0.0f, 1.0f, 0.20f, "Focus", "%", 0.0f, 100.0f);
-		// Beam Intensity: 25% (0%) to 150% (100%), default 60% (100% nominal)
-		configParam(BEAM_PARAM, 0.0f, 1.0f, 0.60f, "Beam intensity", "%", 0.0f, 100.0f);
-		// Phosphor Decay: non-linear tanh afterglow, default 50%
-		configParam(DECAY_PARAM, 0.0f, 1.0f, 0.50f, "Phosphor decay", "%", 0.0f, 100.0f);
-		// Optical Bloom: dual-scale halation and glass scatter, default 50%
-		configParam(BLOOM_PARAM, 0.0f, 1.0f, 0.50f, "Bloom", "%", 0.0f, 100.0f);
+		// Focus: 0.06mm (0%) to 0.725mm (100%), default 40% (~0.33mm)
+		configParam(FOCUS_PARAM, 0.0f, 1.0f, 0.40f, "Focus", "%", 0.0f, 100.0f);
+		// Beam Intensity: 25% (0%) to 150% (100%), default 30%
+		configParam(BEAM_PARAM, 0.0f, 1.0f, 0.30f, "Beam intensity", "%", 0.0f, 100.0f);
+		// Phosphor Decay: non-linear tanh afterglow, max 75%, default 5%
+		configParam(DECAY_PARAM, 0.0f, 1.0f, 0.05f, "Phosphor decay", "%", 0.0f, 100.0f);
+		// Optical Bloom: dual-scale halation and glass scatter, default 30%
+		configParam(BLOOM_PARAM, 0.0f, 1.0f, 0.30f, "Bloom", "%", 0.0f, 100.0f);
 
 		// Horizontal Crossfade Slider & Cue Buttons
 		configParam(CROSSFADE_PARAM, 0.0f, 1.0f, 0.0f, "Crossfade", "%", 0.0f, 100.0f);
@@ -396,8 +396,9 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 
 	void renderCrtSimulation(float focusNorm, float beamNorm, float decayNorm, float bloomNorm) {
 		// 1. Phosphor Afterglow Decay (tanh persistence law from sosci afterglow_decay.frag)
-		float fadeAmount = 0.90f * std::pow(1.0f - decayNorm, 1.8f) + 0.02f;
-		float adjustedAfterglow = (0.2f + decayNorm * 3.0f) * 1.5f;
+		float effectiveDecay = decayNorm * 0.75f;
+		float fadeAmount = 0.90f * std::pow(1.0f - effectiveDecay, 1.8f) + 0.02f;
+		float adjustedAfterglow = (0.2f + effectiveDecay * 3.0f) * 1.5f;
 		float minFade = 0.1f * (1.0f - clamp(adjustedAfterglow / 10.0f, 0.0f, 1.0f));
 
 		for (int i = 0; i < CRT_RES * CRT_RES; i++) {
@@ -421,11 +422,11 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		}
 
 		// 2. Electron Beam Spot & Intensity Setup
-		// Calibrated Focus: 0.25 mm (0%) to 5.00 mm (100%)
-		float focus_mm = 0.25f + focusNorm * (5.00f - 0.25f);
+		// Calibrated Focus: 0.06 mm (0%) to 0.725 mm (100%)
+		float focus_mm = 0.06f + focusNorm * (0.725f - 0.06f);
 		// Pixels per mm on 66x66 mm box with 256x256 res: 256.0 / 66.0 = 3.878 px/mm
-		float sigma = (focus_mm / 66.0f) * (float)CRT_RES * 0.32f;
-		sigma = std::max(0.40f, sigma);
+		float sigma = (focus_mm / 66.0f) * (float)CRT_RES * 0.40f;
+		sigma = std::max(0.35f, sigma);
 		float inv2Sigma2 = 1.0f / (2.0f * sigma * sigma);
 		float normFactor = 1.0f / (2.0f * 3.14159265f * sigma * sigma);
 
@@ -638,10 +639,10 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		float cy = h * 0.5f;
 
 		// Read module parameter states
-		float focusVal = module ? module->params[Serqet::FOCUS_PARAM].getValue() : 0.20f;
-		float beamVal = module ? module->params[Serqet::BEAM_PARAM].getValue() : 0.60f;
-		float decayVal = module ? module->params[Serqet::DECAY_PARAM].getValue() : 0.50f;
-		float bloomVal = module ? module->params[Serqet::BLOOM_PARAM].getValue() : 0.50f;
+		float focusVal = module ? module->params[Serqet::FOCUS_PARAM].getValue() : 0.40f;
+		float beamVal = module ? module->params[Serqet::BEAM_PARAM].getValue() : 0.30f;
+		float decayVal = module ? module->params[Serqet::DECAY_PARAM].getValue() : 0.05f;
+		float bloomVal = module ? module->params[Serqet::BLOOM_PARAM].getValue() : 0.30f;
 
 		// Dual Graticule opacities
 		float gratAlpha = 0.0f;
@@ -764,8 +765,8 @@ struct GarmireTrimpot : RoundKnob {
 struct SerqetButton : app::SvgSwitch {
 	SerqetButton() {
 		momentary = true;
-		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_0.svg")));
-		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_gray_1.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_round_4mm_0.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance, "res/button_round_4mm_1.svg")));
 	}
 };
 

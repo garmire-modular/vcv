@@ -86,7 +86,7 @@ def generate_serqet_panel(skin):
     # Module Title: Fixed Y = 8.000 mm (D-DIN-Bold 16 pt, centered)
     svg.append(render_text(ddin_bold, 'SERQET', mid_x, 8.000, 16.0, title_color))
     # Version Tag: Fixed Y = 8.000 mm (Quicksand-Regular 4.5 pt, X = W - 2.15 mm)
-    svg.append(render_text(quicksand, 'v1.3.0', panel_w - 2.15, 8.000, 4.5, version_color))
+    svg.append(render_text(quicksand, 'v1.3.1', panel_w - 2.15, 8.000, 4.5, version_color))
     
     # ── ZONE 2: SIDE-BY-SIDE DUAL CRT SCOPES ──
     # Scope 1 (CUE MONITOR): 66 x 66 mm, 1.5 mm corner radius, Center (37.00, 43.50)
@@ -102,13 +102,9 @@ def generate_serqet_panel(skin):
     svg.append(f'  <rect x="{main_x:.2f}" y="{main_y:.2f}" width="{main_w:.2f}" height="{main_h:.2f}" rx="1.5" ry="1.5" fill="#111111" stroke="{scope_bezel}" stroke-width="0.8" />')
     
     # ── CUE BUTTONS & SCOPE LABELS (Y = 80.00 mm, Y baseline = 81.75 mm) ──
-    # CH 1 cue button: 4x4mm grey round at Center X: 7, Center Y: 80
-    # CH 2 cue button: 4x4mm grey round at Center X: 67, Center Y: 80
-    btn_y = 80.00
+    # CH 1 cue button: Center X: 7, Center Y: 80
+    # CH 2 cue button: Center X: 67, Center Y: 80
     lbl_y = 81.75
-    # Connecting subtle guide lines between cue buttons and labels
-    svg.append(f'  <line x1="9.50" y1="{btn_y:.2f}" x2="10.80" y2="{btn_y:.2f}" stroke="{border_color}" stroke-width="0.4" />')
-    svg.append(f'  <line x1="63.20" y1="{btn_y:.2f}" x2="64.50" y2="{btn_y:.2f}" stroke="{border_color}" stroke-width="0.4" />')
     
     svg.append(render_text(ddin_cond_bold, 'CH 1', 13.00, lbl_y, 8.0, label_color))
     svg.append(render_text(ddin_cond_bold, 'CUE MONITOR', 37.00, lbl_y, 8.0, label_color))
@@ -127,11 +123,22 @@ def generate_serqet_panel(skin):
     svg.append('  <!-- Horizontal Fader Slot Graphic -->')
     svg.append(f'  <rect x="{slot_x0:.2f}" y="{fader_cy - 1.20:.2f}" width="{fader_w:.2f}" height="2.40" rx="1.2" ry="1.2" fill="#181818" stroke="{border_color}" stroke-width="0.3" />')
     
-    # Scale ticks along the fader slot (11 major tick marks at column centers)
-    col_x_coords = [7.000, 19.824, 32.648, 45.472, 58.296, 71.120, 83.944, 96.768, 109.592, 122.416, 135.240]
-    for tx in col_x_coords:
-        svg.append(f'  <line x1="{tx:.3f}" y1="{fader_cy - 3.80:.2f}" x2="{tx:.3f}" y2="{fader_cy - 1.80:.2f}" stroke="{border_color}" stroke-width="0.3" />')
-        svg.append(f'  <line x1="{tx:.3f}" y1="{fader_cy + 1.80:.2f}" x2="{tx:.3f}" y2="{fader_cy + 3.80:.2f}" stroke="{border_color}" stroke-width="0.3" />')
+    # Crossfader scale hash marks: alternating full height (3.0mm) and 2/3 height (2.0mm)
+    # Extremities thicker than the rest. White for Medium/Dark, border_color for Light.
+    fader_hash_color = '#ffffff' if skin['name'] in ['Medium', 'Dark'] else skin['border_color']
+    num_ticks = 21  # 20 intervals of 6.412 mm across 128.24 mm
+    tick_step = fader_w / (num_ticks - 1)  # 6.412 mm
+    for k in range(num_ticks):
+        tx = slot_x0 + k * tick_step
+        is_extremity = (k == 0 or k == num_ticks - 1)
+        is_full_height = (k % 2 == 0)
+        sw = 0.65 if is_extremity else 0.30
+        h_tick = 3.00 if is_full_height else 2.00
+        
+        # Above slot
+        svg.append(f'  <line x1="{tx:.3f}" y1="{fader_cy - 1.80 - h_tick:.2f}" x2="{tx:.3f}" y2="{fader_cy - 1.80:.2f}" stroke="{fader_hash_color}" stroke-width="{sw:.2f}" />')
+        # Below slot
+        svg.append(f'  <line x1="{tx:.3f}" y1="{fader_cy + 1.80:.2f}" x2="{tx:.3f}" y2="{fader_cy + 1.80 + h_tick:.2f}" stroke="{fader_hash_color}" stroke-width="{sw:.2f}" />')
     
     # Delineator Line separating Fader from Knobs/Jacks (Y = 94.00 mm, 10mm above row at 104mm)
     svg.append(f'  <line x1="4.00" y1="93.92" x2="{panel_w - 4.00:.2f}" y2="93.92" stroke="{hi_color}" stroke-width="0.15" />')
@@ -140,11 +147,8 @@ def generate_serqet_panel(skin):
     # ── LABELS ABOVE ROW AT Y = 104 mm (Y baseline: 99.00 mm) ──
     # CH 1 (label) Center X: 32.648
     svg.append(render_text(ddin_cond_bold, 'CH 1', 32.648, 99.00, 8.0, label_color))
-    # GRATICULE (label) Header centered over the two graticule knobs (X = 77.532, Y = 95.6)
-    # with sublabels CUE (71.12) and MAIN (83.944) at Y baseline 99.00
-    svg.append(render_text(ddin_cond, 'GRATICULE', 77.532, 95.60, 7.5, label_color))
-    svg.append(render_text(ddin_cond_bold, 'CUE', 71.120, 99.00, 7.5, label_color))
-    svg.append(render_text(ddin_cond_bold, 'MAIN', 83.944, 99.00, 7.5, label_color))
+    # GRATICULE (label) Center X: 77.532, Y baseline: 99.00 (no CUE or MAIN sub-labels)
+    svg.append(render_text(ddin_cond_bold, 'GRATICULE', 77.532, 99.00, 8.0, label_color))
     
     # CRT Engine Control Labels
     svg.append(render_text(ddin_cond_bold, 'FOCUS', 96.768, 99.00, 8.0, label_color))
