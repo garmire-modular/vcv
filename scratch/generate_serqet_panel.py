@@ -86,7 +86,7 @@ def generate_serqet_panel(skin):
     # Module Title: Fixed Y = 8.000 mm (D-DIN-Bold 16 pt, centered)
     svg.append(render_text(ddin_bold, 'SERQET', mid_x, 8.000, 16.0, title_color))
     # Version Tag: Fixed Y = 8.000 mm (Quicksand-Regular 4.5 pt, X = W - 2.15 mm)
-    svg.append(render_text(quicksand, 'v1.6.0', panel_w - 2.15, 8.000, 4.5, version_color))
+    svg.append(render_text(quicksand, 'v1.6.1', panel_w - 2.15, 8.000, 4.5, version_color))
     
     # ── ZONE 2: SIDE-BY-SIDE DUAL CRT SCOPES ──
     # Scope 1 (CUE MONITOR): 66 x 66 mm, 1.5 mm corner radius, Center (37.00, 43.50)

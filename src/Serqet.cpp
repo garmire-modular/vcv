@@ -303,18 +303,21 @@ struct Serqet : Module {
 		outputs[G_OUTPUT].setChannels(channels);
 		outputs[B_OUTPUT].setChannels(channels);
 
+		bool ch1HasRgb = inputs[CH1_R_INPUT].isConnected() || inputs[CH1_G_INPUT].isConnected() || inputs[CH1_B_INPUT].isConnected();
+		bool ch2HasRgb = inputs[CH2_R_INPUT].isConnected() || inputs[CH2_G_INPUT].isConnected() || inputs[CH2_B_INPUT].isConnected();
+
 		for (int c = 0; c < channels; c++) {
 			float x1 = inputs[CH1_X_INPUT].getPolyVoltage(c);
 			float y1 = inputs[CH1_Y_INPUT].getPolyVoltage(c);
-			float r1 = inputs[CH1_R_INPUT].isConnected() ? inputs[CH1_R_INPUT].getPolyVoltage(c) : 0.0f;
-			float g1 = inputs[CH1_G_INPUT].isConnected() ? inputs[CH1_G_INPUT].getPolyVoltage(c) : 10.0f;
-			float b1 = inputs[CH1_B_INPUT].isConnected() ? inputs[CH1_B_INPUT].getPolyVoltage(c) : 0.0f;
+			float r1 = ch1HasRgb ? (inputs[CH1_R_INPUT].isConnected() ? inputs[CH1_R_INPUT].getPolyVoltage(c) : 0.0f) : 0.0f;
+			float g1 = ch1HasRgb ? (inputs[CH1_G_INPUT].isConnected() ? inputs[CH1_G_INPUT].getPolyVoltage(c) : 0.0f) : 10.0f;
+			float b1 = ch1HasRgb ? (inputs[CH1_B_INPUT].isConnected() ? inputs[CH1_B_INPUT].getPolyVoltage(c) : 0.0f) : 0.0f;
 
 			float x2 = inputs[CH2_X_INPUT].getPolyVoltage(c);
 			float y2 = inputs[CH2_Y_INPUT].getPolyVoltage(c);
-			float r2 = inputs[CH2_R_INPUT].isConnected() ? inputs[CH2_R_INPUT].getPolyVoltage(c) : 10.0f;
-			float g2 = inputs[CH2_G_INPUT].isConnected() ? inputs[CH2_G_INPUT].getPolyVoltage(c) : 0.5f;
-			float b2 = inputs[CH2_B_INPUT].isConnected() ? inputs[CH2_B_INPUT].getPolyVoltage(c) : 0.0f;
+			float r2 = ch2HasRgb ? (inputs[CH2_R_INPUT].isConnected() ? inputs[CH2_R_INPUT].getPolyVoltage(c) : 0.0f) : 10.0f;
+			float g2 = ch2HasRgb ? (inputs[CH2_G_INPUT].isConnected() ? inputs[CH2_G_INPUT].getPolyVoltage(c) : 0.0f) : 0.5f;
+			float b2 = ch2HasRgb ? (inputs[CH2_B_INPUT].isConnected() ? inputs[CH2_B_INPUT].getPolyVoltage(c) : 0.0f) : 0.0f;
 
 			// Crossfaded Main Output
 			float mx, my, mr, mg, mb;
@@ -566,24 +569,34 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		float minFade = 0.08f * (1.0f - clamp(adjustedAfterglow / 10.0f, 0.0f, 1.0f));
 		float invAfterglow = 1.0f / adjustedAfterglow;
 
-		for (int i = 0; i < CRT_RES * CRT_RES; i++) {
-			float r = accumR[i];
-			float g = accumG[i];
-			float b = accumB[i];
-			float lum = std::max({r, g, b});
-			if (lum <= 1e-4f) {
-				accumR[i] = 0.0f;
-				accumG[i] = 0.0f;
-				accumB[i] = 0.0f;
-				continue;
+		// If in 49-51% Fade Out/In threshold, screen is completely dark with zero lingering excitation
+		bool isFadeDark = isMainOut && module && (module->xfadeCurve == Serqet::XFADE_FADE_OUT_IN) &&
+		                  (module->effectiveAlpha.load(std::memory_order_relaxed) >= 0.49f) &&
+		                  (module->effectiveAlpha.load(std::memory_order_relaxed) <= 0.51f);
+		if (isFadeDark) {
+			std::fill(accumR.begin(), accumR.end(), 0.0f);
+			std::fill(accumG.begin(), accumG.end(), 0.0f);
+			std::fill(accumB.begin(), accumB.end(), 0.0f);
+		} else {
+			for (int i = 0; i < CRT_RES * CRT_RES; i++) {
+				float r = accumR[i];
+				float g = accumG[i];
+				float b = accumB[i];
+				float lum = std::max({r, g, b});
+				if (lum <= 1e-4f) {
+					accumR[i] = 0.0f;
+					accumG[i] = 0.0f;
+					accumB[i] = 0.0f;
+					continue;
+				}
+				float x = std::min(lum * invAfterglow, 10.0f);
+				float fade = fadeAmount * ((1.0f - minFade) * g_serqetLut.fastTanh(x) + minFade);
+				fade = clamp(fade, 0.0f, fadeAmount);
+				float keep = std::max(0.0f, 1.0f - fade);
+				accumR[i] = r * keep;
+				accumG[i] = g * keep;
+				accumB[i] = b * keep;
 			}
-			float x = std::min(lum * invAfterglow, 10.0f);
-			float fade = fadeAmount * ((1.0f - minFade) * g_serqetLut.fastTanh(x) + minFade);
-			fade = clamp(fade, 0.0f, fadeAmount);
-			float keep = std::max(0.0f, 1.0f - fade);
-			accumR[i] = r * keep;
-			accumG[i] = g * keep;
-			accumB[i] = b * keep;
 		}
 
 		// 2. Electron Beam Spot & Intensity Setup (Analytical erf Gaussian Integration)
@@ -675,23 +688,9 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 
 				pts[i] = Vec(px, py);
 
-				float r = clamp(s.r, 0.0f, 1.0f);
-				float g = clamp(s.g, 0.0f, 1.0f);
-				float b = clamp(s.b, 0.0f, 1.0f);
-
-				// Fallback to CRT phosphor green or warm amber if inputs inactive
-				if (r + g + b < 0.05f) {
-					if (isMainOut) {
-						g = 1.0f;
-					} else {
-						if (module->cueSource == 0) { g = 1.0f; }
-						else { r = 1.0f; g = 0.55f; }
-					}
-				}
-
-				sampleR[i] = r;
-				sampleG[i] = g;
-				sampleB[i] = b;
+				sampleR[i] = clamp(s.r, 0.0f, 1.0f);
+				sampleG[i] = clamp(s.g, 0.0f, 1.0f);
+				sampleB[i] = clamp(s.b, 0.0f, 1.0f);
 			}
 
 			// Analytical Gaussian Beam Segment Integration (Exact sosci formulation)
@@ -713,6 +712,11 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 				float r = sampleR[i];
 				float g = sampleG[i];
 				float b = sampleB[i];
+
+				// Blanked beam or dark threshold: do not excite phosphor
+				if (r + g + b <= 1e-5f) {
+					continue;
+				}
 
 				if (L < 1e-4f) {
 					// Point spot (stationary beam)
