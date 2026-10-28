@@ -63,9 +63,9 @@ def generate_serqet_panel(skin):
     panel_h = 128.50
     
     # 5 Main Columns:
-    # Col 1: Ch 1 In (7.00 mm)
-    # Col 2: Ch 2 In (20.32 mm)
-    # Col 3: Dual Scope (Center = 50.80 mm)
+    # Col 1: Focus / Decay / Ch 1 In (7.00 mm)
+    # Col 2: Beam / Bloom / Ch 2 In (20.32 mm)
+    # Col 3: Dual Scope & Cue Buttons (Center = 50.80 mm)
     # Col 4: Fader & CV (81.28 mm)
     # Col 5: Out (94.60 mm)
     col1_x = 7.00
@@ -94,11 +94,30 @@ def generate_serqet_panel(skin):
     
     # Module Title & Version
     svg.append(render_text(ddin_bold, 'SERQET', col3_x, 8.000, 16.0, title_color))
-    svg.append(render_text(quicksand, 'v1.0.1', panel_w - 2.15, 8.000, 4.5, version_color))
+    svg.append(render_text(quicksand, 'v1.1.0', panel_w - 2.15, 8.000, 4.5, version_color))
     
-    # Column Headers (strictly 8 pt D-DINCondensed-Bold at Y = 13.00 mm)
-    svg.append(render_text(ddin_cond_bold, 'CH 1', col1_x, 13.00, 8.0, label_color))
-    svg.append(render_text(ddin_cond_bold, 'CH 2', col2_x, 13.00, 8.0, label_color))
+    # CRT Control Knobs in Columns 1 & 2
+    # Row 1 (Y = 18.00 mm): FOCUS, BEAM (10 pt D-DINCondensed-Bold, baseline Y = 18.00 - 5.75 = 12.25 mm)
+    svg.append(render_text(ddin_cond_bold, 'FOCUS', col1_x, 12.25, 10.0, label_color))
+    svg.append(render_text(ddin_cond_bold, 'BEAM', col2_x, 12.25, 10.0, label_color))
+    
+    # Row 2 (Y = 34.00 mm): DECAY, BLOOM (10 pt D-DINCondensed-Bold, baseline Y = 34.00 - 5.75 = 28.25 mm)
+    svg.append(render_text(ddin_cond_bold, 'DECAY', col1_x, 28.25, 10.0, label_color))
+    svg.append(render_text(ddin_cond_bold, 'BLOOM', col2_x, 28.25, 10.0, label_color))
+    
+    # Row 3 (Y = 47.00 mm): GRATICULE Trimpot (8 pt D-DINCondensed, baseline Y = 47.00 - 4.00 = 43.00 mm)
+    mid_knobs = (col1_x + col2_x) / 2.0  # 13.66 mm
+    svg.append(render_text(ddin_cond, 'GRATICULE', mid_knobs, 43.00, 8.0, label_color))
+    
+    # Delineator Line 2 separating CRT Controls from Input Jacks (Y = 55.00 mm, 10mm above jack row 65mm)
+    svg.append(f'  <line x1="3.00" y1="54.92" x2="27.50" y2="54.92" stroke="{hi_color}" stroke-width="0.15" />')
+    svg.append(f'  <line x1="3.00" y1="55.08" x2="27.50" y2="55.08" stroke="{sh_color}" stroke-width="0.15" />')
+    
+    # Column Headers for Input Jacks (strictly 8 pt D-DINCondensed-Bold at Y = 59.50 mm)
+    svg.append(render_text(ddin_cond_bold, 'CH 1', col1_x, 59.50, 8.0, label_color))
+    svg.append(render_text(ddin_cond_bold, 'CH 2', col2_x, 59.50, 8.0, label_color))
+    
+    # Top Column Headers for Col 3, 4, 5 at Y = 13.00 mm
     svg.append(render_text(ddin_cond_bold, 'MAIN OUT', col3_x, 13.00, 8.0, label_color))
     svg.append(render_text(ddin_cond_bold, 'XFADE', col4_x, 13.00, 8.0, label_color))
     svg.append(render_text(ddin_cond_bold, 'OUT', col5_x, 13.00, 8.0, label_color))
@@ -117,12 +136,19 @@ def generate_serqet_panel(skin):
     svg.append(f'  <rect x="{s2_x:.2f}" y="{s2_y:.2f}" width="{s2_w:.2f}" height="{s2_h:.2f}" rx="2.5" ry="2.5" fill="#111111" stroke="{scope_bezel}" stroke-width="0.8" />')
     svg.append(render_text(ddin_cond_bold, 'CUE MONITOR', col3_x, 65.50, 7.0, label_color))
     
-    # Cue Buttons beneath Scope 2 (Y = 117.00 mm, col3_x +/- 7.50 mm -> 43.30 and 58.30 mm)
+    # Cue Buttons beneath Scope 2: CH 1 ---- ( )  ( ) ---- CH 2
+    # Buttons centered at X = 44.80 and 56.80 mm, Y = 117.00 mm
     btn_y = 117.00
-    btn1_x = col3_x - 7.50
-    btn2_x = col3_x + 7.50
-    svg.append(render_text(ddin_cond_bold, '1', btn1_x, btn_y - 5.00, 8.0, label_color))
-    svg.append(render_text(ddin_cond_bold, '2', btn2_x, btn_y - 5.00, 8.0, label_color))
+    btn1_x = col3_x - 6.00  # 44.80 mm
+    btn2_x = col3_x + 6.00  # 56.80 mm
+    
+    # Left and Right text labels
+    svg.append(render_text(ddin_cond_bold, 'CH 1', 32.50, btn_y + 0.80, 8.0, label_color))
+    svg.append(render_text(ddin_cond_bold, 'CH 2', 69.10, btn_y + 0.80, 8.0, label_color))
+    
+    # Connecting lines between labels and buttons
+    svg.append(f'  <line x1="36.50" y1="{btn_y:.2f}" x2="41.20" y2="{btn_y:.2f}" stroke="{border_color}" stroke-width="0.5" />')
+    svg.append(f'  <line x1="60.40" y1="{btn_y:.2f}" x2="65.10" y2="{btn_y:.2f}" stroke="{border_color}" stroke-width="0.5" />')
     
     # 5 Jack Rows (Bottom-up: Row 7 at 117.00, Row 6 at 104.00, Row 5 at 91.00, Row 4 at 78.00, Row 3 at 65.00)
     jack_rows = [65.00, 78.00, 91.00, 104.00, 117.00]

@@ -6,8 +6,8 @@
 // ─────────────────────────────────────────────────────────────────────
 //  SERQET — Dual-Input Dual-Preview CRT Oscilloscope & Video Crossfader
 //  Columns:
-//   Col 1 (7.00 mm):  Ch 1 X, Y, R, G, B inputs
-//   Col 2 (20.32 mm): Ch 2 X, Y, R, G, B inputs
+//   Col 1 (7.00 mm):  Focus / Decay knobs & Ch 1 X, Y, R, G, B inputs
+//   Col 2 (20.32 mm): Beam / Bloom knobs & Ch 2 X, Y, R, G, B inputs
 //   Col 3 (50.80 mm): Dual CRT Scopes (Main Out top, Cue bottom with Ch1/Ch2 buttons)
 //   Col 4 (81.28 mm): Vertical crossfader (1 -> 2) & CV jack
 //   Col 5 (94.60 mm): Mixed X, Y, R, G, B outputs
@@ -54,6 +54,14 @@ struct SerqetRingBuffer {
 
 struct Serqet : Module {
 	enum ParamIds {
+		// CRT Emulation Controls
+		FOCUS_PARAM,
+		BEAM_PARAM,
+		DECAY_PARAM,
+		BLOOM_PARAM,
+		GRATICULE_PARAM,
+
+		// Crossfade & Cue
 		CROSSFADE_PARAM,
 		CUE_CH1_PARAM,
 		CUE_CH2_PARAM,
@@ -91,8 +99,6 @@ struct Serqet : Module {
 	};
 
 	enum LightIds {
-		CUE_CH1_LIGHT,
-		CUE_CH2_LIGHT,
 		LIGHTS_LEN
 	};
 
@@ -124,8 +130,15 @@ struct Serqet : Module {
 	Serqet() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-		// Parameters
-		configParam(CROSSFADE_PARAM, 0.0f, 1.0f, 0.0f, "Crossfade", "%", 0.0f, 100.0f);
+		// CRT Emulation Knobs
+		configParam(FOCUS_PARAM, 0.002f, 0.025f, 0.008f, "Focus", " mm", 0.0f, 1000.0f);
+		configParam(BEAM_PARAM, 0.1f, 3.0f, 1.0f, "Beam intensity", "%", 0.0f, 100.0f);
+		configParam(DECAY_PARAM, 0.05f, 1.0f, 0.35f, "Phosphor decay", "%", 0.0f, 100.0f);
+		configParam(BLOOM_PARAM, 0.0f, 2.5f, 1.0f, "Optical bloom", "%", 0.0f, 100.0f);
+		configParam(GRATICULE_PARAM, 0.0f, 1.0f, 0.5f, "Graticule opacity", "%", 0.0f, 100.0f);
+
+		// Crossfade & Cue
+		configParam(CROSSFADE_PARAM, 0.0f, 1.0f, 1.0f, "Crossfade", "%", 0.0f, 100.0f);
 		configButton(CUE_CH1_PARAM, "Cue channel 1");
 		configButton(CUE_CH2_PARAM, "Cue channel 2");
 
@@ -199,15 +212,15 @@ struct Serqet : Module {
 		if (ch2BtnTrigger.process(params[CUE_CH2_PARAM].getValue() > 0.5f)) {
 			cueSource = 1;
 		}
-		lights[CUE_CH1_LIGHT].setBrightness(cueSource == 0 ? 1.0f : 0.0f);
-		lights[CUE_CH2_LIGHT].setBrightness(cueSource == 1 ? 1.0f : 0.0f);
 
 		// 2. Crossfade alpha
+		// Fader value 1.0 = top (Ch 1), value 0.0 = bottom (Ch 2)
 		float fader = params[CROSSFADE_PARAM].getValue();
 		if (inputs[XFADE_CV_INPUT].isConnected()) {
-			fader += inputs[XFADE_CV_INPUT].getVoltage() * 0.1f; // 0..10V maps to 0..1
+			fader -= inputs[XFADE_CV_INPUT].getVoltage() * 0.1f; // Positive CV pushes towards Ch 2
 		}
-		float alpha = clamp(fader, 0.0f, 1.0f);
+		float fadePos = clamp(fader, 0.0f, 1.0f);
+		float alpha = 1.0f - fadePos; // 0.0 = Ch 1, 1.0 = Ch 2
 		float mixGain2 = computeCrossfadeRatio(alpha);
 		float mixGain1 = (xfadeCurve == XFADE_CONSTANT_POWER) ? std::cos(alpha * 1.57079632679f) : (1.0f - mixGain2);
 
@@ -285,6 +298,13 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		float cy = h * 0.5f;
 		float scaleFactor = cx * 0.88f;
 
+		// Read module parameter states
+		float focusVal = module ? module->params[Serqet::FOCUS_PARAM].getValue() : 0.008f;
+		float beamIntensity = module ? module->params[Serqet::BEAM_PARAM].getValue() : 1.0f;
+		float decayVal = module ? module->params[Serqet::DECAY_PARAM].getValue() : 0.35f;
+		float bloomVal = module ? module->params[Serqet::BLOOM_PARAM].getValue() : 1.0f;
+		float gratAlpha = module ? module->params[Serqet::GRATICULE_PARAM].getValue() : 0.5f;
+
 		// 1. Scissor clip to the 44x44 mm CRT scope screen area
 		nvgScissor(args.vg, 0.0f, 0.0f, w, h);
 
@@ -294,47 +314,49 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		nvgFillColor(args.vg, nvgRGBA(0x06, 0x0c, 0x08, 0xff));
 		nvgFill(args.vg);
 
-		// 3. Draw CRT Graticule Grid (8x8 divisions)
-		nvgBeginPath(args.vg);
-		nvgStrokeColor(args.vg, nvgRGBA(0x00, 0xee, 0x66, 0x22));
-		nvgStrokeWidth(args.vg, 0.6f);
+		// 3. Draw CRT Graticule Grid (if opacity > 0)
+		if (gratAlpha > 0.005f) {
+			nvgBeginPath(args.vg);
+			nvgStrokeColor(args.vg, nvgRGBAf(0.00f, 0.93f, 0.40f, 0.22f * gratAlpha));
+			nvgStrokeWidth(args.vg, 0.6f);
 
-		for (int i = 1; i < 4; i++) {
-			float offset = cx * (i / 4.0f);
-			nvgMoveTo(args.vg, cx - offset, 0.0f);
-			nvgLineTo(args.vg, cx - offset, h);
-			nvgMoveTo(args.vg, cx + offset, 0.0f);
-			nvgLineTo(args.vg, cx + offset, h);
+			for (int i = 1; i < 4; i++) {
+				float offset = cx * (i / 4.0f);
+				nvgMoveTo(args.vg, cx - offset, 0.0f);
+				nvgLineTo(args.vg, cx - offset, h);
+				nvgMoveTo(args.vg, cx + offset, 0.0f);
+				nvgLineTo(args.vg, cx + offset, h);
 
-			nvgMoveTo(args.vg, 0.0f, cy - offset);
-			nvgLineTo(args.vg, w, cy - offset);
-			nvgMoveTo(args.vg, 0.0f, cy + offset);
-			nvgLineTo(args.vg, w, cy + offset);
+				nvgMoveTo(args.vg, 0.0f, cy - offset);
+				nvgLineTo(args.vg, w, cy - offset);
+				nvgMoveTo(args.vg, 0.0f, cy + offset);
+				nvgLineTo(args.vg, w, cy + offset);
+			}
+			nvgStroke(args.vg);
+
+			// Major axes crosshair
+			nvgBeginPath(args.vg);
+			nvgStrokeColor(args.vg, nvgRGBAf(0.00f, 1.00f, 0.47f, 0.48f * gratAlpha));
+			nvgStrokeWidth(args.vg, 0.8f);
+			nvgMoveTo(args.vg, 0.0f, cy);
+			nvgLineTo(args.vg, w, cy);
+			nvgMoveTo(args.vg, cx, 0.0f);
+			nvgLineTo(args.vg, cx, h);
+			nvgStroke(args.vg);
+
+			// Reticle sub-division ticks on center crosshair
+			nvgBeginPath(args.vg);
+			nvgStrokeColor(args.vg, nvgRGBAf(0.00f, 1.00f, 0.47f, 0.66f * gratAlpha));
+			nvgStrokeWidth(args.vg, 0.8f);
+			for (int i = 1; i <= 8; i++) {
+				float d = cx * (i / 8.0f);
+				nvgMoveTo(args.vg, cx - d, cy - 2.5f); nvgLineTo(args.vg, cx - d, cy + 2.5f);
+				nvgMoveTo(args.vg, cx + d, cy - 2.5f); nvgLineTo(args.vg, cx + d, cy + 2.5f);
+				nvgMoveTo(args.vg, cx - 2.5f, cy - d); nvgLineTo(args.vg, cx + 2.5f, cy - d);
+				nvgMoveTo(args.vg, cx - 2.5f, cy + d); nvgLineTo(args.vg, cx + 2.5f, cy + d);
+			}
+			nvgStroke(args.vg);
 		}
-		nvgStroke(args.vg);
-
-		// Major axes crosshair
-		nvgBeginPath(args.vg);
-		nvgStrokeColor(args.vg, nvgRGBA(0x00, 0xff, 0x77, 0x48));
-		nvgStrokeWidth(args.vg, 0.8f);
-		nvgMoveTo(args.vg, 0.0f, cy);
-		nvgLineTo(args.vg, w, cy);
-		nvgMoveTo(args.vg, cx, 0.0f);
-		nvgLineTo(args.vg, cx, h);
-		nvgStroke(args.vg);
-
-		// Reticle sub-division ticks on center crosshair
-		nvgBeginPath(args.vg);
-		nvgStrokeColor(args.vg, nvgRGBA(0x00, 0xff, 0x77, 0x66));
-		nvgStrokeWidth(args.vg, 0.8f);
-		for (int i = 1; i <= 8; i++) {
-			float d = cx * (i / 8.0f);
-			nvgMoveTo(args.vg, cx - d, cy - 2.5f); nvgLineTo(args.vg, cx - d, cy + 2.5f);
-			nvgMoveTo(args.vg, cx + d, cy - 2.5f); nvgLineTo(args.vg, cx + d, cy + 2.5f);
-			nvgMoveTo(args.vg, cx - 2.5f, cy - d); nvgLineTo(args.vg, cx + 2.5f, cy - d);
-			nvgMoveTo(args.vg, cx - 2.5f, cy + d); nvgLineTo(args.vg, cx + 2.5f, cy + d);
-		}
-		nvgStroke(args.vg);
 
 		// 4. Retrieve audio/video trajectory from module
 		if (module) {
@@ -350,13 +372,17 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 			bool isXConnected = isMainOut ? (ch1XConn || ch2XConn) : (module->cueSource == 0 ? ch1XConn : ch2XConn);
 			bool isYConnected = isMainOut ? (ch1YConn || ch2YConn) : (module->cueSource == 0 ? ch1YConn : ch2YConn);
 
+			// Dynamic sample count governed by Phosphor Decay knob
 			static constexpr size_t NUM_POINTS = 256;
 			Vec pts[NUM_POINTS];
 			float avgR = 0.0f, avgG = 0.0f, avgB = 0.0f;
 			bool isStationary = true;
 
+			// Sample stride adjusted by decay parameter (from 1 up to 4 samples)
+			size_t stride = std::max<size_t>(1, (size_t)std::round(1.0f + decayVal * 3.0f));
+
 			for (size_t i = 0; i < NUM_POINTS; i++) {
-				SerqetSample s = rb.readOffset(head, (NUM_POINTS - 1 - i) * 2);
+				SerqetSample s = rb.readOffset(head, (NUM_POINTS - 1 - i) * stride);
 				float px = cx;
 				float py = cy;
 
@@ -407,16 +433,29 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 				}
 			}
 
+			// Modulate color by Beam Intensity knob
+			avgR = clamp(avgR * beamIntensity, 0.0f, 1.0f);
+			avgG = clamp(avgG * beamIntensity, 0.0f, 1.0f);
+			avgB = clamp(avgB * beamIntensity, 0.0f, 1.0f);
+
+			// Stroke widths governed by Focus knob (0.002 to 0.025 mm)
+			float focusScale = clamp(focusVal / 0.008f, 0.4f, 2.5f);
+			float coreW = 0.75f * focusScale;
+			float midW = 1.80f * focusScale;
+			float haloW = 4.00f * focusScale;
+
 			if (!isStationary) {
-				// Pass 1: Soft outer phosphor diffusion halo
-				nvgBeginPath(args.vg);
-				for (size_t i = 0; i < NUM_POINTS; i++) {
-					if (i == 0) nvgMoveTo(args.vg, pts[i].x, pts[i].y);
-					else nvgLineTo(args.vg, pts[i].x, pts[i].y);
+				// Pass 1: Soft outer phosphor diffusion halo (scaled by Bloom knob)
+				if (bloomVal > 0.01f) {
+					nvgBeginPath(args.vg);
+					for (size_t i = 0; i < NUM_POINTS; i++) {
+						if (i == 0) nvgMoveTo(args.vg, pts[i].x, pts[i].y);
+						else nvgLineTo(args.vg, pts[i].x, pts[i].y);
+					}
+					nvgStrokeColor(args.vg, nvgRGBAf(avgR, avgG, avgB, clamp(0.30f * bloomVal, 0.0f, 0.75f)));
+					nvgStrokeWidth(args.vg, haloW);
+					nvgStroke(args.vg);
 				}
-				nvgStrokeColor(args.vg, nvgRGBAf(avgR, avgG, avgB, 0.30f));
-				nvgStrokeWidth(args.vg, 4.0f);
-				nvgStroke(args.vg);
 
 				// Pass 2: Mid-intensity luminous phosphor beam
 				nvgBeginPath(args.vg);
@@ -424,8 +463,8 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 					if (i == 0) nvgMoveTo(args.vg, pts[i].x, pts[i].y);
 					else nvgLineTo(args.vg, pts[i].x, pts[i].y);
 				}
-				nvgStrokeColor(args.vg, nvgRGBAf(std::min(1.0f, avgR * 1.2f), std::min(1.0f, avgG * 1.2f), std::min(1.0f, avgB * 1.2f), 0.75f));
-				nvgStrokeWidth(args.vg, 1.8f);
+				nvgStrokeColor(args.vg, nvgRGBAf(std::min(1.0f, avgR * 1.2f), std::min(1.0f, avgG * 1.2f), std::min(1.0f, avgB * 1.2f), clamp(0.75f * beamIntensity, 0.1f, 1.0f)));
+				nvgStrokeWidth(args.vg, midW);
 				nvgStroke(args.vg);
 
 				// Pass 3: White-hot sharp cathode beam core
@@ -435,20 +474,22 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 					else nvgLineTo(args.vg, pts[i].x, pts[i].y);
 				}
 				nvgStrokeColor(args.vg, nvgRGBAf(std::min(1.0f, avgR + 0.5f), std::min(1.0f, avgG + 0.5f), std::min(1.0f, avgB + 0.5f), 0.95f));
-				nvgStrokeWidth(args.vg, 0.75f);
+				nvgStrokeWidth(args.vg, coreW);
 				nvgStroke(args.vg);
 			}
 
 			// Cathode Ray Beam Spot (at current head position)
 			Vec currentPos = pts[NUM_POINTS - 1];
 			// Outer spot halo
-			nvgBeginPath(args.vg);
-			nvgCircle(args.vg, currentPos.x, currentPos.y, 4.5f);
-			nvgFillColor(args.vg, nvgRGBAf(avgR, avgG, avgB, 0.40f));
-			nvgFill(args.vg);
+			if (bloomVal > 0.01f) {
+				nvgBeginPath(args.vg);
+				nvgCircle(args.vg, currentPos.x, currentPos.y, 4.5f * focusScale);
+				nvgFillColor(args.vg, nvgRGBAf(avgR, avgG, avgB, clamp(0.40f * bloomVal, 0.0f, 0.85f)));
+				nvgFill(args.vg);
+			}
 			// Inner hot spot core
 			nvgBeginPath(args.vg);
-			nvgCircle(args.vg, currentPos.x, currentPos.y, 1.5f);
+			nvgCircle(args.vg, currentPos.x, currentPos.y, 1.5f * focusScale);
 			nvgFillColor(args.vg, nvgRGBAf(std::min(1.0f, avgR + 0.6f), std::min(1.0f, avgG + 0.6f), std::min(1.0f, avgB + 0.6f), 0.95f));
 			nvgFill(args.vg);
 		}
@@ -466,11 +507,25 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 };
 
 // ─────────────────────────────────────────────────────────────────────
-//  SerqetWidget — Panel & UI Layout (20 HP)
+//  Hardware Widgets
 // ─────────────────────────────────────────────────────────────────────
 
-struct SerqetPort : app::SvgPort {
-	SerqetPort() { setSvg(Svg::load(asset::plugin(pluginInstance, "res/3_5mm_jacks.svg"))); }
+struct GarmirePort : app::SvgPort {
+	GarmirePort() { setSvg(Svg::load(asset::plugin(pluginInstance, "res/3_5mm_jacks.svg"))); }
+};
+
+struct GarmireKnob : RoundKnob {
+	GarmireKnob() {
+		setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob.svg")));
+		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/knob_bg.svg")));
+	}
+};
+
+struct GarmireTrimpot : RoundKnob {
+	GarmireTrimpot() {
+		setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob.svg")));
+		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob_bg.svg")));
+	}
 };
 
 struct SerqetButton : app::SvgSwitch {
@@ -488,55 +543,15 @@ struct SerqetFader : app::SvgSlider {
 		setHandleSvg(Svg::load(asset::system("res/ComponentLibrary/VCVSliderHandle.svg")));
 		float halfHandle = handle->box.size.y / 2.0f;
 		setHandlePosCentered(
-			math::Vec(box.size.x / 2.0f, halfHandle),
-			math::Vec(box.size.x / 2.0f, box.size.y - halfHandle)
+			math::Vec(box.size.x / 2.0f, box.size.y - halfHandle), // minValue (0.0, Ch 2) at BOTTOM
+			math::Vec(box.size.x / 2.0f, halfHandle)               // maxValue (1.0, Ch 1) at TOP
 		);
 	}
 };
 
-struct SerqetCueLightRing : ModuleLightWidget {
-	SerqetCueLightRing() {
-		box.size = mm2px(Vec(11.0f, 11.0f));
-		this->addBaseColor(nvgRGBA(0x00, 0xee, 0x88, 0xff)); // Emerald Green
-	}
-
-	void drawBackground(const DrawArgs& args) override {
-		Vec c = box.size.div(2.0f);
-		float r = mm2px(4.12f);
-		float w = mm2px(1.40f);
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, c.x, c.y, r);
-		nvgStrokeColor(args.vg, nvgRGBA(0x22, 0x22, 0x22, 0x99));
-		nvgStrokeWidth(args.vg, w);
-		nvgStroke(args.vg);
-	}
-
-	void drawLight(const DrawArgs& args) override {
-		if (color.a <= 0.0f) return;
-		Vec c = box.size.div(2.0f);
-		float r = mm2px(4.12f);
-		float w = mm2px(1.40f);
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, c.x, c.y, r);
-		nvgStrokeColor(args.vg, color);
-		nvgStrokeWidth(args.vg, w);
-		nvgStroke(args.vg);
-	}
-
-	void drawHalo(const DrawArgs& args) override {
-		if (color.a <= 0.0f) return;
-		Vec c = box.size.div(2.0f);
-		float r = mm2px(4.12f);
-		float haloW = mm2px(1.00f);
-		NVGcolor haloColor = color;
-		haloColor.a *= 0.175f;
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, c.x, c.y, r);
-		nvgStrokeColor(args.vg, haloColor);
-		nvgStrokeWidth(args.vg, mm2px(1.40f) + haloW);
-		nvgStroke(args.vg);
-	}
-};
+// ─────────────────────────────────────────────────────────────────────
+//  SerqetWidget — Panel & UI Layout (20 HP)
+// ─────────────────────────────────────────────────────────────────────
 
 struct SerqetWidget : ModuleWidget {
 	SvgPanel* panel = nullptr;
@@ -633,22 +648,34 @@ struct SerqetWidget : ModuleWidget {
 		const float col4_x = 81.28f;
 		const float col5_x = 94.60f;
 
+		// ── CRT Emulation Knobs (Zone 2 & Zone 3) ──
+		// Row 1 (Y = 18.00 mm): FOCUS, BEAM
+		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(col1_x, 18.00f)), module, Serqet::FOCUS_PARAM));
+		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(col2_x, 18.00f)), module, Serqet::BEAM_PARAM));
+
+		// Row 2 (Y = 34.00 mm): DECAY, BLOOM
+		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(col1_x, 34.00f)), module, Serqet::DECAY_PARAM));
+		addParam(createParamCentered<GarmireKnob>(mm2px(Vec(col2_x, 34.00f)), module, Serqet::BLOOM_PARAM));
+
+		// Row 3 (Y = 47.00 mm): GRATICULE Trimpot
+		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(13.66f, 47.00f)), module, Serqet::GRATICULE_PARAM));
+
 		// Row Coordinates for Jacks (Bottom-Up: 65, 78, 91, 104, 117 mm)
 		const float jack_y[5] = { 65.00f, 78.00f, 91.00f, 104.00f, 117.00f };
 
 		// ── Column 1: Ch 1 Inputs (X, Y, R, G, B) ──
-		addInput(createInputCentered<SerqetPort>(mm2px(Vec(col1_x, jack_y[0])), module, Serqet::CH1_X_INPUT));
-		addInput(createInputCentered<SerqetPort>(mm2px(Vec(col1_x, jack_y[1])), module, Serqet::CH1_Y_INPUT));
-		addInput(createInputCentered<SerqetPort>(mm2px(Vec(col1_x, jack_y[2])), module, Serqet::CH1_R_INPUT));
-		addInput(createInputCentered<SerqetPort>(mm2px(Vec(col1_x, jack_y[3])), module, Serqet::CH1_G_INPUT));
-		addInput(createInputCentered<SerqetPort>(mm2px(Vec(col1_x, jack_y[4])), module, Serqet::CH1_B_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col1_x, jack_y[0])), module, Serqet::CH1_X_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col1_x, jack_y[1])), module, Serqet::CH1_Y_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col1_x, jack_y[2])), module, Serqet::CH1_R_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col1_x, jack_y[3])), module, Serqet::CH1_G_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col1_x, jack_y[4])), module, Serqet::CH1_B_INPUT));
 
 		// ── Column 2: Ch 2 Inputs (X, Y, R, G, B) ──
-		addInput(createInputCentered<SerqetPort>(mm2px(Vec(col2_x, jack_y[0])), module, Serqet::CH2_X_INPUT));
-		addInput(createInputCentered<SerqetPort>(mm2px(Vec(col2_x, jack_y[1])), module, Serqet::CH2_Y_INPUT));
-		addInput(createInputCentered<SerqetPort>(mm2px(Vec(col2_x, jack_y[2])), module, Serqet::CH2_R_INPUT));
-		addInput(createInputCentered<SerqetPort>(mm2px(Vec(col2_x, jack_y[3])), module, Serqet::CH2_G_INPUT));
-		addInput(createInputCentered<SerqetPort>(mm2px(Vec(col2_x, jack_y[4])), module, Serqet::CH2_B_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col2_x, jack_y[0])), module, Serqet::CH2_X_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col2_x, jack_y[1])), module, Serqet::CH2_Y_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col2_x, jack_y[2])), module, Serqet::CH2_R_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col2_x, jack_y[3])), module, Serqet::CH2_G_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col2_x, jack_y[4])), module, Serqet::CH2_B_INPUT));
 
 		// ── Column 3: Dual Oscilloscopes ──
 		// Scope 1 (Main Out): Center (50.80, 39.00 mm), Size 44 x 44 mm
@@ -661,27 +688,25 @@ struct SerqetWidget : ModuleWidget {
 		scope2->box.pos = mm2px(Vec(col3_x - 22.0f, 89.00f - 22.0f));
 		addChild(scope2);
 
-		// Cue Buttons with concentric light rings (Y = 117.00 mm)
-		const float btn1_x = col3_x - 7.50f;
-		const float btn2_x = col3_x + 7.50f;
+		// Cue Buttons: CH 1 ---- ( )  ( ) ---- CH 2 (Y = 117.00 mm)
+		// Centers at 44.80 mm and 56.80 mm (no halo rings)
+		const float btn1_x = col3_x - 6.00f; // 44.80 mm
+		const float btn2_x = col3_x + 6.00f; // 56.80 mm
 
-		addChild(createLightCentered<SerqetCueLightRing>(mm2px(Vec(btn1_x, 117.00f)), module, Serqet::CUE_CH1_LIGHT));
 		addParam(createParamCentered<SerqetButton>(mm2px(Vec(btn1_x, 117.00f)), module, Serqet::CUE_CH1_PARAM));
-
-		addChild(createLightCentered<SerqetCueLightRing>(mm2px(Vec(btn2_x, 117.00f)), module, Serqet::CUE_CH2_LIGHT));
 		addParam(createParamCentered<SerqetButton>(mm2px(Vec(btn2_x, 117.00f)), module, Serqet::CUE_CH2_PARAM));
 
 		// ── Column 4: Crossfader Slider & CV Jack ──
 		// Slider Center at (81.28, 57.00 mm)
 		addParam(createParamCentered<SerqetFader>(mm2px(Vec(col4_x, 57.00f)), module, Serqet::CROSSFADE_PARAM));
-		addInput(createInputCentered<SerqetPort>(mm2px(Vec(col4_x, 117.00f)), module, Serqet::XFADE_CV_INPUT));
+		addInput(createInputCentered<GarmirePort>(mm2px(Vec(col4_x, 117.00f)), module, Serqet::XFADE_CV_INPUT));
 
 		// ── Column 5: Outputs (X, Y, R, G, B) ──
-		addOutput(createOutputCentered<SerqetPort>(mm2px(Vec(col5_x, jack_y[0])), module, Serqet::X_OUTPUT));
-		addOutput(createOutputCentered<SerqetPort>(mm2px(Vec(col5_x, jack_y[1])), module, Serqet::Y_OUTPUT));
-		addOutput(createOutputCentered<SerqetPort>(mm2px(Vec(col5_x, jack_y[2])), module, Serqet::R_OUTPUT));
-		addOutput(createOutputCentered<SerqetPort>(mm2px(Vec(col5_x, jack_y[3])), module, Serqet::G_OUTPUT));
-		addOutput(createOutputCentered<SerqetPort>(mm2px(Vec(col5_x, jack_y[4])), module, Serqet::B_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col5_x, jack_y[0])), module, Serqet::X_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col5_x, jack_y[1])), module, Serqet::Y_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col5_x, jack_y[2])), module, Serqet::R_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col5_x, jack_y[3])), module, Serqet::G_OUTPUT));
+		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col5_x, jack_y[4])), module, Serqet::B_OUTPUT));
 	}
 };
 
