@@ -117,6 +117,10 @@ def check_svg_file(filepath):
     if re.search(r'<text\b', content):
         errors.append(f"SVG contains forbidden `<text>` tag(s). Typography must be cubic paths (<path d=\"...\">) (AGENTS.md Section 7.5)")
 
+    # 1b. Zero <style> elements (Illustrator export hazard causing black shapes in NanoSVG)
+    if re.search(r'<style\b', content):
+        errors.append(f"SVG contains forbidden `<style>` tag(s). Run 'python scratch/illustrator_svg_export_fix.py <file>' to inline presentation attributes for NanoSVG (AGENTS.md Section 7.4.1)")
+
     # 2. Virtual screw cutouts check in SVG
     if re.search(r'id=["\']?screw', content, re.IGNORECASE) or re.search(r'class=["\']?screw', content, re.IGNORECASE):
         errors.append(f"SVG contains screw cutouts or screw tags (AGENTS.md Section 7.5.6)")

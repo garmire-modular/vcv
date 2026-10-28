@@ -30,6 +30,7 @@ Before writing or modifying any code, SVGs, or build configurations, you MUST ou
 - [ ] **Version Tracking:** Initial module version starts strictly at `v1.0.0` (independent of the overall plugin suite version `v2.X.X`), with per-module version recorded and autoincremented.
 - [ ] **Panel Edit Method:** Vector modifications target `scratch/generate_<module>_panel.py`, NEVER direct edits to `res/<Module>.svg`.
 - [ ] **Font Handling:** No `<text>` tags used. D-DIN/Quicksand typography converted to cubic paths (`C`) via `fontTools` + `pathops` per Section 7.5 hierarchy.
+- [ ] **User SVG Normalization:** Any user-provided SVG files (buttons, knobs, sliders, icons) MUST be normalized with `python scratch/illustrator_svg_export_fix.py <file.svg> --in-place` before integration to eliminate CSS `<style>` tags and prevent black-square rendering in NanoSVG.
 - [ ] **Port & Parameter Tooltips:** Tooltips use strict sentence case; no redundant "input"/"output" words in jack tooltips; attenuverters named `<Parameter> CV depth`.
 - [ ] **Sync Verification:** Mandatory per-module version bumps are synchronously reflected across `plugin.json`, faceplate SVG, and `metamodule/assets/<Module>.png`.
 - [ ] **Build Targets:** Commands to validate both VCV Rack and MetaModule cross-compilation are identified.
@@ -326,6 +327,21 @@ struct GarmireButton : app::SvgSwitch {
     }
 };
 ```
+
+### 7.4.1. Mandatory User SVG Normalization Protocol (`illustrator_svg_export_fix.py`)
+
+All user-provided SVG files (such as custom buttons, knobs, faders, sliders, or port artwork exported from Adobe Illustrator) MUST be pre-processed with the canonical normalization script before use in `res/`:
+```powershell
+python scratch/illustrator_svg_export_fix.py <path_to_svg> --in-place
+```
+- **Why this is mandatory**: Adobe Illustrator's default SVG export uses CSS `<style>` elements and `.cls-X` classes. Because NanoSVG does not parse CSS stylesheets, all unstyled shapes default to `fill: #000000`, causing artwork to render as an opaque solid black square in VCV Rack.
+- **What the script does**:
+  1. Inlines all CSS classes, IDs, and element styles directly into XML presentation attributes (`fill="..."`, `stroke="..."`, etc.).
+  2. Strips all `<style>` tags and `class="..."` attributes.
+  3. Expands inline `style="..."` attributes into discrete presentation attributes.
+  4. Moves or shields `<clipPath>` elements inside `<defs>` so NanoSVG does not draw clip masks as black rectangles.
+  5. Sets explicit `width`, `height`, and synchronized `viewBox`.
+  6. Formats path coordinates and cleans scientific notation for NanoSVG.
 
 ---
 
