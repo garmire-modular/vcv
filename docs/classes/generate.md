@@ -9,12 +9,12 @@ This document defines the mandatory specifications, standards, and architecture 
 All modules belonging to the **Generate** class MUST implement user-selectable output voltage range standards via the right-click context menu:
 
 ### Supported Standards
-1. `0-1V` (Unipolar $0\text{ V}$ to $+1\text{ V}$)
-2. `+/-1V` (Bipolar $-1\text{ V}$ to $+1\text{ V}$)
-3. `0-5V` (Unipolar $0\text{ V}$ to $+5\text{ V}$)
-4. `+/-5V` (Bipolar $-5\text{ V}$ to $+5\text{ V}$)
-5. `0-10V` (Unipolar $0\text{ V}$ to $+10\text{ V}$)
-6. `+/-10V` (Bipolar $-10\text{ V}$ to $+10\text{ V}$)
+1. `0 to 1V` (Unipolar)
+2. `±1V` (Bipolar)
+3. `0 to 5V` (Unipolar)
+4. `±5V` (Bipolar)
+5. `0 to 10V` (Unipolar)
+6. `±10V` (Bipolar)
 
 ### Persistence & Architecture Requirements
 - Store the selected standard as an enum (`VoltageRange`) in the module struct.
@@ -71,12 +71,12 @@ void appendContextMenu(Menu* menu) override {
     menu->addChild(createMenuLabel("Voltage Range"));
 
     const char* rangeLabels[] = {
-        "0-1V (0V to +1V)",
-        "+/-1V (-1V to +1V)",
-        "0-5V (0V to +5V)",
-        "+/-5V (-5V to +5V)",
-        "0-10V (0V to +10V)",
-        "+/-10V (-10V to +10V)"
+        "0 to 1V",
+        "±1V",
+        "0 to 5V",
+        "±5V",
+        "0 to 10V",
+        "±10V"
     };
 
     for (int i = 0; i < MyModule::NUM_RANGES; i++) {

@@ -9,7 +9,7 @@ This document defines the exact font files, point sizes, fontTools vector scale 
 | Feature / Label Role | Font File | Size (pt) | Scale Factor (`scale`) | Case | Vertical Anchor / Baseline Offset | Color (Medium Skin) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Module Title** | `res/D-DIN-Bold.otf` | **16 pt** | `0.005644` | UPPERCASE | Fixed $Y = 8.000\text{ mm}$ (horizontally centered) | `#ffffff` / theme title |
-| **Version Tag** | `res/Quicksand-Regular.ttf` | **4.5 pt** | `0.001600` | lowercase | Fixed $Y = 8.000\text{ mm}$ (right margin $X = W - 2.15\text{ mm}$) | `#aaaaaa` |
+| **Version Tag** | Any clean sans-serif | **4.5 pt** | `0.001600` | lowercase | Fixed $Y = 8.000\text{ mm}$ (right margin $X = W - 2.15\text{ mm}$) | `#aaaaaa` |
 | **Main Knobs (Zone 1 & 2)** | `res/D-DINCondensed-Bold.otf` | **10 pt** | `0.003528` | UPPERCASE | Offset **$-5.75\text{ mm}$** above knob center | `#222222` / theme label |
 | **CV Trimpots (Zone 3)** | `res/D-DINCondensed.otf` | **8 pt** | `0.002822` | UPPERCASE | Offset **$-4.00\text{ mm}$** above trimpot center | `#222222` / theme label |
 | **I/O Jacks (Zone 4)** | `res/D-DINCondensed.otf` | **8 pt** | `0.002822` | UPPERCASE | Offset **$-5.00\text{ mm}$** above jack center | `#222222` / theme label |
@@ -32,9 +32,8 @@ $$\text{scale} = \frac{\text{size}_{\text{pt}} \times 25.4\text{ mm/in}}{72.0\te
 ## 3. Mandatory Typography Rules
 
 1. **Zero `<text>` Tags**: Faceplate SVGs must never contain `<text>` elements. All glyphs must be cubic Bezier contours (`C`).
-2. **No Redundant "CV" in Trimpot Zone**: Trimpots in Zone 3 are implicitly CV depth controls; omit `"CV"` from trimpot row labels.
-3. **No Duplicate Identical Labels**: Never repeat identical labels across adjacent columns. Use a single, horizontally centered label.
-4. **Port & Parameter Sentence Case**: Tooltip strings in C++ use strict sentence case (e.g. `"Frequency modulation"`, `"Rise time"`), while panel faceplate typography uses the casing listed in the table above.
+2. **Path Coordinate Simplification**: Path contours must be converted via `fontTools`, simplified with Skia `pathops.simplify()`, and coordinates formatted with `clean_svg_path_numbers()`.
+3. **Port & Parameter Sentence Case**: Tooltip strings in C++ use strict sentence case (e.g. `"Frequency modulation"`, `"Rise time"`), while panel faceplate typography uses the casing listed in the table above.
 
 ---
 

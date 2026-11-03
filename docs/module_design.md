@@ -149,7 +149,7 @@ See also [TYPOGRAPHY.md](file:///g:/dupe/work/garmire/docs/TYPOGRAPHY.md) for fu
 | Feature / Label Role | Font File | Size (pt) | Scale Factor (`scale`) | Case | Vertical Anchor / Baseline Offset | Color (Medium Skin) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Module Title** | `res/D-DIN-Bold.otf` | **16 pt** | `0.005644` | UPPERCASE | Fixed $Y = 8.000\text{ mm}$ (horizontally centered) | `#ffffff` |
-| **Version Tag** | `res/Quicksand-Regular.ttf` | **4.5 pt** | `0.001600` | lowercase | Fixed $Y = 8.000\text{ mm}$ (right margin $X = W - 2.15\text{ mm}$) | `#aaaaaa` |
+| **Version Tag** | Any clean sans-serif | **4.5 pt** | `0.001600` | lowercase | Fixed $Y = 8.000\text{ mm}$ (right margin $X = W - 2.15\text{ mm}$) | `#aaaaaa` |
 | **Main Knobs (Zone 1 & 2)** | `res/D-DINCondensed-Bold.otf` | **10 pt** | `0.003528` | UPPERCASE | Offset **$-5.75\text{ mm}$** above knob center | `#222222` |
 | **CV Trimpots (Zone 3)** | `res/D-DINCondensed.otf` | **8 pt** | `0.002822` | UPPERCASE | Offset **$-4.00\text{ mm}$** above trimpot center | `#222222` |
 | **I/O Jacks (Zone 4)** | `res/D-DINCondensed.otf` | **8 pt** | `0.002822` | UPPERCASE | Offset **$-5.00\text{ mm}$** above jack center | `#222222` |
@@ -157,8 +157,10 @@ See also [TYPOGRAPHY.md](file:///g:/dupe/work/garmire/docs/TYPOGRAPHY.md) for fu
 ### Path Vector Pipeline Rules:
 1. **Zero `<text>` Elements**: Raw `<text>` tags are strictly forbidden in SVG faceplates. All typography must be converted to cubic Beziers (`C`) via `fontTools` and simplified with Skia `pathops.simplify()`.
 2. **NanoSVG Number Formatting**: Coordinates must be formatted with `clean_svg_path_numbers()` (1 decimal place rounding `.1f` and space padding around command letters `M C L Z`).
-3. **No Duplicate Identical Labels**: Never repeat identical labels across columns (e.g. no `"X X X"`). Place a single centered label across the span.
-4. **No Redundant "CV" in Trimpot Zone**: Trimpots in Zone 3 are inherently CV depth controls; label with the parameter name alone.
+
+### Panel Labeling Directives:
+1. **No Duplicate Identical Labels**: Never repeat identical labels across adjacent columns (e.g. no `"X X X"`). Place a single, horizontally centered label spanning across the controls.
+2. **No Redundant "CV" in Trimpot Zone**: Trimpots in Zone 3 are inherently CV depth controls; label with the parameter name alone (e.g. `DEPTH`, `RATE`, `SLOPE`).
 
 ---
 
