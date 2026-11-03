@@ -2,6 +2,13 @@
 #include <cmath>
 
 struct Stretch : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		X_STRETCH_PARAM,
 		X_CV_ATTEN_PARAM,
@@ -44,6 +51,19 @@ struct Stretch : Module {
 		configOutput(X_OUTPUT, "X");
 		configOutput(Y_OUTPUT, "Y");
 	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
+
+
 
 	void process(const ProcessArgs& args) override {
 		int channels = std::max({inputs[X_INPUT].getChannels(), inputs[Y_INPUT].getChannels(), inputs[X_CV_INPUT].getChannels(), inputs[Y_CV_INPUT].getChannels()});
@@ -89,9 +109,57 @@ struct Stretch : Module {
 };
 
 struct StretchWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Stretch::SkinTheme currentTheme = Stretch::THEME_MEDIUM;
+
+	void setTheme(Stretch::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Stretch::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Stretch_Light.svg");
+					break;
+				case Stretch::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Stretch_Dark.svg");
+					break;
+				case Stretch::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Stretch.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Stretch*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	StretchWidget(Stretch* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Stretch.svg")));
+				panel = new SvgPanel();
+		Stretch::SkinTheme initTheme = module ? module->skinTheme : Stretch::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Stretch::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Stretch_Light.svg");
+				break;
+			case Stretch::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Stretch_Dark.svg");
+				break;
+			case Stretch::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Stretch.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Top 2/3: Main Controls & Attenuverters
 		// Row 1: X & Y Stretch Depth Knobs (Center Y = 0.85 in = 21.59 mm)
@@ -114,6 +182,31 @@ struct StretchWidget : ModuleWidget {
 		// Row 3: Signal Outputs (Center Y = 4.60 in = 116.84 mm)
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 116.84)), module, Stretch::X_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 116.84)), module, Stretch::Y_OUTPUT));
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		Stretch* module = dynamic_cast<Stretch*>(this->module);
+		if (!module) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Stretch::SkinTheme theme = (Stretch::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 

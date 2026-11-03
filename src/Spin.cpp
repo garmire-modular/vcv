@@ -2,6 +2,13 @@
 #include <cmath>
 
 struct Spin : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		X_SPIN_PARAM,
 		X_CV_ATTEN_PARAM,
@@ -47,6 +54,19 @@ struct Spin : Module {
 		configOutput(X_OUTPUT, "X");
 		configOutput(Y_OUTPUT, "Y");
 	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
+
+
 
 	void process(const ProcessArgs& args) override {
 		int channels = std::max({inputs[X_INPUT].getChannels(), inputs[Y_INPUT].getChannels(), inputs[X_CV_INPUT].getChannels(), inputs[Y_CV_INPUT].getChannels()});
@@ -98,9 +118,57 @@ struct Spin : Module {
 };
 
 struct SpinWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Spin::SkinTheme currentTheme = Spin::THEME_MEDIUM;
+
+	void setTheme(Spin::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Spin::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Spin_Light.svg");
+					break;
+				case Spin::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Spin_Dark.svg");
+					break;
+				case Spin::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Spin.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Spin*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	SpinWidget(Spin* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Spin.svg")));
+				panel = new SvgPanel();
+		Spin::SkinTheme initTheme = module ? module->skinTheme : Spin::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Spin::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Spin_Light.svg");
+				break;
+			case Spin::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Spin_Dark.svg");
+				break;
+			case Spin::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Spin.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Top 2/3: Main Controls & Attenuverters
 		// Row 1: X & Y Manual Spin Sweep Knobs (Center Y = 0.85 in = 21.59 mm)
@@ -123,6 +191,31 @@ struct SpinWidget : ModuleWidget {
 		// Row 3: Signal Outputs (Center Y = 4.60 in = 116.84 mm)
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 116.84)), module, Spin::X_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 116.84)), module, Spin::Y_OUTPUT));
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		Spin* module = dynamic_cast<Spin*>(this->module);
+		if (!module) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Spin::SkinTheme theme = (Spin::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 

@@ -84,8 +84,10 @@ def main():
 </svg>
 """
     os.makedirs('res', exist_ok=True)
-    with open('res/Scale.svg', 'w', encoding='utf-8') as f:
-        f.write(svg_content.strip() + "\n")
+    import sys
+    sys.path.insert(0, 'scratch')
+    from skin_generator_helper import write_triple_skins
+    write_triple_skins('Scale', svg_content.strip() + "\n")
     print("Generated res/Scale.svg")
 
 if __name__ == '__main__':

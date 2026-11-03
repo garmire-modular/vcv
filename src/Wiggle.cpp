@@ -2,6 +2,13 @@
 #include <cmath>
 
 struct Wiggle : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		X_DEPTH_PARAM,
 		Y_DEPTH_PARAM,
@@ -71,6 +78,19 @@ struct Wiggle : Module {
 			phaseY[c] = 0.f;
 		}
 	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
+
+
 
 	void process(const ProcessArgs& args) override {
 		int channels = std::max({
@@ -143,9 +163,57 @@ struct Wiggle : Module {
 };
 
 struct WiggleWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Wiggle::SkinTheme currentTheme = Wiggle::THEME_MEDIUM;
+
+	void setTheme(Wiggle::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Wiggle::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Wiggle_Light.svg");
+					break;
+				case Wiggle::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Wiggle_Dark.svg");
+					break;
+				case Wiggle::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Wiggle.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Wiggle*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	WiggleWidget(Wiggle* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Wiggle.svg")));
+				panel = new SvgPanel();
+		Wiggle::SkinTheme initTheme = module ? module->skinTheme : Wiggle::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Wiggle::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Wiggle_Light.svg");
+				break;
+			case Wiggle::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Wiggle_Dark.svg");
+				break;
+			case Wiggle::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Wiggle.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Top 2/3: Main Controls & Attenuverters
 		// Row 1: X & Y Wiggle Depth Knobs (Labelled X and Y on panel, Center Y = 21.59 mm)
@@ -180,6 +248,31 @@ struct WiggleWidget : ModuleWidget {
 		// Row 4: Signal Outputs (Center Y = 118.00 mm)
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 118.00)), module, Wiggle::X_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 118.00)), module, Wiggle::Y_OUTPUT));
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		Wiggle* module = dynamic_cast<Wiggle*>(this->module);
+		if (!module) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Wiggle::SkinTheme theme = (Wiggle::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 

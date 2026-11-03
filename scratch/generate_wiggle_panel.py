@@ -119,8 +119,10 @@ def main():
 
     svg_parts.append('</svg>')
 
-    with open('res/Wiggle.svg', 'w', encoding='utf-8') as f:
-        f.write("\n".join(svg_parts) + "\n")
+    import sys
+    sys.path.insert(0, 'scratch')
+    from skin_generator_helper import write_triple_skins
+    write_triple_skins('Wiggle', "\n".join(svg_parts) + "\n")
     print("Generated res/Wiggle.svg with v2.0.0.")
 
 if __name__ == '__main__':
