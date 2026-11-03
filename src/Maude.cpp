@@ -46,6 +46,12 @@ struct MaudeChannel {
 };
 
 struct Maude : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
 	enum RangeMode {
 		RANGE_VERY_SLOW = 0,
 		RANGE_LFO = 1,
@@ -570,6 +576,7 @@ struct Maude : Module {
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "rangeMode", json_integer((int)rangeMode));
+			json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		return rootJ;
 	}
 
@@ -577,7 +584,8 @@ struct Maude : Module {
 		json_t* rmJ = json_object_get(rootJ, "rangeMode");
 		if (rmJ) {
 			rangeMode = (RangeMode)json_integer_value(rmJ);
-		}
+		}		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 	}
 };
 
@@ -647,9 +655,56 @@ struct MaudeRangeLightRing : ModuleLightWidget {
 };
 
 struct MaudeWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Maude::SkinTheme currentTheme = Maude::THEME_MEDIUM;
+
+	void setTheme(Maude::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Maude::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Maude_Light.svg");
+					break;
+				case Maude::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Maude_Dark.svg");
+					break;
+				case Maude::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Maude.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Maude*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
 	MaudeWidget(Maude* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Maude.svg")));
+		panel = new SvgPanel();
+		Maude::SkinTheme initTheme = module ? module->skinTheme : Maude::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Maude::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Maude_Light.svg");
+				break;
+			case Maude::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Maude_Dark.svg");
+				break;
+			case Maude::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Maude.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// 4 Standard Columns (7.62, 22.86, 38.10, 53.34 mm)
 		const float col_x[4] = {7.62f, 22.86f, 38.10f, 53.34f};
@@ -740,6 +795,25 @@ struct MaudeWidget : ModuleWidget {
 			menu->addChild(createCheckMenuItem(rangeLabels[i], "",
 				[=]() { return module->rangeMode == mode; },
 				[=]() { module->rangeMode = mode; }
+			));
+		}
+		menu->addChild(new MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Maude::SkinTheme theme = (Maude::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
 			));
 		}
 	}

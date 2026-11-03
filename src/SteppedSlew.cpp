@@ -66,6 +66,12 @@ struct AttenParamQuantity : ParamQuantity {
 };
 
 struct SteppedSlew : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
 	enum ParamId {
 		TIME_UP_PARAM,
 		SHAPE_UP_PARAM,
@@ -206,6 +212,7 @@ struct SteppedSlew : Module {
 		json_object_set_new(rootJ, "quantizeStrategy", json_integer(engine.quantizeStrategy));
 		json_object_set_new(rootJ, "clockMode", json_integer(engine.clockMode));
 		json_object_set_new(rootJ, "rootKey", json_integer(engine.rootKey));
+			json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		return rootJ;
 	}
 
@@ -225,14 +232,62 @@ struct SteppedSlew : Module {
 		json_t* rkJ = json_object_get(rootJ, "rootKey");
 		if (rkJ) {
 			engine.rootKey = json_integer_value(rkJ);
-		}
+		}		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 	}
 };
 
 struct SteppedSlewWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	SteppedSlew::SkinTheme currentTheme = SteppedSlew::THEME_MEDIUM;
+
+	void setTheme(SteppedSlew::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case SteppedSlew::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/SteppedSlew_Light.svg");
+					break;
+				case SteppedSlew::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/SteppedSlew_Dark.svg");
+					break;
+				case SteppedSlew::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/SteppedSlew.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<SteppedSlew*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
 	SteppedSlewWidget(SteppedSlew* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/SteppedSlew.svg")));
+		panel = new SvgPanel();
+		SteppedSlew::SkinTheme initTheme = module ? module->skinTheme : SteppedSlew::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case SteppedSlew::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/SteppedSlew_Light.svg");
+				break;
+			case SteppedSlew::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/SteppedSlew_Dark.svg");
+				break;
+			case SteppedSlew::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/SteppedSlew.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// 3 Primary Columns: 9.40 mm, 25.40 mm, 41.40 mm
 		const double col_1 = 9.400;
@@ -394,6 +449,25 @@ struct SteppedSlewWidget : ModuleWidget {
 			item->root = r;
 			item->rightText = (module->engine.rootKey == r) ? "\u2713" : "";
 			menu->addChild(item);
+		}
+		menu->addChild(new MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			SteppedSlew::SkinTheme theme = (SteppedSlew::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
 		}
 	}
 };

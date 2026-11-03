@@ -60,6 +60,12 @@ struct InAttenParamQuantity : ParamQuantity {
 };
 
 struct Eunice : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
 	enum ParamId {
 		RATE_PARAM,
 		DIST_PARAM,
@@ -159,6 +165,7 @@ struct Eunice : Module {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "distributionMode", json_integer(static_cast<int>(engine.distMode)));
 		json_object_set_new(rootJ, "slewProfile", json_integer(static_cast<int>(engine.slewProfile)));
+			json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		return rootJ;
 	}
 
@@ -170,7 +177,8 @@ struct Eunice : Module {
 		json_t* slewJ = json_object_get(rootJ, "slewProfile");
 		if (slewJ) {
 			engine.slewProfile = static_cast<eunice::SlewProfile>(json_integer_value(slewJ));
-		}
+		}		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -373,9 +381,56 @@ struct EuniceCKSSThree : app::SvgSwitch {
 };
 
 struct EuniceWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Eunice::SkinTheme currentTheme = Eunice::THEME_MEDIUM;
+
+	void setTheme(Eunice::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Eunice::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Eunice_Light.svg");
+					break;
+				case Eunice::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Eunice_Dark.svg");
+					break;
+				case Eunice::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Eunice.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Eunice*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
 	EuniceWidget(Eunice* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Eunice.svg")));
+		panel = new SvgPanel();
+		Eunice::SkinTheme initTheme = module ? module->skinTheme : Eunice::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Eunice::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Eunice_Light.svg");
+				break;
+			case Eunice::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Eunice_Dark.svg");
+				break;
+			case Eunice::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Eunice.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// 3 Columns: 8.13 mm, 20.32 mm, 32.51 mm
 		const double col_a = 8.13;
@@ -486,6 +541,25 @@ struct EuniceWidget : ModuleWidget {
 			item->profile = static_cast<eunice::SlewProfile>(s);
 			item->rightText = (module->engine.slewProfile == s) ? "\u2713" : "";
 			menu->addChild(item);
+		}
+		menu->addChild(new MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Eunice::SkinTheme theme = (Eunice::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
 		}
 	}
 };

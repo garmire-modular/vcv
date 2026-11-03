@@ -175,8 +175,10 @@ def main():
 
     os.makedirs('res', exist_ok=True)
     svg_path = 'res/Maude.svg'
-    with open(svg_path, 'w', encoding='utf-8') as f:
-        f.write("\n".join(svg_parts) + "\n")
+    import sys
+    sys.path.insert(0, 'scratch')
+    from skin_generator_helper import write_triple_skins
+    write_triple_skins('Maude', "\n".join(svg_parts) + "\n")
     print(f"Generated {svg_path} successfully (12 HP).")
 
     # Render verification bitmap (114 x 240 at 4x resolution = 456 x 960)
