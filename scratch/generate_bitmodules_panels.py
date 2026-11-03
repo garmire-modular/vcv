@@ -210,10 +210,10 @@ def main():
     for m in MODULES:
         slug = m['slug']
         svg_content = generate_panel_svg(m, node_font, qs_font, qs_reg_font)
-        svg_path = f'res/{slug}.svg'
-        with open(svg_path, 'w', encoding='utf-8') as f:
-            f.write(svg_content)
-        print(f"Generated {svg_path}")
+        import sys
+        sys.path.insert(0, 'scratch')
+        from skin_generator_helper import write_triple_skins
+        write_triple_skins(slug, svg_content)
 
         # Write bespoke generator script in scratch/
         gen_script_path = f'scratch/generate_{slug.lower()}_panel.py'
@@ -235,9 +235,10 @@ def main():
     qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
     m = next(item for item in MODULES if item["slug"] == "{slug}")
     svg_content = generate_panel_svg(m, node_font, qs_font, qs_reg_font)
-    with open('res/{slug}.svg', 'w', encoding='utf-8') as f:
-        f.write(svg_content)
-    print("Generated res/{slug}.svg")
+    import sys
+    sys.path.insert(0, 'scratch')
+    from skin_generator_helper import write_triple_skins
+    write_triple_skins('{slug}', svg_content)
 
     svg_mod = re.sub(r'width="[0-9.]+mm"', 'width="57"', svg_content)
     svg_mod = re.sub(r'height="[0-9.]+mm"', 'height="240"', svg_mod)

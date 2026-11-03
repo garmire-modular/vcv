@@ -15,9 +15,10 @@ def main():
     qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
     m = next(item for item in MODULES if item["slug"] == "BitGalois")
     svg_content = generate_panel_svg(m, node_font, qs_font, qs_reg_font)
-    with open('res/BitGalois.svg', 'w', encoding='utf-8') as f:
-        f.write(svg_content)
-    print("Generated res/BitGalois.svg")
+    import sys
+    sys.path.insert(0, 'scratch')
+    from skin_generator_helper import write_triple_skins
+    write_triple_skins('BitGalois', svg_content)
 
     svg_mod = re.sub(r'width="[0-9.]+mm"', 'width="57"', svg_content)
     svg_mod = re.sub(r'height="[0-9.]+mm"', 'height="240"', svg_mod)

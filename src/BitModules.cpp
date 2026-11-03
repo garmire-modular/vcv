@@ -62,6 +62,13 @@ struct BitListParamQuantity : ParamQuantity {
 // ─────────────────────────────────────────────────────────────────────
 
 struct BaseBitModule : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		P1_PARAM,
 		P2_PARAM,
@@ -109,25 +116,26 @@ struct BaseBitModule : Module {
 		configParam<BitPercentParamQuantity>(MIX_TRIM_PARAM, -1.f, 1.f, 1.0f, "Mix CV depth");
 
 		// Inputs
-		configInput(X_INPUT, "X coordinate input");
-		configInput(Y_INPUT, "Y coordinate input");
+		configInput(X_INPUT, "X coordinate");
+		configInput(Y_INPUT, "Y coordinate");
 		char cvBuf[64];
-		snprintf(cvBuf, sizeof(cvBuf), "%s CV depth", p1Name);
+		snprintf(cvBuf, sizeof(cvBuf), "%s CV", p1Name);
 		configInput(P1_CV_INPUT, cvBuf);
-		snprintf(cvBuf, sizeof(cvBuf), "%s CV depth", p2Name);
+		snprintf(cvBuf, sizeof(cvBuf), "%s CV", p2Name);
 		configInput(P2_CV_INPUT, cvBuf);
-		snprintf(cvBuf, sizeof(cvBuf), "%s CV depth", p3Name);
+		snprintf(cvBuf, sizeof(cvBuf), "%s CV", p3Name);
 		configInput(P3_CV_INPUT, cvBuf);
-		configInput(MIX_CV_INPUT, "Mix CV depth");
+		configInput(MIX_CV_INPUT, "Mix CV");
 
 		// Outputs
-		configOutput(X_OUTPUT, "X coordinate output");
-		configOutput(Y_OUTPUT, "Y coordinate output");
+		configOutput(X_OUTPUT, "X coordinate");
+		configOutput(Y_OUTPUT, "Y coordinate");
 	}
 
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "voltageRange", json_integer((int)voltageRange));
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		return rootJ;
 	}
 
@@ -139,6 +147,10 @@ struct BaseBitModule : Module {
 				voltageRange = (bitdsp::VoltageRange)vr;
 			}
 		}
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) {
+			skinTheme = (SkinTheme)json_integer_value(stJ);
+		}
 	}
 };
 
@@ -147,9 +159,69 @@ struct BaseBitModule : Module {
 // ─────────────────────────────────────────────────────────────────────
 
 struct BaseBitWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	std::string slugName;
+	BaseBitModule::SkinTheme currentTheme = BaseBitModule::THEME_MEDIUM;
+
+	void setTheme(BaseBitModule::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel && !slugName.empty()) {
+			std::string path;
+			switch (theme) {
+				case BaseBitModule::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/" + slugName + "_Light.svg");
+					break;
+				case BaseBitModule::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/" + slugName + "_Dark.svg");
+					break;
+				case BaseBitModule::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/" + slugName + ".svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<BaseBitModule*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	BaseBitWidget(BaseBitModule* module, const char* svgPath) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, svgPath)));
+
+		// Extract slug from svgPath (e.g. "res/BitMorton.svg" -> "BitMorton")
+		std::string pathStr = svgPath ? svgPath : "";
+		size_t slash = pathStr.find_last_of("/\\");
+		size_t dot = pathStr.rfind(".svg");
+		if (slash != std::string::npos && dot != std::string::npos && dot > slash) {
+			slugName = pathStr.substr(slash + 1, dot - slash - 1);
+		} else {
+			slugName = pathStr;
+		}
+
+		panel = new SvgPanel();
+		BaseBitModule::SkinTheme initTheme = module ? module->skinTheme : BaseBitModule::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case BaseBitModule::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/" + slugName + "_Light.svg");
+				break;
+			case BaseBitModule::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/" + slugName + "_Dark.svg");
+				break;
+			case BaseBitModule::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/" + slugName + ".svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Row 1 Knobs (Center Y = 21.59 mm): P1 (7.62 mm), P2 (22.86 mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 21.59)), module, BaseBitModule::P1_PARAM));
@@ -201,6 +273,26 @@ struct BaseBitWidget : ModuleWidget {
 			menu->addChild(createCheckMenuItem(vrLabels[i], "",
 				[=]() { return module->voltageRange == vr; },
 				[=]() { module->voltageRange = vr; }
+			));
+		}
+
+		menu->addChild(new MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			BaseBitModule::SkinTheme theme = (BaseBitModule::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
 			));
 		}
 	}
