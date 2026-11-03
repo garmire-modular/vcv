@@ -24,55 +24,69 @@ def get_simplified_glyph_path(font, char):
     path_d = re.sub(r'\s+', ' ', path_d).strip()
     return path_d
 
+ddin_bold = TTFont('res/D-DIN-Bold.otf')
+ddin_cond_bold = TTFont('res/D-DINCondensed-Bold.otf')
+ddin_cond = TTFont('res/D-DINCondensed.otf')
+qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
+
 def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
-    cmap = font.getBestCmap()
-    hmtx = font['hmtx']
-    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text]
+    text_str = str(text)
+    if ('v' in text_str and '.' in text_str) or 'version' in comment.lower():
+        use_font = qs_reg_font
+        use_scale = 0.001600
+    elif font == ddin_bold:
+        use_font = ddin_bold
+        use_scale = scale
+    elif ('knob' in comment.lower() or 'header' in comment.lower() or text_str in ['FREQ', 'PHASE', 'AMP', 'TIME', 'WIDTH', 'SLEW', 'SHAPE']) and baseline_y < 50.0:
+        use_font = ddin_cond_bold
+        use_scale = 10.0 * 25.4 / (72.0 * 1000.0)  # 10pt = 0.003528
+    else:
+        use_font = ddin_cond
+        use_scale = 8.0 * 25.4 / (72.0 * 1000.0)   # 8pt = 0.002822
+    
+    cmap = use_font.getBestCmap()
+    hmtx = use_font['hmtx']
+    widths = [hmtx[cmap[ord(c)]][0] * use_scale if ord(c) in cmap else 500 * use_scale for c in text_str]
     total_w = sum(widths)
     start_x = center_x - total_w / 2.0
     res = []
     if comment:
         res.append(f'  <!-- Label: "{comment}" -->')
     curr = start_x
-    for c, w in zip(text, widths):
+    for c, w in zip(text_str, widths):
         if c != ' ':
-            pd = get_simplified_glyph_path(font, c)
-            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({scale:.6f}, {-scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
+            pd = get_simplified_glyph_path(use_font, c)
+            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({use_scale:.6f}, {-use_scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
         curr += w
     return "\n".join(res)
 
 def main():
-    node_font = TTFont('res/Node.otf')
-    qs_font = TTFont('res/Quicksand-Medium.ttf')
-    qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
-
-    # 8 HP Dimensions: 40.64 mm x 128.50 mm
+    node_font = ddin_bold
+    qs_font = ddin_cond
     panel_w = 40.64
     panel_h = 128.50
-
-    # 3 Columns
     col_a = 8.13
     col_b = 20.32
     col_c = 32.51
 
-    # Title "eunice" in Node.otf (scale 0.0048, baseline 7.620, centered at x = 20.32)
-    hmtx = node_font['hmtx']
-    scale_title = 0.0048
-    title_text = "eunice"
-    total_w = sum(hmtx[c][0] * scale_title for c in title_text)
-    start_x = (panel_w - total_w) / 2.0
+    # Title "EUNICE" in D-DIN-Bold (16pt, scale 0.005644, baseline 7.620)
+    base_title_scale = 16.0 * 25.4 / (72.0 * 1000.0)
+    cmap = ddin_bold.getBestCmap()
+    hmtx = ddin_bold['hmtx']
+    raw_w = sum(hmtx[cmap[ord(c)]][0] * base_title_scale if ord(c) in cmap else 500 * base_title_scale for c in "EUNICE")
+    title_scale = base_title_scale
+    if raw_w > (panel_w - 3.0):
+        title_scale = base_title_scale * ((panel_w - 3.0) / raw_w)
 
-    title_block = ['  <!-- Label: "eunice" -->']
-    curr_x = start_x
-    for c in title_text:
-        w = hmtx[c][0] * scale_title
-        if c != ' ':
-            path_d = get_simplified_glyph_path(node_font, c)
-            title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale_title:.6f}, {-scale_title:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
-        curr_x += w
+    title_block = [
+        '  <!-- Label: "EUNICE" (D-DIN-Bold) -->',
+        render_qs_text(ddin_bold, "EUNICE", panel_w / 2.0, 7.620, title_scale, "#ffffff", "EUNICE")
+    ]
 
-    # Version "v2.0.0" in Quicksand-Regular (scale 0.001600, baseline 10.414, centered on 20.32)
-    version_block = [render_qs_text(qs_reg_font, "v2.0.0", col_b, 10.414, 0.001600, "#aaaaaa", "v2.0.0")]
+    version_block = [
+        '  <!-- Label: "v2.0.0" -->',
+        render_qs_text(qs_reg_font, "v2.0.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
+    ]
 
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
