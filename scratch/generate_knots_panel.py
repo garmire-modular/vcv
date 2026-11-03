@@ -1,43 +1,14 @@
 import os
 import re
 import sys
-
-# Ensure MSYS2 DLLs are found for cairosvg / libcairo
-msys_bin = r'C:\msys64\mingw64\bin'
-if os.path.exists(msys_bin):
-    os.environ['PATH'] = msys_bin + os.path.pathsep + os.environ.get('PATH', '')
-    if hasattr(os, 'add_dll_directory'):
-        try:
-            os.add_dll_directory(msys_bin)
-        except Exception:
-            pass
-
 from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
 import pathops
-import os
-import sys
 
-# Ensure MSYS2 DLLs are found for cairosvg / libcairo
-msys_bin = r'C:\msys64\mingw64\bin'
-if os.path.exists(msys_bin):
-    os.environ['PATH'] = msys_bin + os.path.pathsep + os.environ.get('PATH', '')
-    if hasattr(os, 'add_dll_directory'):
-        try:
-            os.add_dll_directory(msys_bin)
-        except Exception:
-            pass
-
-try:
-    import cairocffi
-    cairo_dll = os.path.join(msys_bin, 'libcairo-2.dll')
-    if os.path.exists(cairo_dll):
-        cairocffi.cairo = cairocffi.ffi.dlopen(cairo_dll)
-    import cairosvg
-except Exception:
-    cairosvg = None
-
-from PIL import Image, ImageDraw
+ddin_bold = TTFont('res/D-DIN-Bold.otf')
+ddin_cond_bold = TTFont('res/D-DINCondensed-Bold.otf')
+ddin_cond = TTFont('res/D-DINCondensed.otf')
+qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
 
 def get_simplified_glyph_path(font, char):
     cmap = font.getBestCmap()
@@ -58,10 +29,10 @@ def get_simplified_glyph_path(font, char):
     path_d = re.sub(r'\s+', ' ', path_d).strip()
     return path_d
 
-def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
+def render_font_text(font, text, center_x, baseline_y, scale, fill, comment=""):
     cmap = font.getBestCmap()
     hmtx = font['hmtx']
-    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text]
+    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else 500 * scale for c in text]
     total_w = sum(widths)
     start_x = center_x - total_w / 2.0
     res = []
@@ -76,32 +47,30 @@ def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
     return "\n".join(res)
 
 def main():
-    node_font = TTFont('res/Node.otf')
-    qs_font = TTFont('res/Quicksand-Medium.ttf')
-    qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
+    panel_w = 30.48
+    panel_h = 128.50
 
-    # Title "knots" in Node.otf (scale 0.0048, baseline 7.620, centered in 30.48 mm)
-    scale = 0.0048
-    text = "knots"
-    cmap = node_font.getBestCmap()
-    hmtx = node_font['hmtx']
-    total_w = sum(hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text)
-    start_x = (30.48 - total_w) / 2.0
+    # Scales per docs/TYPOGRAPHY.md
+    title_scale = 16.0 * 25.4 / (72.0 * 1000.0)  # 0.005644
+    knob_scale  = 10.0 * 25.4 / (72.0 * 1000.0)  # 0.003528
+    trim_scale  = 8.0 * 25.4 / (72.0 * 1000.0)   # 0.002822
+    ver_scale   = 0.001600                        # 4.5 pt
 
-    knots_title_block = ['  <!-- Label: "knots" -->']
-    curr_x = start_x
-    for c in text:
-        gname = cmap[ord(c)] if ord(c) in cmap else c
-        w = hmtx[gname][0] * scale
-        if c != ' ':
-            path_d = get_simplified_glyph_path(node_font, c)
-            knots_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
-        curr_x += w
+    # Fit title width if needed
+    cmap = ddin_bold.getBestCmap()
+    hmtx = ddin_bold['hmtx']
+    raw_w = sum(hmtx[cmap[ord(c)]][0] * title_scale if ord(c) in cmap else 500 * title_scale for c in "KNOTS")
+    if raw_w > (panel_w - 3.0):
+        title_scale = title_scale * ((panel_w - 3.0) / raw_w)
 
-    # Version tag "v2.0.0"
+    title_block = [
+        '  <!-- Label: "KNOTS" (D-DIN-Bold) -->',
+        render_font_text(ddin_bold, "KNOTS", panel_w / 2.0, 7.620, title_scale, "#ffffff", "KNOTS")
+    ]
+
     version_block = [
         '  <!-- Label: "v2.0.0" -->',
-        render_qs_text(qs_reg_font, "v2.0.0", 15.24, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
+        render_font_text(qs_reg_font, "v2.0.0", panel_w / 2.0, 10.414, ver_scale, "#aaaaaa", "v2.0.0")
     ]
 
     svg_parts = [
@@ -109,77 +78,42 @@ def main():
         '<svg xmlns="http://www.w3.org/2000/svg" width="30.48mm" height="128.5mm" viewBox="0 0 30.48 128.5">',
         '  <!-- Panel Background: 6 HP -->',
         '  <rect width="30.48" height="128.5" fill="#6e6e6e"/>',
-        '  <!-- Left Edge Color Badge (Centered 88.9mm x 1.35mm, Flush X=0) -->',
-        '  <g id="palette-badge">',
-        '    <rect x="0.000" y="19.800" width="1.350" height="44.450" fill="#FFFFFF" stroke="none"/>',
-        '    <rect x="0.000" y="64.250" width="1.350" height="28.448" fill="#D55E00" stroke="none"/>',
-        '    <rect x="0.000" y="92.698" width="1.350" height="16.002" fill="#FF8866" stroke="none"/>',
-        '  </g>',
+        '''  <g id="palette-badge">
+    <rect x="0.000" y="19.800" width="1.350" height="44.450" fill="#FFFFFF" stroke="none"/>
+    <rect x="0.000" y="64.250" width="1.350" height="28.448" fill="#D55E00" stroke="none"/>
+    <rect x="0.000" y="92.698" width="1.350" height="16.002" fill="#FF8866" stroke="none"/>
+  </g>''',
         '',
-        '  <!-- Delineator Line 1 (Main Controls / Attenuverters at Y = 52.50mm) -->',
+        '  <!-- Delineator Line 1 -->',
         '  <line x1="2.54" y1="52.50" x2="27.94" y2="52.50" stroke="#999999" stroke-width="0.176"/>',
         '',
-        '  <!-- Delineator Line 2 (Attenuverters / I/O Jacks at Y = 80.50mm) -->',
+        '  <!-- Delineator Line 2 -->',
         '  <line x1="2.54" y1="80.50" x2="27.94" y2="80.50" stroke="#999999" stroke-width="0.176"/>',
         ''
     ]
-    svg_parts.extend(knots_title_block)
+    svg_parts.extend(title_block)
     svg_parts.extend(version_block)
 
-    # Top Knobs X & Y labels (Y = 13.070, scale = 0.003000)
-    svg_parts.append(render_qs_text(qs_font, "X", 7.62, 13.070, 0.003000, "#1c1c1c", "X"))
-    svg_parts.append(render_qs_text(qs_font, "Y", 22.86, 13.070, 0.003000, "#1c1c1c", "Y"))
+    # Main Knobs (D-DINCondensed-Bold, 10pt = 0.003528, preserving baseline Ys)
+    svg_parts.append(render_font_text(ddin_cond_bold, "X", 7.62, 13.070, knob_scale, "#1c1c1c", "X"))
+    svg_parts.append(render_font_text(ddin_cond_bold, "Y", 22.86, 13.070, knob_scale, "#1c1c1c", "Y"))
 
-    # Trimpot Row Label: single centered "KNOTS" (Trimpot center Y = 73.00, label Y = 68.50)
-    svg_parts.append(render_qs_text(qs_font, "KNOTS", 15.24, 68.500, 0.002000, "#2c2c2c", "KNOTS CV Attenuverter Label"))
+    # Attenuverters (D-DINCondensed, 8pt = 0.002822, preserving baseline Ys)
+    svg_parts.append(render_font_text(ddin_cond, "KNOTS", 15.24, 68.500, trim_scale, "#2c2c2c", "KNOTS"))
 
-    # Jack Row 1: X, Y (Y = 84.000, scale = 0.003000), IN (Y = 88.000, scale = 0.002400)
-    svg_parts.append(render_qs_text(qs_font, "X", 7.62, 84.000, 0.003000, "#1c1c1c", "X"))
-    svg_parts.append(render_qs_text(qs_font, "Y", 22.86, 84.000, 0.003000, "#1c1c1c", "Y"))
-    svg_parts.append(render_qs_text(qs_font, "IN", 15.24, 88.000, 0.002400, "#2c2c2c", "IN"))
+    # I/O Jacks (D-DINCondensed, 8pt = 0.002822, preserving baseline Ys)
+    svg_parts.append(render_font_text(ddin_cond, "X", 7.62, 84.000, trim_scale, "#1c1c1c", "X"))
+    svg_parts.append(render_font_text(ddin_cond, "Y", 22.86, 84.000, trim_scale, "#1c1c1c", "Y"))
+    svg_parts.append(render_font_text(ddin_cond, "IN", 15.24, 88.000, trim_scale, "#1c1c1c", "IN"))
+    svg_parts.append(render_font_text(ddin_cond, "CV", 15.24, 97.500, trim_scale, "#2c2c2c", "CV"))
+    svg_parts.append(render_font_text(ddin_cond, "OUT", 15.24, 116.500, trim_scale, "#1c1c1c", "OUT"))
 
-    # Jack Row 2: CV (Y = 97.500, scale = 0.002400)
-    svg_parts.append(render_qs_text(qs_font, "CV", 15.24, 97.500, 0.002400, "#2c2c2c", "CV"))
+    svg_parts.append('</svg>\n')
 
-    # Jack Row 3: OUT (Y = 116.500, scale = 0.002400)
-    svg_parts.append(render_qs_text(qs_font, "OUT", 15.24, 116.500, 0.002400, "#2c2c2c", "OUT"))
-
-    svg_parts.append('</svg>')
-
-    os.makedirs('res', exist_ok=True)
-    svg_path = 'res/Knots.svg'
-    import sys
     sys.path.insert(0, 'scratch')
     from skin_generator_helper import write_triple_skins
     write_triple_skins('Knots', "\n".join(svg_parts) + "\n")
-    print(f"Generated {svg_path} successfully.")
-
-    # Render verification bitmap
-    verify_png = 'scratch/knots_verify.png'
-    cairosvg.svg2png(url=svg_path, write_to=verify_png, output_width=57 * 4, output_height=240 * 4)
-
-    im = Image.open(verify_png)
-    draw = ImageDraw.Draw(im)
-    r_px = (57 * 4) / 30.48
-
-    # Knobs at Y = 21.59 mm (radius ~ 4.5 mm)
-    kr = 4.5 * r_px
-    draw.ellipse([7.62 * r_px - kr, 21.59 * r_px - kr, 7.62 * r_px + kr, 21.59 * r_px + kr], outline='#ffaa00', width=2)
-    draw.ellipse([22.86 * r_px - kr, 21.59 * r_px - kr, 22.86 * r_px + kr, 21.59 * r_px + kr], outline='#ffaa00', width=2)
-
-    # Trimpots at Y = 73.00 mm (radius ~ 2.5 mm)
-    tr = 2.5 * r_px
-    draw.ellipse([7.62 * r_px - tr, 73.00 * r_px - tr, 7.62 * r_px + tr, 73.00 * r_px + tr], outline='#00ff88', width=2)
-    draw.ellipse([22.86 * r_px - tr, 73.00 * r_px - tr, 22.86 * r_px + tr, 73.00 * r_px + tr], outline='#00ff88', width=2)
-
-    # Jacks (Row 1: 89.50, Row 2: 99.00, Row 3: 118.00)
-    jr = 4.15 * r_px
-    for jy in [89.50, 99.00, 118.00]:
-        draw.ellipse([7.62 * r_px - jr, jy * r_px - jr, 7.62 * r_px + jr, jy * r_px + jr], outline='#00e5ff', width=2)
-        draw.ellipse([22.86 * r_px - jr, jy * r_px - jr, 22.86 * r_px + jr, jy * r_px + jr], outline='#00e5ff', width=2)
-
-    im.save(verify_png)
-    print(f"Rendered verification bitmap: {verify_png}")
+    print("Generated res/Knots.svg with D-DIN font hierarchy successfully.")
 
 if __name__ == '__main__':
     main()

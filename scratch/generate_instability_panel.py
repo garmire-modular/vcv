@@ -1,8 +1,14 @@
 import os
 import re
+import sys
 from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
 import pathops
+
+ddin_bold = TTFont('res/D-DIN-Bold.otf')
+ddin_cond_bold = TTFont('res/D-DINCondensed-Bold.otf')
+ddin_cond = TTFont('res/D-DINCondensed.otf')
+qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
 
 def get_simplified_glyph_path(font, char):
     cmap = font.getBestCmap()
@@ -23,10 +29,10 @@ def get_simplified_glyph_path(font, char):
     path_d = re.sub(r'\s+', ' ', path_d).strip()
     return path_d
 
-def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
+def render_font_text(font, text, center_x, baseline_y, scale, fill, comment=""):
     cmap = font.getBestCmap()
     hmtx = font['hmtx']
-    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text]
+    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else 500 * scale for c in text]
     total_w = sum(widths)
     start_x = center_x - total_w / 2.0
     res = []
@@ -41,82 +47,75 @@ def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
     return "\n".join(res)
 
 def main():
-    node_font = TTFont('res/Node.otf')
-    qs_font = TTFont('res/Quicksand-Medium.ttf')
-    qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
+    panel_w = 30.48
+    panel_h = 128.50
 
-    # Title "instability" in Node.otf (scale 0.0048, baseline 7.620, centered on 6 HP = 30.48mm)
-    hmtx = node_font['hmtx']
-    scale = 0.0048
-    text = "instability"
-    total_w = sum(hmtx[c][0] * scale for c in text)
-    start_x = (30.48 - total_w) / 2.0
+    # Scales per docs/TYPOGRAPHY.md
+    title_scale = 16.0 * 25.4 / (72.0 * 1000.0)  # 0.005644
+    knob_scale  = 10.0 * 25.4 / (72.0 * 1000.0)  # 0.003528
+    trim_scale  = 8.0 * 25.4 / (72.0 * 1000.0)   # 0.002822
+    ver_scale   = 0.001600                        # 4.5 pt
 
-    title_block = ['  <!-- Label: "instability" -->']
-    curr_x = start_x
-    for c in text:
-        w = hmtx[c][0] * scale
-        if c != ' ':
-            path_d = get_simplified_glyph_path(node_font, c)
-            title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
-        curr_x += w
+    # Fit title width if needed
+    cmap = ddin_bold.getBestCmap()
+    hmtx = ddin_bold['hmtx']
+    raw_w = sum(hmtx[cmap[ord(c)]][0] * title_scale if ord(c) in cmap else 500 * title_scale for c in "INSTABILITY")
+    if raw_w > (panel_w - 3.0):
+        title_scale = title_scale * ((panel_w - 3.0) / raw_w)
 
-    # Version "v2.0.0" in Quicksand-Regular (scale 0.001600, baseline 10.414, centered on 15.24mm)
-    v224_version_block = [render_qs_text(qs_reg_font, "v2.0.0", 15.24, 10.414, 0.001600, "#aaaaaa", "v2.0.0")]
+    title_block = [
+        '  <!-- Label: "INSTABILITY" (D-DIN-Bold) -->',
+        render_font_text(ddin_bold, "INSTABILITY", panel_w / 2.0, 7.620, title_scale, "#ffffff", "INSTABILITY")
+    ]
+
+    version_block = [
+        '  <!-- Label: "v2.0.0" -->',
+        render_font_text(qs_reg_font, "v2.0.0", panel_w / 2.0, 10.414, ver_scale, "#aaaaaa", "v2.0.0")
+    ]
 
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<svg xmlns="http://www.w3.org/2000/svg" width="30.48mm" height="128.5mm" viewBox="0 0 30.48 128.5">',
         '  <!-- Panel Background: 6 HP -->',
         '  <rect width="30.48" height="128.5" fill="#6e6e6e"/>',
-        '  <!-- Left Edge Color Badge (Centered 88.9mm x 1.35mm, Flush X=0) -->',
-        '  <g id="palette-badge">',
-        '    <rect x="0.000" y="19.800" width="1.350" height="50.673" fill="#FFFFFF" stroke="none"/>',
-        '    <rect x="0.000" y="70.473" width="1.350" height="38.227" fill="#005566" stroke="none"/>',
-        '  </g>',
+        '''  <g id="palette-badge">
+    <rect x="0.000" y="19.800" width="1.350" height="50.673" fill="#FFFFFF" stroke="none"/>
+    <rect x="0.000" y="70.473" width="1.350" height="38.227" fill="#005566" stroke="none"/>
+  </g>''',
         '',
-        '  <!-- Delineator Line 1 (Above Attenuverters at Y = 59.50mm) -->',
+        '  <!-- Delineator Line 1 -->',
         '  <line x1="2.54" y1="59.50" x2="27.94" y2="59.50" stroke="#999999" stroke-width="0.176"/>',
         '',
-        '  <!-- Delineator Line 2 (Above I/O Jacks at Y = 90.00mm) -->',
+        '  <!-- Delineator Line 2 -->',
         '  <line x1="2.54" y1="90.00" x2="27.94" y2="90.00" stroke="#999999" stroke-width="0.176"/>',
         ''
     ]
     svg_parts.extend(title_block)
-    svg_parts.extend(v224_version_block)
+    svg_parts.extend(version_block)
 
-    # Row 1 Knobs: FREQ (X = 7.62mm) & PHASE (X = 22.86mm) (Center Y = 21.59mm, Baseline Y = 13.070, scale = 0.002400)
-    svg_parts.append(render_qs_text(qs_font, "FREQ", 7.62, 13.070, 0.002400, "#1c1c1c", "FREQ"))
-    svg_parts.append(render_qs_text(qs_font, "PHASE", 22.86, 13.070, 0.002400, "#1c1c1c", "PHASE"))
+    # Main Knobs (D-DINCondensed-Bold, 10pt = 0.003528, preserving baseline Ys)
+    svg_parts.append(render_font_text(ddin_cond_bold, "FREQ", 7.62, 13.070, knob_scale, "#1c1c1c", "FREQ"))
+    svg_parts.append(render_font_text(ddin_cond_bold, "PHASE", 22.86, 13.070, knob_scale, "#1c1c1c", "PHASE"))
+    svg_parts.append(render_font_text(ddin_cond_bold, "AMP", 15.24, 34.500, knob_scale, "#1c1c1c", "AMP"))
 
-    # Row 2 Knob: AMP (X = 15.24mm) (Center Y = 43.00mm, Baseline Y = 34.500, scale = 0.002400)
-    svg_parts.append(render_qs_text(qs_font, "AMP", 15.24, 34.500, 0.002400, "#1c1c1c", "AMP"))
+    # Attenuverters (D-DINCondensed, 8pt = 0.002822, preserving baseline Ys)
+    svg_parts.append(render_font_text(ddin_cond, "FREQ", 7.62, 64.500, trim_scale, "#2c2c2c", "FREQ"))
+    svg_parts.append(render_font_text(ddin_cond, "PHASE", 22.86, 64.500, trim_scale, "#2c2c2c", "PHASE"))
+    svg_parts.append(render_font_text(ddin_cond, "AMP", 15.24, 76.500, trim_scale, "#2c2c2c", "AMP"))
 
-    # Trimpot Row 1: FREQ (X = 7.62mm) & PHASE (X = 22.86mm) (Center Y = 69.00mm, Baseline Y = 64.500, scale = 0.002000)
-    svg_parts.append(render_qs_text(qs_font, "FREQ", 7.62, 64.500, 0.002000, "#2c2c2c", "FREQ TRIM"))
-    svg_parts.append(render_qs_text(qs_font, "PHASE", 22.86, 64.500, 0.002000, "#2c2c2c", "PHASE TRIM"))
+    # I/O Jacks (D-DINCondensed, 8pt = 0.002822, preserving baseline Ys)
+    svg_parts.append(render_font_text(ddin_cond, "FREQ", 7.62, 97.500, trim_scale, "#2c2c2c", "FREQ"))
+    svg_parts.append(render_font_text(ddin_cond, "PHASE", 22.86, 97.500, trim_scale, "#2c2c2c", "PHASE"))
+    svg_parts.append(render_font_text(ddin_cond, "AMP", 15.24, 107.000, trim_scale, "#2c2c2c", "AMP"))
+    svg_parts.append(render_font_text(ddin_cond, "IN", 7.62, 116.500, trim_scale, "#1c1c1c", "IN"))
+    svg_parts.append(render_font_text(ddin_cond, "OUT", 22.86, 116.500, trim_scale, "#1c1c1c", "OUT"))
 
-    # Trimpot Row 2: AMP (X = 15.24mm) (Center Y = 81.00mm, Baseline Y = 76.500, scale = 0.002000)
-    svg_parts.append(render_qs_text(qs_font, "AMP", 15.24, 76.500, 0.002000, "#2c2c2c", "AMP TRIM"))
+    svg_parts.append('</svg>\n')
 
-    # Jack Row 1 (CV Rate Inputs): FREQ (X = 7.62mm) & PHASE (X = 22.86mm) (Center Y = 99.00mm, Baseline Y = 97.500, scale = 0.002400)
-    svg_parts.append(render_qs_text(qs_font, "FREQ", 7.62, 97.500, 0.002400, "#2c2c2c", "FREQ CV"))
-    svg_parts.append(render_qs_text(qs_font, "PHASE", 22.86, 97.500, 0.002400, "#2c2c2c", "PHASE CV"))
-
-    # Jack Row 2 (CV Rate Input): AMP (X = 15.24mm) (Center Y = 108.50mm, Baseline Y = 107.000, scale = 0.002400)
-    svg_parts.append(render_qs_text(qs_font, "AMP", 15.24, 107.000, 0.002400, "#2c2c2c", "AMP CV"))
-
-    # Jack Row 3 (Signal I/O): IN (X = 7.62mm) & OUT (X = 22.86mm) (Center Y = 118.00mm, Baseline Y = 116.500, scale = 0.002400)
-    svg_parts.append(render_qs_text(qs_font, "IN", 7.62, 116.500, 0.002400, "#1c1c1c", "IN"))
-    svg_parts.append(render_qs_text(qs_font, "OUT", 22.86, 116.500, 0.002400, "#1c1c1c", "OUT"))
-
-    svg_parts.append('</svg>')
-
-    import sys
     sys.path.insert(0, 'scratch')
     from skin_generator_helper import write_triple_skins
     write_triple_skins('Instability', "\n".join(svg_parts) + "\n")
-    print("Generated res/Instability.svg successfully.")
+    print("Generated res/Instability.svg with D-DIN font hierarchy successfully.")
 
 if __name__ == '__main__':
     main()
