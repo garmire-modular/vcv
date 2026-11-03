@@ -10,6 +10,23 @@
 // ─────────────────────────────────────────────────────────────────────
 
 struct ChopXLModule : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
 	enum ParamId {
 		COUNT_PARAM,
 		LENGTH_PARAM,
@@ -206,9 +223,82 @@ struct ChopXLModule : Module {
 };
 
 struct ChopXLWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	ChopXLModule::SkinTheme currentTheme = ChopXLModule::THEME_MEDIUM;
+
+	void setTheme(ChopXLModule::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case ChopXLModule::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/ChopXL_Light.svg");
+					break;
+				case ChopXLModule::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/ChopXL_Dark.svg");
+					break;
+				case ChopXLModule::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/ChopXL.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<ChopXLModule*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		ChopXLModule* mod = dynamic_cast<ChopXLModule*>(this->module);
+		if (!mod) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			ChopXLModule::SkinTheme theme = (ChopXLModule::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return mod->skinTheme == theme; },
+				[=]() {
+					mod->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
+	}
+
 	ChopXLWidget(ChopXLModule* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/ChopXL.svg")));
+		panel = new SvgPanel();
+		ChopXLModule::SkinTheme initTheme = module ? module->skinTheme : ChopXLModule::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case ChopXLModule::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/ChopXL_Light.svg");
+				break;
+			case ChopXLModule::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/ChopXL_Dark.svg");
+				break;
+			case ChopXLModule::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/ChopXL.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// 4 Control Columns (x = 7.62, 22.86, 38.10, 53.34 mm)
 		const double ctrlX[4] = {7.62, 22.86, 38.10, 53.34};

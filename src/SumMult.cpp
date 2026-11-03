@@ -9,6 +9,23 @@
 // ─────────────────────────────────────────────────────────────────────
 
 struct SumMultModule : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
 	enum ParamId {
 		PARAMS_LEN
 	};
@@ -86,9 +103,82 @@ struct SumMultModule : Module {
 };
 
 struct SumMultWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	SumMultModule::SkinTheme currentTheme = SumMultModule::THEME_MEDIUM;
+
+	void setTheme(SumMultModule::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case SumMultModule::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/SumMult_Light.svg");
+					break;
+				case SumMultModule::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/SumMult_Dark.svg");
+					break;
+				case SumMultModule::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/SumMult.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<SumMultModule*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		SumMultModule* mod = dynamic_cast<SumMultModule*>(this->module);
+		if (!mod) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			SumMultModule::SkinTheme theme = (SumMultModule::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return mod->skinTheme == theme; },
+				[=]() {
+					mod->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
+	}
+
 	SumMultWidget(SumMultModule* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/SumMult.svg")));
+		panel = new SvgPanel();
+		SumMultModule::SkinTheme initTheme = module ? module->skinTheme : SumMultModule::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case SumMultModule::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/SumMult_Light.svg");
+				break;
+			case SumMultModule::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/SumMult_Dark.svg");
+				break;
+			case SumMultModule::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/SumMult.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Center column of jacks (x = 7.62 mm)
 		// Pair 1: Input 1 (X1, Y1)

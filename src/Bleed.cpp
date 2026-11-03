@@ -10,6 +10,12 @@
 // ─────────────────────────────────────────────────────────────────────
 
 struct Bleed : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
 	enum ParamId {
 		X_BLEED_PARAM,
 		Y_BLEED_PARAM,
@@ -133,11 +139,14 @@ struct Bleed : Module {
 
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		json_object_set_new(rootJ, "agcEnabled", json_boolean(agcEnabled));
 		return rootJ;
 	}
 
 	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 		json_t* agcJ = json_object_get(rootJ, "agcEnabled");
 		if (agcJ) {
 			agcEnabled = json_is_true(agcJ);
@@ -327,9 +336,57 @@ struct Bleed : Module {
 };
 
 struct BleedWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Bleed::SkinTheme currentTheme = Bleed::THEME_MEDIUM;
+
+	void setTheme(Bleed::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Bleed::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Bleed_Light.svg");
+					break;
+				case Bleed::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Bleed_Dark.svg");
+					break;
+				case Bleed::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Bleed.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Bleed*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	BleedWidget(Bleed* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Bleed.svg")));
+		panel = new SvgPanel();
+		Bleed::SkinTheme initTheme = module ? module->skinTheme : Bleed::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Bleed::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Bleed_Light.svg");
+				break;
+			case Bleed::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Bleed_Dark.svg");
+				break;
+			case Bleed::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Bleed.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Knob Columns: X = 10.82 mm, Y = 29.82 mm
 		// Row 1: Bleed Knobs (Center Y = 20.00 mm)
@@ -399,6 +456,25 @@ struct BleedWidget : ModuleWidget {
 		agcItem->module = module;
 		agcItem->rightText = module->agcEnabled ? "✔" : "";
 		menu->addChild(agcItem);
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Bleed::SkinTheme theme = (Bleed::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 

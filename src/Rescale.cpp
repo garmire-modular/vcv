@@ -11,6 +11,23 @@
 // ─────────────────────────────────────────────────────────────────────
 
 struct RescaleModule : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
 	enum ParamId {
 		PARAMS_LEN
 	};
@@ -145,9 +162,82 @@ struct RescaleModule : Module {
 };
 
 struct RescaleWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	RescaleModule::SkinTheme currentTheme = RescaleModule::THEME_MEDIUM;
+
+	void setTheme(RescaleModule::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case RescaleModule::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Rescale_Light.svg");
+					break;
+				case RescaleModule::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Rescale_Dark.svg");
+					break;
+				case RescaleModule::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Rescale.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<RescaleModule*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		RescaleModule* mod = dynamic_cast<RescaleModule*>(this->module);
+		if (!mod) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			RescaleModule::SkinTheme theme = (RescaleModule::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return mod->skinTheme == theme; },
+				[=]() {
+					mod->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
+	}
+
 	RescaleWidget(RescaleModule* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Rescale.svg")));
+		panel = new SvgPanel();
+		RescaleModule::SkinTheme initTheme = module ? module->skinTheme : RescaleModule::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case RescaleModule::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Rescale_Light.svg");
+				break;
+			case RescaleModule::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Rescale_Dark.svg");
+				break;
+			case RescaleModule::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Rescale.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Left Column: X = 7.62 mm | Right Column: X = 22.86 mm
 

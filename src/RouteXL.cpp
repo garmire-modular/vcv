@@ -12,6 +12,23 @@
 // ─────────────────────────────────────────────────────────────────────
 
 struct RouteXLModule : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
 	enum ParamId {
 		PARAMS_LEN
 	};
@@ -150,9 +167,82 @@ struct RouteXLModule : Module {
 };
 
 struct RouteXLWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	RouteXLModule::SkinTheme currentTheme = RouteXLModule::THEME_MEDIUM;
+
+	void setTheme(RouteXLModule::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case RouteXLModule::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/RouteXL_Light.svg");
+					break;
+				case RouteXLModule::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/RouteXL_Dark.svg");
+					break;
+				case RouteXLModule::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/RouteXL.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<RouteXLModule*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		RouteXLModule* mod = dynamic_cast<RouteXLModule*>(this->module);
+		if (!mod) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			RouteXLModule::SkinTheme theme = (RouteXLModule::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return mod->skinTheme == theme; },
+				[=]() {
+					mod->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
+	}
+
 	RouteXLWidget(RouteXLModule* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/RouteXL.svg")));
+		panel = new SvgPanel();
+		RouteXLModule::SkinTheme initTheme = module ? module->skinTheme : RouteXLModule::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case RouteXLModule::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/RouteXL_Light.svg");
+				break;
+			case RouteXLModule::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/RouteXL_Dark.svg");
+				break;
+			case RouteXLModule::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/RouteXL.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// 4 Columns: [6.07, 15.57, 25.07, 34.57] mm
 		// 6 Rows: [27.00, 45.00, 63.00, 81.00, 99.00, 117.00] mm

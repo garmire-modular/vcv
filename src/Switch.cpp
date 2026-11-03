@@ -8,6 +8,23 @@
 // ─────────────────────────────────────────────────────────────────────
 
 struct SwitchModule : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
 	enum ParamId {
 		PARAMS_LEN
 	};
@@ -109,9 +126,82 @@ struct SwitchModule : Module {
 };
 
 struct SwitchWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	SwitchModule::SkinTheme currentTheme = SwitchModule::THEME_MEDIUM;
+
+	void setTheme(SwitchModule::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case SwitchModule::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Switch_Light.svg");
+					break;
+				case SwitchModule::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Switch_Dark.svg");
+					break;
+				case SwitchModule::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Switch.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<SwitchModule*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		SwitchModule* mod = dynamic_cast<SwitchModule*>(this->module);
+		if (!mod) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			SwitchModule::SkinTheme theme = (SwitchModule::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return mod->skinTheme == theme; },
+				[=]() {
+					mod->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
+	}
+
 	SwitchWidget(SwitchModule* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Switch.svg")));
+		panel = new SvgPanel();
+		SwitchModule::SkinTheme initTheme = module ? module->skinTheme : SwitchModule::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case SwitchModule::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Switch_Light.svg");
+				break;
+			case SwitchModule::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Switch_Dark.svg");
+				break;
+			case SwitchModule::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Switch.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Center column of jacks (x = 7.62 mm)
 		// Group 1: Input 1 (Main)

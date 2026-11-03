@@ -8,6 +8,23 @@
 // ─────────────────────────────────────────────────────────────────────
 
 struct RouteModule : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
 	enum ParamId {
 		PARAMS_LEN
 	};
@@ -117,9 +134,82 @@ struct RouteModule : Module {
 };
 
 struct RouteWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	RouteModule::SkinTheme currentTheme = RouteModule::THEME_MEDIUM;
+
+	void setTheme(RouteModule::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case RouteModule::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Route_Light.svg");
+					break;
+				case RouteModule::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Route_Dark.svg");
+					break;
+				case RouteModule::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Route.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<RouteModule*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		RouteModule* mod = dynamic_cast<RouteModule*>(this->module);
+		if (!mod) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			RouteModule::SkinTheme theme = (RouteModule::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return mod->skinTheme == theme; },
+				[=]() {
+					mod->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
+	}
+
 	RouteWidget(RouteModule* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Route.svg")));
+		panel = new SvgPanel();
+		RouteModule::SkinTheme initTheme = module ? module->skinTheme : RouteModule::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case RouteModule::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Route_Light.svg");
+				break;
+			case RouteModule::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Route_Dark.svg");
+				break;
+			case RouteModule::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Route.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Center column of jacks (x = 7.62 mm)
 		// Group 1: Inputs (X, Y)
