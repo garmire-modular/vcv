@@ -67,6 +67,13 @@ struct Chromance : Module {
 
 	VoltageRange voltageRange = RANGE_UNI_5V;
 
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		FREQ_PARAM,
 		FINE_PARAM,
@@ -133,11 +140,11 @@ struct Chromance : Module {
 		configParam(FREQ_PARAM, -4.f, 4.f, 0.f, "Frequency", " Hz", 2.f, 1.f);
 		configParam<FineTuneParamQuantity>(FINE_PARAM, -1.f, 1.f, 0.f, "Fine Tune");
 		configParam<MultDivParamQuantity>(MULTDIV_PARAM, -5.f, 5.f, 0.f, "Mult/Div");
-		configParam(PHASE_PARAM, 0.f, 1.f, 0.f, "Phase Offset", "\xc2\xb0", 0.f, 360.f);
+		configParam(PHASE_PARAM, 0.f, 1.f, 0.f, "Phase offset", "\xc2\xb0", 0.f, 360.f);
 		configParam<WaveformParamQuantity>(WAVE_PARAM, 0.f, 1.f, 0.f, "Waveform Morph");
 		
 		// Oscillator level initialized to 100% (1.0) by default
-		configParam(AMP_PARAM, 0.f, 1.f, 1.f, "Oscillator Level", "%", 0.f, 100.f);
+		configParam(AMP_PARAM, 0.f, 1.f, 1.f, "Oscillator level", "%", 0.f, 100.f);
 
 		// CV Attenuverters default to 0% (0.0)
 		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV depth", "%", 0.f, 100.f);
@@ -149,30 +156,33 @@ struct Chromance : Module {
 
 		// S&H / T&H Switch: 0 = Off (Top, default), 1 = S&H (Middle), 2 = T&H (Bottom)
 		configSwitch(SH_MODE_PARAM, 0.f, 2.f, 0.f, "S&H / T&H Mode", {"Off (Top)", "Sample & Hold (Middle)", "Track & Hold (Bottom)"});
-		configParam(SH_RATE_PARAM, 0.f, 1.f, 0.5f, "S&H Rate");
+		configParam(SH_RATE_PARAM, 0.f, 1.f, 0.5f, "S&H rate");
 
 		// Inputs & Outputs
-		configInput(FREQ_CV_INPUT, "Frequency CV Input");
-		configInput(FINE_CV_INPUT, "Fine Tune CV Input");
-		configInput(MULTDIV_CV_INPUT, "Mult/Div CV Input");
-		configInput(PHASE_CV_INPUT, "Phase CV Input");
-		configInput(WAVE_CV_INPUT, "Waveform CV Input");
-		configInput(AMP_CV_INPUT, "Level CV Input");
-		configInput(SYNC_INPUT, "Sync In Input");
-		configInput(CLK_INPUT, "S/T&H In Input");
+		configInput(FREQ_CV_INPUT, "Frequency CV");
+		configInput(FINE_CV_INPUT, "Fine tune CV");
+		configInput(MULTDIV_CV_INPUT, "Mult/div CV");
+		configInput(PHASE_CV_INPUT, "Phase CV");
+		configInput(WAVE_CV_INPUT, "Waveform CV");
+		configInput(AMP_CV_INPUT, "Level CV");
+		configInput(SYNC_INPUT, "Sync");
+		configInput(CLK_INPUT, "Sample & hold clock");
 
-		configOutput(OUT_OUTPUT, "Oscillator Output");
+		configOutput(OUT_OUTPUT, "Oscillator");
 	}
 
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "voltageRange", json_integer((int)voltageRange));
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		return rootJ;
 	}
 
 	void dataFromJson(json_t* rootJ) override {
 		json_t* vRangeJ = json_object_get(rootJ, "voltageRange");
 		if (vRangeJ) voltageRange = (VoltageRange)json_integer_value(vRangeJ);
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 	}
 
 	float getModParam(int paramId, int attvId, int inputId, int channel) {
@@ -323,9 +333,57 @@ struct Chromance : Module {
 };
 
 struct ChromanceWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Chromance::SkinTheme currentTheme = Chromance::THEME_MEDIUM;
+
+	void setTheme(Chromance::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Chromance::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Chromance_Light.svg");
+					break;
+				case Chromance::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Chromance_Dark.svg");
+					break;
+				case Chromance::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Chromance.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Chromance*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	ChromanceWidget(Chromance* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Chromance.svg")));
+		panel = new SvgPanel();
+		Chromance::SkinTheme initTheme = module ? module->skinTheme : Chromance::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Chromance::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Chromance_Light.svg");
+				break;
+			case Chromance::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Chromance_Dark.svg");
+				break;
+			case Chromance::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Chromance.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// 3 Centered Main Knob Columns: X1 = 10.16mm, X2 = 25.40mm (Midline), X3 = 40.64mm
 		// Row 1 Main Knobs (Frequency Group): FREQ (10.16), FINE (25.40), MULT/DIV (40.64) at Center Y = 21.59mm
@@ -402,6 +460,26 @@ struct ChromanceWidget : ModuleWidget {
 			item->module = module;
 			item->range = ranges[i];
 			menu->addChild(item);
+		}
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Chromance::SkinTheme theme = (Chromance::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
 		}
 	}
 };

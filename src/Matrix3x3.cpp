@@ -26,6 +26,13 @@ struct MatrixPercentParamQuantity : ParamQuantity {
 // ─────────────────────────────────────────────────────────────────────
 
 struct Matrix3x3 : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		// Row 1: Scanning & Dispersion Controls
 		SCAN_X_PARAM,
@@ -96,9 +103,9 @@ struct Matrix3x3 : Module {
 		configParam(BLEED_PARAM, 0.f, 100.f, 0.f, "Bleed / crosstalk", "%");
 
 		// Row 3 CV Inputs
-		configInput(SCAN_X_CV_INPUT, "Scan X CV input");
-		configInput(SCAN_Y_CV_INPUT, "Scan Y CV input");
-		configInput(BLEED_CV_INPUT, "Bleed CV input");
+		configInput(SCAN_X_CV_INPUT, "Scan X CV depth");
+		configInput(SCAN_Y_CV_INPUT, "Scan Y CV depth");
+		configInput(BLEED_CV_INPUT, "Bleed CV depth");
 
 		// Lower 3x3 Attenuverters (Cells 1 to 9)
 		const char* const cellNames[9] = {
@@ -157,11 +164,14 @@ struct Matrix3x3 : Module {
 
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		json_object_set_new(rootJ, "voltageRange", json_integer((int)engine.voltageRange));
 		return rootJ;
 	}
 
 	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 		json_t* vrJ = json_object_get(rootJ, "voltageRange");
 		if (vrJ) {
 			int vr = json_integer_value(vrJ);
@@ -177,9 +187,57 @@ struct Matrix3x3 : Module {
 // ─────────────────────────────────────────────────────────────────────
 
 struct Matrix3x3Widget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Matrix3x3::SkinTheme currentTheme = Matrix3x3::THEME_MEDIUM;
+
+	void setTheme(Matrix3x3::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Matrix3x3::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Matrix3x3_Light.svg");
+					break;
+				case Matrix3x3::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Matrix3x3_Dark.svg");
+					break;
+				case Matrix3x3::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Matrix3x3.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Matrix3x3*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	Matrix3x3Widget(Matrix3x3* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Matrix3x3.svg")));
+				panel = new SvgPanel();
+		Matrix3x3::SkinTheme initTheme = module ? module->skinTheme : Matrix3x3::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Matrix3x3::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Matrix3x3_Light.svg");
+				break;
+			case Matrix3x3::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Matrix3x3_Dark.svg");
+				break;
+			case Matrix3x3::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Matrix3x3.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Upper Section Columns (col 1 = 12.00 mm, col 2 = 30.48 mm, col 3 = 48.96 mm)
 		float colX[3] = {12.00f, 30.48f, 48.96f};
@@ -240,6 +298,26 @@ struct Matrix3x3Widget : ModuleWidget {
 			menu->addChild(createCheckMenuItem(rangeLabels[i], "",
 				[=]() { return module->engine.voltageRange == vr; },
 				[=]() { module->engine.voltageRange = vr; }
+			));
+		}
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Matrix3x3::SkinTheme theme = (Matrix3x3::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
 			));
 		}
 	}

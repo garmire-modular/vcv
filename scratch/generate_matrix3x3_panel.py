@@ -173,6 +173,10 @@ def main():
     out_file = 'res/Matrix3x3.svg'
     with open(out_file, 'w', encoding='utf-8') as f:
         f.write(svg_content)
+    import sys
+    sys.path.insert(0, 'scratch')
+    from skin_generator_helper import write_triple_skins
+    write_triple_skins('Matrix3x3', svg_content)
     print(f"Generated {out_file} successfully.")
 
     # Render MetaModule PNG (12 HP = 114 x 240 px)

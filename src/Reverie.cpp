@@ -1199,11 +1199,49 @@ struct PresetGridWidget : OpaqueWidget {
 
 
 struct ReverieWidget : ModuleWidget {
-    Reverie::SkinTheme lastTheme = Reverie::THEME_MEDIUM;
+    SvgPanel* panel = nullptr;
+    Reverie::SkinTheme currentTheme = Reverie::THEME_MEDIUM;
+
+    void setTheme(Reverie::SkinTheme theme) {
+        currentTheme = theme;
+        if (panel) {
+            std::string path;
+            switch (theme) {
+                case Reverie::THEME_LIGHT:
+                    path = asset::plugin(pluginInstance, "res/Reverie_Light.svg");
+                    break;
+                case Reverie::THEME_DARK:
+                    path = asset::plugin(pluginInstance, "res/Reverie_Dark.svg");
+                    break;
+                case Reverie::THEME_MEDIUM:
+                default:
+                    path = asset::plugin(pluginInstance, "res/Reverie.svg");
+                    break;
+            }
+            panel->setBackground(Svg::load(path));
+        }
+    }
 
     ReverieWidget(Reverie* module) {
         setModule(module);
-        setPanel(createPanel(asset::plugin(pluginInstance, "res/Reverie.svg")));
+        panel = new SvgPanel();
+        Reverie::SkinTheme initTheme = module ? module->skinTheme : Reverie::THEME_MEDIUM;
+        currentTheme = initTheme;
+        std::string initPath;
+        switch (initTheme) {
+            case Reverie::THEME_LIGHT:
+                initPath = asset::plugin(pluginInstance, "res/Reverie_Light.svg");
+                break;
+            case Reverie::THEME_DARK:
+                initPath = asset::plugin(pluginInstance, "res/Reverie_Dark.svg");
+                break;
+            case Reverie::THEME_MEDIUM:
+            default:
+                initPath = asset::plugin(pluginInstance, "res/Reverie.svg");
+                break;
+        }
+        panel->setBackground(Svg::load(initPath));
+        setPanel(panel);
 
         // =====================================================================
         // LEFT CONTROLS (Columns: 7.00, 22.65, 38.30 mm)
@@ -1288,20 +1326,12 @@ struct ReverieWidget : ModuleWidget {
         }
     }
 
-    void updatePanelTheme(Reverie::SkinTheme theme) {
-        lastTheme = theme;
-        std::string svgFile = "res/Reverie.svg";
-        if (theme == Reverie::THEME_LIGHT) svgFile = "res/Reverie_Light.svg";
-        else if (theme == Reverie::THEME_DARK) svgFile = "res/Reverie_Dark.svg";
-        setPanel(createPanel(asset::plugin(pluginInstance, svgFile)));
-    }
-
     void step() override {
-        Reverie* mod = dynamic_cast<Reverie*>(module);
-        if (mod && mod->skinTheme != lastTheme) {
-            updatePanelTheme(mod->skinTheme);
-        }
         ModuleWidget::step();
+        Reverie* mod = dynamic_cast<Reverie*>(module);
+        if (mod && mod->skinTheme != currentTheme) {
+            setTheme(mod->skinTheme);
+        }
     }
 
     void appendContextMenu(Menu* menu) override {
@@ -1309,19 +1339,18 @@ struct ReverieWidget : ModuleWidget {
         if (!mod) return;
 
         menu->addChild(new MenuSeparator());
-        menu->addChild(createMenuLabel("Panel Theme"));
-        menu->addChild(createCheckMenuItem("Medium (Default)", "",
-            [=]() { return mod->skinTheme == Reverie::THEME_MEDIUM; },
-            [=]() { mod->skinTheme = Reverie::THEME_MEDIUM; }
-        ));
-        menu->addChild(createCheckMenuItem("Light", "",
-            [=]() { return mod->skinTheme == Reverie::THEME_LIGHT; },
-            [=]() { mod->skinTheme = Reverie::THEME_LIGHT; }
-        ));
-        menu->addChild(createCheckMenuItem("Dark", "",
-            [=]() { return mod->skinTheme == Reverie::THEME_DARK; },
-            [=]() { mod->skinTheme = Reverie::THEME_DARK; }
-        ));
+        menu->addChild(createMenuLabel("Skin"));
+        const char* skinLabels[] = {"Medium (Default)", "Light", "Dark"};
+        for (int i = 0; i < 3; i++) {
+            Reverie::SkinTheme theme = (Reverie::SkinTheme)i;
+            menu->addChild(createCheckMenuItem(skinLabels[i], "",
+                [=]() { return mod->skinTheme == theme; },
+                [=]() {
+                    mod->skinTheme = theme;
+                    setTheme(theme);
+                }
+            ));
+        }
 
         menu->addChild(new MenuSeparator());
         menu->addChild(createMenuItem("Clear all 16 preset slots", "", [=]() {

@@ -23,6 +23,13 @@ inline float clampf(float v, float lo, float hi) {
 } // namespace
 
 struct Georgia : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	using RangeMode = garmire::georgia::RangeMode;
 	using ScopeMode = garmire::georgia::ScopeMode;
 
@@ -583,12 +590,15 @@ struct Georgia : Module {
 
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		json_object_set_new(rootJ, "rangeMode", json_integer((int)rangeMode));
 		json_object_set_new(rootJ, "scopeMode", json_integer((int)scopeMode));
 		return rootJ;
 	}
 
 	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 		json_t* rmJ = json_object_get(rootJ, "rangeMode");
 		if (rmJ) {
 			rangeMode = (RangeMode)json_integer_value(rmJ);
@@ -666,9 +676,57 @@ struct GeorgiaRangeLightRing : ModuleLightWidget {
 };
 
 struct GeorgiaWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Georgia::SkinTheme currentTheme = Georgia::THEME_MEDIUM;
+
+	void setTheme(Georgia::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Georgia::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Georgia_Light.svg");
+					break;
+				case Georgia::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Georgia_Dark.svg");
+					break;
+				case Georgia::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Georgia.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Georgia*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	GeorgiaWidget(Georgia* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Georgia.svg")));
+				panel = new SvgPanel();
+		Georgia::SkinTheme initTheme = module ? module->skinTheme : Georgia::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Georgia::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Georgia_Light.svg");
+				break;
+			case Georgia::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Georgia_Dark.svg");
+				break;
+			case Georgia::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Georgia.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// 5 Columns across 91.44 mm: cols = [13.52, 29.62, 45.72, 61.82, 77.92] mm
 		const float cols[5] = {13.52f, 29.62f, 45.72f, 61.82f, 77.92f};
@@ -773,6 +831,26 @@ struct GeorgiaWidget : ModuleWidget {
 			menu->addChild(createCheckMenuItem(rangeLabels[i], "",
 				[=]() { return georgia->rangeMode == mode; },
 				[=]() { georgia->rangeMode = mode; }
+			));
+		}
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Georgia::SkinTheme theme = (Georgia::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return georgia->skinTheme == theme; },
+				[=]() {
+					georgia->skinTheme = theme;
+					setTheme(theme);
+				}
 			));
 		}
 	}

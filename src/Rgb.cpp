@@ -5,6 +5,13 @@
 // ─────────────────────────────────────────────────────────────────────
 
 struct Rgb : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		RED_PARAM,
 		GREEN_PARAM,
@@ -65,6 +72,19 @@ struct Rgb : Module {
 		return val;
 	}
 
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
+
+
+
 	void process(const ProcessArgs& args) override {
 		int rCh = inputs[RED_INPUT].getChannels();
 		int gCh = inputs[GREEN_INPUT].getChannels();
@@ -113,9 +133,57 @@ struct RgbColorPreviewWidget : Widget {
 };
 
 struct RgbWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Rgb::SkinTheme currentTheme = Rgb::THEME_MEDIUM;
+
+	void setTheme(Rgb::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Rgb::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Rgb_Light.svg");
+					break;
+				case Rgb::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Rgb_Dark.svg");
+					break;
+				case Rgb::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Rgb.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Rgb*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	RgbWidget(Rgb* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Rgb.svg")));
+				panel = new SvgPanel();
+		Rgb::SkinTheme initTheme = module ? module->skinTheme : Rgb::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Rgb::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Rgb_Light.svg");
+				break;
+			case Rgb::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Rgb_Dark.svg");
+				break;
+			case Rgb::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Rgb.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Main Knobs (Center X = 15.24mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.24, 21.59)), module, Rgb::RED_PARAM));
@@ -142,6 +210,31 @@ struct RgbWidget : ModuleWidget {
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(6.00, 116.84)), module, Rgb::R_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.24, 116.84)), module, Rgb::G_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(24.48, 116.84)), module, Rgb::B_OUTPUT));
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		Rgb* module = dynamic_cast<Rgb*>(this->module);
+		if (!module) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Rgb::SkinTheme theme = (Rgb::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 

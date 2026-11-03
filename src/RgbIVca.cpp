@@ -8,6 +8,13 @@
 // ─────────────────────────────────────────────────────────────────────
 
 struct RgbIVca : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		I_ATTV_PARAM,
 		PARAMS_LEN
@@ -55,11 +62,14 @@ struct RgbIVca : Module {
 
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		json_object_set_new(rootJ, "scaleMode", json_integer((int)engine.scaleMode));
 		return rootJ;
 	}
 
 	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 		json_t* modeJ = json_object_get(rootJ, "scaleMode");
 		if (modeJ) {
 			int m = json_integer_value(modeJ);
@@ -100,9 +110,57 @@ struct RgbIVca : Module {
 };
 
 struct RgbIVcaWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	RgbIVca::SkinTheme currentTheme = RgbIVca::THEME_MEDIUM;
+
+	void setTheme(RgbIVca::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case RgbIVca::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/RgbIVca_Light.svg");
+					break;
+				case RgbIVca::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/RgbIVca_Dark.svg");
+					break;
+				case RgbIVca::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/RgbIVca.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<RgbIVca*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	RgbIVcaWidget(RgbIVca* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/RgbIVca.svg")));
+				panel = new SvgPanel();
+		RgbIVca::SkinTheme initTheme = module ? module->skinTheme : RgbIVca::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case RgbIVca::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/RgbIVca_Light.svg");
+				break;
+			case RgbIVca::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/RgbIVca_Dark.svg");
+				break;
+			case RgbIVca::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/RgbIVca.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Section 1: Intensity / I Modulation
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(7.62, 21.59)), module, RgbIVca::I_ATTV_PARAM));
@@ -138,6 +196,26 @@ struct RgbIVcaWidget : ModuleWidget {
 			menu->addChild(createCheckMenuItem(scaleLabels[i], "",
 				[=]() { return module->engine.scaleMode == mode; },
 				[=]() { module->engine.scaleMode = mode; }
+			));
+		}
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			RgbIVca::SkinTheme theme = (RgbIVca::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
 			));
 		}
 	}

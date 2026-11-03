@@ -86,12 +86,19 @@ def audit():
 
         # 4. C++ Theme check
         cpp_path = f"src/{slug}.cpp"
+        if not os.path.exists(cpp_path) and slug.startswith("Bit"):
+            cpp_path = "src/BitModules.cpp"
         has_cpp_theme = False
         if os.path.exists(cpp_path):
             try:
                 with open(cpp_path, "r", encoding="utf-8", errors="ignore") as cf:
                     content = cf.read()
-                    if "SkinTheme" in content and "setTheme" in content:
+                    if slug.startswith("Bit") and cpp_path == "src/BitModules.cpp":
+                        # Check specific widget in BitModules.cpp
+                        widget_name = f"{slug}Widget"
+                        if "SkinTheme" in content and widget_name in content and f"{slug}::SkinTheme" in content or (widget_name in content and "setTheme" in content):
+                            has_cpp_theme = True
+                    elif "SkinTheme" in content and "setTheme" in content:
                         has_cpp_theme = True
             except Exception:
                 pass

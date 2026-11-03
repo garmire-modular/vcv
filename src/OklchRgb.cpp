@@ -6,6 +6,13 @@
 // ─────────────────────────────────────────────────────────────────────
 
 struct OklchRgb : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		LIGHT_PARAM,
 		CHROMA_PARAM,
@@ -66,6 +73,19 @@ struct OklchRgb : Module {
 		return val;
 	}
 
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
+
+
+
 	void process(const ProcessArgs& args) override {
 		int lightCh  = inputs[LIGHT_INPUT].getChannels();
 		int chromaCh = inputs[CHROMA_INPUT].getChannels();
@@ -119,9 +139,57 @@ struct OklchColorPreviewWidget : Widget {
 };
 
 struct OklchRgbWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	OklchRgb::SkinTheme currentTheme = OklchRgb::THEME_MEDIUM;
+
+	void setTheme(OklchRgb::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case OklchRgb::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/OklchRgb_Light.svg");
+					break;
+				case OklchRgb::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/OklchRgb_Dark.svg");
+					break;
+				case OklchRgb::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/OklchRgb.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<OklchRgb*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	OklchRgbWidget(OklchRgb* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/OklchRgb.svg")));
+				panel = new SvgPanel();
+		OklchRgb::SkinTheme initTheme = module ? module->skinTheme : OklchRgb::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case OklchRgb::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/OklchRgb_Light.svg");
+				break;
+			case OklchRgb::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/OklchRgb_Dark.svg");
+				break;
+			case OklchRgb::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/OklchRgb.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Knobs (X = 15.24mm)
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(15.24, 21.59)), module, OklchRgb::LIGHT_PARAM));
@@ -148,6 +216,31 @@ struct OklchRgbWidget : ModuleWidget {
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(6.00, 116.84)), module, OklchRgb::R_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.24, 116.84)), module, OklchRgb::G_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(24.48, 116.84)), module, OklchRgb::B_OUTPUT));
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		OklchRgb* module = dynamic_cast<OklchRgb*>(this->module);
+		if (!module) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			OklchRgb::SkinTheme theme = (OklchRgb::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 
