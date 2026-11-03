@@ -1,21 +1,11 @@
 import os
 import re
 import sys
-
-# Ensure MSYS2 DLLs are found for cairosvg / libcairo
-msys_bin = r'C:\msys64\mingw64\bin'
-if os.path.exists(msys_bin):
-    os.environ['PATH'] = msys_bin + os.path.pathsep + os.environ.get('PATH', '')
-    if hasattr(os, 'add_dll_directory'):
-        try:
-            os.add_dll_directory(msys_bin)
-        except Exception:
-            pass
-
 from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
 import pathops
 import resvg_py
+from skin_generator_helper import write_triple_skins
 
 def get_simplified_glyph_path(font, char):
     cmap = font.getBestCmap()
@@ -36,10 +26,10 @@ def get_simplified_glyph_path(font, char):
     path_d = re.sub(r'\s+', ' ', path_d).strip()
     return path_d
 
-def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
+def render_font_text(font, text, center_x, baseline_y, scale, fill, comment=""):
     cmap = font.getBestCmap()
     hmtx = font['hmtx']
-    widths = [hmtx[cmap[ord(c)]][0] * scale for c in text]
+    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else 500 * scale for c in text]
     total_w = sum(widths)
     start_x = center_x - total_w / 2.0
     res = []
@@ -56,93 +46,84 @@ def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
 MODULES = [
     {
         "slug": "BitMorton",
-        "title": "bit morton",
+        "title": "BIT MORTON",
         "p1": "SHIFT", "p2": "STRIDE",
         "p3": "MORPH", "p4": "MIX"
     },
     {
         "slug": "BitReverse",
-        "title": "bit reverse",
-        "p1": "WIDTH", "p2": "OFFSET",
-        "p3": "SKEW", "p4": "MIX"
+        "title": "BIT REVERSE",
+        "p1": "SPAN", "p2": "STEP",
+        "p3": "BITS", "p4": "MIX"
     },
     {
         "slug": "BitTranspose",
-        "title": "bit transpose",
-        "p1": "PLANE A", "p2": "PLANE B",
-        "p3": "CYCLE", "p4": "MIX"
+        "title": "BIT TRANSPOSE",
+        "p1": "GRID", "p2": "PERM",
+        "p3": "DEPTH", "p4": "MIX"
     },
     {
         "slug": "BitValanche",
-        "title": "bit valanche",
-        "p1": "MASK", "p2": "SHIFT",
-        "p3": "BORROW", "p4": "MIX"
+        "title": "BIT VALANCHE",
+        "p1": "DIFF", "p2": "ROUNDS",
+        "p3": "CHAOS", "p4": "MIX"
     },
     {
         "slug": "BitPermute",
-        "title": "bit permute",
-        "p1": "MODE", "p2": "ROTATE",
-        "p3": "STRIDE", "p4": "MIX"
+        "title": "BIT PERMUTE",
+        "p1": "ORDER", "p2": "ROT",
+        "p3": "MASK", "p4": "MIX"
     },
     {
         "slug": "BitGrayBin",
-        "title": "bit graybin",
-        "p1": "DEPTH", "p2": "MODE",
-        "p3": "TAP", "p4": "MIX"
+        "title": "BIT GRAY/BIN",
+        "p1": "MODE", "p2": "INV",
+        "p3": "FLIP", "p4": "MIX"
     },
     {
         "slug": "BitGalois",
-        "title": "bit galois",
-        "p1": "POLY", "p2": "ALPHA",
-        "p3": "MODE", "p4": "MIX"
+        "title": "BIT GALOIS",
+        "p1": "POLY", "p2": "TAPS",
+        "p3": "CYCLE", "p4": "MIX"
     },
     {
         "slug": "Bitomata",
-        "title": "bitomata",
-        "p1": "RULE", "p2": "STEPS",
-        "p3": "INJECT", "p4": "MIX"
+        "title": "BITOMATA",
+        "p1": "RULE", "p2": "GEN",
+        "p3": "SEEDS", "p4": "MIX"
     },
     {
         "slug": "BitHamming",
-        "title": "bit hamming",
-        "p1": "GAIN", "p2": "MODE",
-        "p3": "MUTUAL", "p4": "MIX"
+        "title": "BIT HAMMING",
+        "p1": "WEIGHT", "p2": "DIST",
+        "p3": "PARITY", "p4": "MIX"
     }
 ]
 
-def generate_panel_svg(m, node_font, qs_font, qs_reg_font):
+def generate_panel_svg(m, ddin_bold, ddin_cond_bold, ddin_cond, qs_reg_font):
     panel_w = 30.48
     panel_h = 128.50
     center_x = panel_w / 2.0  # 15.24 mm
 
-    # Title in Node.otf (scale 0.0044, baseline 7.620)
-    hmtx = node_font['hmtx']
-    cmap_node = node_font.getBestCmap()
-    scale_title = 0.0040 if len(m['title']) > 11 else 0.0044
+    # Title: D-DIN-Bold, 16pt (0.005644), fitted to panel if wider than 26.5mm
+    base_title_scale = 16.0 * 25.4 / (72.0 * ddin_bold['head'].unitsPerEm)  # 0.005644
     text = m['title']
-    
-    widths = []
-    for c in text:
-        if c == ' ':
-            widths.append(500 * scale_title)
-        else:
-            gname = cmap_node[ord(c)] if cmap_node and ord(c) in cmap_node else c
-            widths.append(hmtx[gname][0] * scale_title)
-    total_w = sum(widths)
-    start_x = (panel_w - total_w) / 2.0
+    cmap = ddin_bold.getBestCmap()
+    hmtx = ddin_bold['hmtx']
+    raw_w = sum(hmtx[cmap[ord(c)]][0] * base_title_scale if ord(c) in cmap else 500 * base_title_scale for c in text)
+    title_scale = base_title_scale
+    if raw_w > 26.5:
+        title_scale = base_title_scale * (26.5 / raw_w)
 
-    title_block = [f'  <!-- Label: "{m["title"]}" -->']
-    curr_x = start_x
-    for c, w in zip(text, widths):
-        if c != ' ':
-            path_d = get_simplified_glyph_path(node_font, c)
-            title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale_title:.6f}, {-scale_title:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
-        curr_x += w
+    title_block = [
+        f'  <!-- Label: "{m["title"]}" (D-DIN-Bold) -->',
+        render_font_text(ddin_bold, text, center_x, 7.620, title_scale, "#ffffff", m["title"])
+    ]
 
-    # Version tag "v2.0.0"
+    # Version tag "v2.0.0" (keep existing baseline Y = 10.414)
     version_block = [
         '  <!-- Label: "v2.0.0" -->',
-        render_qs_text(qs_reg_font, "v2.0.0", center_x, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
+        render_font_text(qs_reg_font, "v2.0.0", center_x, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
     ]
 
     svg_parts = [
@@ -169,55 +150,44 @@ def generate_panel_svg(m, node_font, qs_font, qs_reg_font):
     x1 = 7.62
     x2 = 22.86
 
-    # Top Knobs Row 1 Labels (Y = 13.070)
-    svg_parts.append(render_qs_text(qs_font, m['p1'], x1, 13.070, 0.002200, "#1c1c1c", m['p1']))
-    svg_parts.append(render_qs_text(qs_font, m['p2'], x2, 13.070, 0.002200, "#1c1c1c", m['p2']))
+    # Main Knobs (D-DINCondensed-Bold, 10pt = 0.003528, keep existing baseline Ys)
+    knob_scale = 10.0 * 25.4 / (72.0 * ddin_cond_bold['head'].unitsPerEm)  # 0.003528
+    svg_parts.append(render_font_text(ddin_cond_bold, m['p1'], x1, 13.070, knob_scale, "#1c1c1c", m['p1']))
+    svg_parts.append(render_font_text(ddin_cond_bold, m['p2'], x2, 13.070, knob_scale, "#1c1c1c", m['p2']))
+    svg_parts.append(render_font_text(ddin_cond_bold, m['p3'], x1, 34.500, knob_scale, "#1c1c1c", m['p3']))
+    svg_parts.append(render_font_text(ddin_cond_bold, m['p4'], x2, 34.500, knob_scale, "#1c1c1c", m['p4']))
 
-    # Knob Row 2 Labels (Y = 34.500)
-    svg_parts.append(render_qs_text(qs_font, m['p3'], x1, 34.500, 0.002200, "#1c1c1c", m['p3']))
-    svg_parts.append(render_qs_text(qs_font, m['p4'], x2, 34.500, 0.002200, "#1c1c1c", m['p4']))
+    # Trimpots (D-DINCondensed, 8pt = 0.002822, keep existing baseline Ys)
+    trim_scale = 8.0 * 25.4 / (72.0 * ddin_cond['head'].unitsPerEm)  # 0.002822
+    svg_parts.append(render_font_text(ddin_cond, m['p1'], x1, 56.500, trim_scale, "#2c2c2c", f"{m['p1']} TRIM"))
+    svg_parts.append(render_font_text(ddin_cond, m['p2'], x2, 56.500, trim_scale, "#2c2c2c", f"{m['p2']} TRIM"))
+    svg_parts.append(render_font_text(ddin_cond, m['p3'], x1, 68.500, trim_scale, "#2c2c2c", f"{m['p3']} TRIM"))
+    svg_parts.append(render_font_text(ddin_cond, m['p4'], x2, 68.500, trim_scale, "#2c2c2c", f"{m['p4']} TRIM"))
 
-    # Trimpot Row 1 Labels (Y = 56.500, scale = 0.001800)
-    svg_parts.append(render_qs_text(qs_font, m['p1'], x1, 56.500, 0.001800, "#2c2c2c", f"{m['p1']} TRIM"))
-    svg_parts.append(render_qs_text(qs_font, m['p2'], x2, 56.500, 0.001800, "#2c2c2c", f"{m['p2']} TRIM"))
-
-    # Trimpot Row 2 Labels (Y = 68.500, scale = 0.001800)
-    svg_parts.append(render_qs_text(qs_font, m['p3'], x1, 68.500, 0.001800, "#2c2c2c", f"{m['p3']} TRIM"))
-    svg_parts.append(render_qs_text(qs_font, m['p4'], x2, 68.500, 0.001800, "#2c2c2c", f"{m['p4']} TRIM"))
-
-    # Jack Row 1: X IN, Y IN (Y = 84.000 for X/Y, Y = 88.000 for centered IN)
-    svg_parts.append(render_qs_text(qs_font, "X", x1, 84.000, 0.003000, "#1c1c1c", "X"))
-    svg_parts.append(render_qs_text(qs_font, "Y", x2, 84.000, 0.003000, "#1c1c1c", "Y"))
-    svg_parts.append(render_qs_text(qs_font, "IN", center_x, 88.000, 0.002400, "#2c2c2c", "IN"))
-
-    # Jack Row 2: Centered CV text between CV Row 1 jacks (Y = 97.500)
-    svg_parts.append(render_qs_text(qs_font, "CV", center_x, 97.500, 0.002400, "#2c2c2c", "CV"))
-
-    # Jack Row 3: Centered CV text between CV Row 2 jacks (Y = 107.000)
-    svg_parts.append(render_qs_text(qs_font, "CV", center_x, 107.000, 0.002400, "#2c2c2c", "CV"))
-
-    # Jack Row 4: Centered OUT text (Y = 116.500)
-    svg_parts.append(render_qs_text(qs_font, "OUT", center_x, 116.500, 0.002400, "#2c2c2c", "OUT"))
+    # I/O Jacks (D-DINCondensed, 8pt = 0.002822, keep existing baseline Ys)
+    svg_parts.append(render_font_text(ddin_cond, "X", x1, 84.000, trim_scale, "#1c1c1c", "X"))
+    svg_parts.append(render_font_text(ddin_cond, "Y", x2, 84.000, trim_scale, "#1c1c1c", "Y"))
+    svg_parts.append(render_font_text(ddin_cond, "IN", center_x, 88.000, trim_scale, "#2c2c2c", "IN"))
+    svg_parts.append(render_font_text(ddin_cond, "CV", center_x, 97.500, trim_scale, "#2c2c2c", "CV"))
+    svg_parts.append(render_font_text(ddin_cond, "CV", center_x, 107.000, trim_scale, "#2c2c2c", "CV"))
+    svg_parts.append(render_font_text(ddin_cond, "OUT", center_x, 116.500, trim_scale, "#2c2c2c", "OUT"))
 
     svg_parts.append('</svg>\n')
     return "\n".join(svg_parts)
 
 def main():
-    node_font = TTFont('res/Node.otf')
-    qs_font = TTFont('res/Quicksand-Medium.ttf')
+    ddin_bold = TTFont('res/D-DIN-Bold.otf')
+    ddin_cond_bold = TTFont('res/D-DINCondensed-Bold.otf')
+    ddin_cond = TTFont('res/D-DINCondensed.otf')
     qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
 
     for m in MODULES:
         slug = m['slug']
-        svg_content = generate_panel_svg(m, node_font, qs_font, qs_reg_font)
-        import sys
-        sys.path.insert(0, 'scratch')
-        from skin_generator_helper import write_triple_skins
+        svg_content = generate_panel_svg(m, ddin_bold, ddin_cond_bold, ddin_cond, qs_reg_font)
         write_triple_skins(slug, svg_content)
 
         # Write bespoke generator script in scratch/
         gen_script_path = f'scratch/generate_{slug.lower()}_panel.py'
-        # Self-contained individual generator script
         script_body = f"""import os
 import re
 import sys
@@ -230,11 +200,12 @@ import resvg_py
 from generate_bitmodules_panels import MODULES, generate_panel_svg
 
 def main():
-    node_font = TTFont('res/Node.otf')
-    qs_font = TTFont('res/Quicksand-Medium.ttf')
+    ddin_bold = TTFont('res/D-DIN-Bold.otf')
+    ddin_cond_bold = TTFont('res/D-DINCondensed-Bold.otf')
+    ddin_cond = TTFont('res/D-DINCondensed.otf')
     qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
     m = next(item for item in MODULES if item["slug"] == "{slug}")
-    svg_content = generate_panel_svg(m, node_font, qs_font, qs_reg_font)
+    svg_content = generate_panel_svg(m, ddin_bold, ddin_cond_bold, ddin_cond, qs_reg_font)
     import sys
     sys.path.insert(0, 'scratch')
     from skin_generator_helper import write_triple_skins

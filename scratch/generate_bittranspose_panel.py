@@ -10,11 +10,12 @@ import resvg_py
 from generate_bitmodules_panels import MODULES, generate_panel_svg
 
 def main():
-    node_font = TTFont('res/Node.otf')
-    qs_font = TTFont('res/Quicksand-Medium.ttf')
+    ddin_bold = TTFont('res/D-DIN-Bold.otf')
+    ddin_cond_bold = TTFont('res/D-DINCondensed-Bold.otf')
+    ddin_cond = TTFont('res/D-DINCondensed.otf')
     qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
     m = next(item for item in MODULES if item["slug"] == "BitTranspose")
-    svg_content = generate_panel_svg(m, node_font, qs_font, qs_reg_font)
+    svg_content = generate_panel_svg(m, ddin_bold, ddin_cond_bold, ddin_cond, qs_reg_font)
     import sys
     sys.path.insert(0, 'scratch')
     from skin_generator_helper import write_triple_skins
