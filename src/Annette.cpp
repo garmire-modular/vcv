@@ -27,6 +27,12 @@ inline float clampf(float v, float lo, float hi) {
 } // namespace
 
 struct Annette : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
 	enum RangeMode {
 		RANGE_VERY_SLOW = 0, // 600s down to 0.1s
 		RANGE_LFO,            // 0.01 - 200 Hz
@@ -426,6 +432,7 @@ struct Annette : Module {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "rangeMode", json_integer((int)rangeMode));
 		json_object_set_new(rootJ, "combineeVariant", json_integer((int)figuresEngine.combineeVariant));
+			json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		return rootJ;
 	}
 
@@ -437,7 +444,8 @@ struct Annette : Module {
 		json_t* cvJ = json_object_get(rootJ, "combineeVariant");
 		if (cvJ) {
 			figuresEngine.combineeVariant = (figures::CombineeVariant)json_integer_value(cvJ);
-		}
+		}		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 	}
 };
 
@@ -502,9 +510,56 @@ struct AnnetteRangeLightRing : ModuleLightWidget {
 };
 
 struct AnnetteWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Annette::SkinTheme currentTheme = Annette::THEME_MEDIUM;
+
+	void setTheme(Annette::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Annette::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Annette_Light.svg");
+					break;
+				case Annette::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Annette_Dark.svg");
+					break;
+				case Annette::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Annette.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Annette*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
 	AnnetteWidget(Annette* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Annette.svg")));
+		panel = new SvgPanel();
+		Annette::SkinTheme initTheme = module ? module->skinTheme : Annette::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Annette::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Annette_Light.svg");
+				break;
+			case Annette::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Annette_Dark.svg");
+				break;
+			case Annette::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Annette.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Columns across 12 HP: [12.00, 30.48, 48.96] mm
 		const float col_x[3] = { 12.00f, 30.48f, 48.96f };
@@ -590,6 +645,25 @@ struct AnnetteWidget : ModuleWidget {
 			[module]() { return module->figuresEngine.combineeVariant == figures::COMBINEE_PHASE_SHEAR; },
 			[module]() { module->figuresEngine.combineeVariant = figures::COMBINEE_PHASE_SHEAR; }
 		));
+		menu->addChild(new MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Annette::SkinTheme theme = (Annette::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 

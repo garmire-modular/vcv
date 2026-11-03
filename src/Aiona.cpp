@@ -29,6 +29,12 @@ inline float clampf(float v, float lo, float hi) {
 } // namespace
 
 struct Aiona : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
 	enum VoltageRange {
 		RANGE_BIPOLAR_1V = 0,
 		RANGE_UNIPOLAR_1V,
@@ -302,6 +308,7 @@ struct Aiona : Module {
 		json_object_set_new(rootJ, "hours", json_integer(hours));
 		json_object_set_new(rootJ, "minutes", json_integer(minutes));
 		json_object_set_new(rootJ, "voltageRange", json_integer((int)voltageRange));
+			json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		return rootJ;
 	}
 
@@ -317,7 +324,8 @@ struct Aiona : Module {
 		json_t* vrJ = json_object_get(rootJ, "voltageRange");
 		if (vrJ) {
 			voltageRange = (VoltageRange)json_integer_value(vrJ);
-		}
+		}		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 	}
 };
 
@@ -695,9 +703,56 @@ struct AionaCountdownWidget : OpaqueWidget {
 
 // ── Module Widget ──
 struct AionaWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Aiona::SkinTheme currentTheme = Aiona::THEME_MEDIUM;
+
+	void setTheme(Aiona::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Aiona::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Aiona_Light.svg");
+					break;
+				case Aiona::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Aiona_Dark.svg");
+					break;
+				case Aiona::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Aiona.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Aiona*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
 	AionaWidget(Aiona* module) {
 		setModule(module);
-		setPanel(Svg::load(asset::plugin(pluginInstance, "res/Aiona.svg")));
+		panel = new SvgPanel();
+		Aiona::SkinTheme initTheme = module ? module->skinTheme : Aiona::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Aiona::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Aiona_Light.svg");
+				break;
+			case Aiona::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Aiona_Dark.svg");
+				break;
+			case Aiona::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Aiona.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		float col0 = 7.000f;
 		float col1 = 20.320f;
@@ -756,6 +811,25 @@ struct AionaWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator());
 		appendAionaMenuItems(menu, module);
+		menu->addChild(new MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Aiona::SkinTheme theme = (Aiona::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 

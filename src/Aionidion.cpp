@@ -29,6 +29,12 @@ inline float clampf(float v, float lo, float hi) {
 } // namespace
 
 struct Aionidion : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
 	enum VoltageRange {
 		RANGE_BIPOLAR_1V = 0,
 		RANGE_UNIPOLAR_1V,
@@ -307,6 +313,7 @@ struct Aionidion : Module {
 		json_object_set_new(rootJ, "seconds", json_integer(seconds));
 		json_object_set_new(rootJ, "milliseconds", json_integer(milliseconds));
 		json_object_set_new(rootJ, "voltageRange", json_integer((int)voltageRange));
+			json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		return rootJ;
 	}
 
@@ -322,7 +329,8 @@ struct Aionidion : Module {
 		json_t* vrJ = json_object_get(rootJ, "voltageRange");
 		if (vrJ) {
 			voltageRange = (VoltageRange)json_integer_value(vrJ);
-		}
+		}		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 	}
 };
 
@@ -685,9 +693,56 @@ struct AionidionCountdownWidget : OpaqueWidget {
 
 // ── Module Widget ──
 struct AionidionWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Aionidion::SkinTheme currentTheme = Aionidion::THEME_MEDIUM;
+
+	void setTheme(Aionidion::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Aionidion::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Aionidion_Light.svg");
+					break;
+				case Aionidion::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Aionidion_Dark.svg");
+					break;
+				case Aionidion::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Aionidion.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Aionidion*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
 	AionidionWidget(Aionidion* module) {
 		setModule(module);
-		setPanel(Svg::load(asset::plugin(pluginInstance, "res/Aionidion.svg")));
+		panel = new SvgPanel();
+		Aionidion::SkinTheme initTheme = module ? module->skinTheme : Aionidion::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Aionidion::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Aionidion_Light.svg");
+				break;
+			case Aionidion::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Aionidion_Dark.svg");
+				break;
+			case Aionidion::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Aionidion.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		float col0 = 7.000f;
 		float col1 = 20.320f;
@@ -746,6 +801,25 @@ struct AionidionWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator());
 		appendAionidionMenuItems(menu, module);
+		menu->addChild(new MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Aionidion::SkinTheme theme = (Aionidion::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 

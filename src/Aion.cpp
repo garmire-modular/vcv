@@ -30,6 +30,12 @@ inline float clampf(float v, float lo, float hi) {
 } // namespace
 
 struct Aion : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
 	enum VoltageRange {
 		RANGE_BIPOLAR_1V = 0,
 		RANGE_UNIPOLAR_1V,
@@ -303,6 +309,7 @@ struct Aion : Module {
 		json_object_set_new(rootJ, "minutes", json_integer(minutes));
 		json_object_set_new(rootJ, "seconds", json_integer(seconds));
 		json_object_set_new(rootJ, "voltageRange", json_integer((int)voltageRange));
+			json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		return rootJ;
 	}
 
@@ -318,7 +325,8 @@ struct Aion : Module {
 		json_t* vrJ = json_object_get(rootJ, "voltageRange");
 		if (vrJ) {
 			voltageRange = (VoltageRange)json_integer_value(vrJ);
-		}
+		}		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 	}
 };
 
@@ -710,9 +718,56 @@ struct AionCountdownWidget : OpaqueWidget {
 
 // ── Module Widget ──
 struct AionWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Aion::SkinTheme currentTheme = Aion::THEME_MEDIUM;
+
+	void setTheme(Aion::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Aion::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Aion_Light.svg");
+					break;
+				case Aion::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Aion_Dark.svg");
+					break;
+				case Aion::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Aion.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Aion*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
 	AionWidget(Aion* module) {
 		setModule(module);
-		setPanel(Svg::load(asset::plugin(pluginInstance, "res/Aion.svg")));
+		panel = new SvgPanel();
+		Aion::SkinTheme initTheme = module ? module->skinTheme : Aion::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Aion::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Aion_Light.svg");
+				break;
+			case Aion::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Aion_Dark.svg");
+				break;
+			case Aion::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Aion.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Zero virtual screws added (AGENTS.md Section 7.5.6)
 
@@ -776,6 +831,25 @@ struct AionWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator());
 		appendAionMenuItems(menu, module);
+		menu->addChild(new MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Aion::SkinTheme theme = (Aion::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 

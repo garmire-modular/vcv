@@ -164,8 +164,10 @@ def main():
     svg_content = "\n".join(svg_parts)
 
     out_svg = "res/Annette.svg"
-    with open(out_svg, "w", encoding="utf-8") as f:
-        f.write(svg_content)
+    import sys
+    sys.path.insert(0, 'scratch')
+    from skin_generator_helper import write_triple_skins
+    write_triple_skins('Annette', svg_content)
     print(f"Generated {out_svg}")
 
     # Render PNG for MetaModule (height 240px)

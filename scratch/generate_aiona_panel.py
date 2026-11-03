@@ -176,8 +176,10 @@ def main():
 
     os.makedirs('res', exist_ok=True)
     svg_path = 'res/Aiona.svg'
-    with open(svg_path, 'w', encoding='utf-8') as f:
-        f.write("\n".join(svg_parts) + "\n")
+    import sys
+    sys.path.insert(0, 'scratch')
+    from skin_generator_helper import write_triple_skins
+    write_triple_skins('Aiona', "\n".join(svg_parts) + "\n")
     print(f"Generated {svg_path} successfully.")
 
     os.makedirs('metamodule/assets', exist_ok=True)

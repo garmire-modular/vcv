@@ -27,6 +27,12 @@ inline float clampf(float v, float lo, float hi) {
 } // namespace
 
 struct Eris : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
 	enum RangeMode {
 		RANGE_VERY_SLOW = 0, // 600s down to 0.1s
 		RANGE_LFO,            // 0.01 - 200 Hz
@@ -621,6 +627,7 @@ struct Eris : Module {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "rangeMode", json_integer((int)rangeMode));
 		json_object_set_new(rootJ, "zMode", json_integer((int)zMode));
+			json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		return rootJ;
 	}
 
@@ -632,7 +639,8 @@ struct Eris : Module {
 		json_t* zmJ = json_object_get(rootJ, "zMode");
 		if (zmJ) {
 			zMode = (ZOutputMode)json_integer_value(zmJ);
-		}
+		}		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
 	}
 };
 
@@ -697,9 +705,56 @@ struct ErisRangeLightRing : ModuleLightWidget {
 };
 
 struct ErisWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Eris::SkinTheme currentTheme = Eris::THEME_MEDIUM;
+
+	void setTheme(Eris::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Eris::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Eris_Light.svg");
+					break;
+				case Eris::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Eris_Dark.svg");
+					break;
+				case Eris::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Eris.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Eris*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
 	ErisWidget(Eris* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Eris.svg")));
+		panel = new SvgPanel();
+		Eris::SkinTheme initTheme = module ? module->skinTheme : Eris::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Eris::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Eris_Light.svg");
+				break;
+			case Eris::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Eris_Dark.svg");
+				break;
+			case Eris::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Eris.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// 4 Columns across 14 HP: [8.56, 26.23, 44.89, 62.56] mm
 		const float col_x[4] = { 8.56f, 26.23f, 44.89f, 62.56f };
@@ -790,6 +845,25 @@ struct ErisWidget : ModuleWidget {
 			[module]() { return module->zMode == Eris::Z_BIPOLAR_5V; },
 			[module]() { module->zMode = Eris::Z_BIPOLAR_5V; }
 		));
+		menu->addChild(new MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Eris::SkinTheme theme = (Eris::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 
