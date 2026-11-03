@@ -38,22 +38,42 @@ def get_simplified_glyph_path(font, char):
     path_d = re.sub(r'\s+', ' ', path_d).strip()
     return path_d
 
+ddin_bold = TTFont('res/D-DIN-Bold.otf')
+ddin_cond_bold = TTFont('res/D-DINCondensed-Bold.otf')
+ddin_cond = TTFont('res/D-DINCondensed.otf')
+qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
+
 def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
-    cmap = font.getBestCmap()
-    hmtx = font['hmtx']
-    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text]
+    text_str = str(text)
+    if ('v' in text_str and '.' in text_str) or 'version' in comment.lower():
+        use_font = qs_reg_font
+        use_scale = 0.001600
+    elif font == ddin_bold:
+        use_font = ddin_bold
+        use_scale = scale
+    elif ('knob' in comment.lower() or 'button' in comment.lower() or 'header' in comment.lower()) and baseline_y < 50.0:
+        use_font = ddin_cond_bold
+        use_scale = 10.0 * 25.4 / (72.0 * 1000.0)  # 10pt = 0.003528
+    else:
+        use_font = ddin_cond
+        use_scale = 8.0 * 25.4 / (72.0 * 1000.0)   # 8pt = 0.002822
+    
+    cmap = use_font.getBestCmap()
+    hmtx = use_font['hmtx']
+    widths = [hmtx[cmap[ord(c)]][0] * use_scale if ord(c) in cmap else 500 * use_scale for c in text_str]
     total_w = sum(widths)
     start_x = center_x - total_w / 2.0
     res = []
     if comment:
         res.append(f'  <!-- Label: "{comment}" -->')
     curr = start_x
-    for c, w in zip(text, widths):
+    for c, w in zip(text_str, widths):
         if c != ' ':
-            pd = get_simplified_glyph_path(font, c)
-            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({scale:.6f}, {-scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
+            pd = get_simplified_glyph_path(use_font, c)
+            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({use_scale:.6f}, {-use_scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
         curr += w
     return "\n".join(res)
+
 
 def render_section_divider(center_y, panel_w, hi_color="#999999", sh_color="#505050"):
     divider_w = panel_w * 0.81
@@ -69,33 +89,25 @@ def render_section_divider(center_y, panel_w, hi_color="#999999", sh_color="#505
   </g>'''
 
 def main():
-    node_font = TTFont('res/Node.otf')
-    qs_font = TTFont('res/Quicksand-Medium.ttf')
-    qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
-
-    # Panel dimensions: 14 HP (71.12 mm x 128.50 mm)
+    node_font = ddin_bold
+    qs_font = ddin_cond
     panel_w = 71.12
     panel_h = 128.50
 
-    # Title "eris" in Node.otf (scale 0.0048, baseline 7.620, centered in 71.12 mm)
-    scale = 0.0048
-    text = "eris"
-    cmap = node_font.getBestCmap()
-    hmtx = node_font['hmtx']
-    total_w = sum(hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text)
-    start_x = (panel_w - total_w) / 2.0
+    # Title "ERIS" in D-DIN-Bold (16pt, scale 0.005644, baseline 7.620)
+    base_title_scale = 16.0 * 25.4 / (72.0 * 1000.0)
+    cmap = ddin_bold.getBestCmap()
+    hmtx = ddin_bold['hmtx']
+    raw_w = sum(hmtx[cmap[ord(c)]][0] * base_title_scale if ord(c) in cmap else 500 * base_title_scale for c in "ERIS")
+    title_scale = base_title_scale
+    if raw_w > (panel_w - 3.0):
+        title_scale = base_title_scale * ((panel_w - 3.0) / raw_w)
 
-    title_block = ['  <!-- Label: "eris" -->']
-    curr_x = start_x
-    for c in text:
-        gname = cmap[ord(c)] if ord(c) in cmap else c
-        w = hmtx[gname][0] * scale
-        if c != ' ':
-            path_d = get_simplified_glyph_path(node_font, c)
-            title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
-        curr_x += w
+    title_block = [
+        '  <!-- Label: "ERIS" (D-DIN-Bold) -->',
+        render_qs_text(ddin_bold, "ERIS", panel_w / 2.0, 7.620, title_scale, "#ffffff", "ERIS")
+    ]
 
-    # Version tag "v1.0.3"
     version_block = [
         '  <!-- Label: "v1.0.3" -->',
         render_qs_text(qs_reg_font, "v1.0.3", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v1.0.3")

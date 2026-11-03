@@ -24,69 +24,74 @@ def get_simplified_glyph_path(font, char):
     path_d = re.sub(r'\s+', ' ', path_d).strip()
     return path_d
 
+ddin_bold = TTFont('res/D-DIN-Bold.otf')
+ddin_cond_bold = TTFont('res/D-DINCondensed-Bold.otf')
+ddin_cond = TTFont('res/D-DINCondensed.otf')
+qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
+
 def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
-    cmap = font.getBestCmap()
-    hmtx = font['hmtx']
-    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text]
+    text_str = str(text)
+    if ('v' in text_str and '.' in text_str) or 'version' in comment.lower():
+        use_font = qs_reg_font
+        use_scale = 0.001600
+    elif font == ddin_bold:
+        use_font = ddin_bold
+        use_scale = scale
+    elif ('knob' in comment.lower() or 'button' in comment.lower() or 'header' in comment.lower()) and baseline_y < 50.0:
+        use_font = ddin_cond_bold
+        use_scale = 10.0 * 25.4 / (72.0 * 1000.0)  # 10pt = 0.003528
+    else:
+        use_font = ddin_cond
+        use_scale = 8.0 * 25.4 / (72.0 * 1000.0)   # 8pt = 0.002822
+    
+    cmap = use_font.getBestCmap()
+    hmtx = use_font['hmtx']
+    widths = [hmtx[cmap[ord(c)]][0] * use_scale if ord(c) in cmap else 500 * use_scale for c in text_str]
     total_w = sum(widths)
     start_x = center_x - total_w / 2.0
     res = []
     if comment:
         res.append(f'  <!-- Label: "{comment}" -->')
     curr = start_x
-    for c, w in zip(text, widths):
+    for c, w in zip(text_str, widths):
         if c != ' ':
-            pd = get_simplified_glyph_path(font, c)
-            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({scale:.6f}, {-scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
+            pd = get_simplified_glyph_path(use_font, c)
+            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({use_scale:.6f}, {-use_scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
         curr += w
     return "\n".join(res)
 
-def main():
-    node_font = TTFont('res/Node.otf')
-    qs_font = TTFont('res/Quicksand-Medium.ttf')
-    qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
 
-    # 32 HP Dimensions: 162.56 mm x 128.50 mm
+def main():
+    node_font = ddin_bold
+    qs_font = ddin_cond
     panel_w = 162.56
     panel_h = 128.50
     center_x = panel_w / 2.0  # 81.28 mm
-
-    # 3 Effect Column Centers
     col_1 = 28.780
     col_2 = 81.280
     col_3 = 133.780
-
-    # 4 Knobs within each effect column (pitch 11.5 mm, span 34.5 mm)
     c1_k = [11.530, 23.030, 34.530, 46.030]
     c2_k = [64.030, 75.530, 87.030, 98.530]
     c3_k = [116.530, 128.030, 139.530, 151.030]
 
-    # Title "bitterroot" in Node.otf (scale 0.0048, baseline 7.620, centered at x = 81.28)
-    cmap_node = node_font.getBestCmap()
-    hmtx = node_font['hmtx']
-    scale_title = 0.0048
-    title_text = "bitterroot"
-    
-    widths = []
-    for c in title_text:
-        if c == ' ':
-            widths.append(500 * scale_title)
-        else:
-            gname = cmap_node[ord(c)] if cmap_node and ord(c) in cmap_node else c
-            widths.append(hmtx[gname][0] * scale_title)
-    total_w = sum(widths)
-    start_x = (panel_w - total_w) / 2.0
+    # Title "BITTERROOT" in D-DIN-Bold (16pt, scale 0.005644, baseline 7.620)
+    base_title_scale = 16.0 * 25.4 / (72.0 * 1000.0)
+    cmap = ddin_bold.getBestCmap()
+    hmtx = ddin_bold['hmtx']
+    raw_w = sum(hmtx[cmap[ord(c)]][0] * base_title_scale if ord(c) in cmap else 500 * base_title_scale for c in "BITTERROOT")
+    title_scale = base_title_scale
+    if raw_w > (panel_w - 3.0):
+        title_scale = base_title_scale * ((panel_w - 3.0) / raw_w)
 
-    title_block = ['  <!-- Label: "bitterroot" -->']
-    curr_x = start_x
-    for c, w in zip(title_text, widths):
-        if c != ' ':
-            path_d = get_simplified_glyph_path(node_font, c)
-            title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale_title:.6f}, {-scale_title:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
-        curr_x += w
+    title_block = [
+        '  <!-- Label: "BITTERROOT" (D-DIN-Bold) -->',
+        render_qs_text(ddin_bold, "BITTERROOT", panel_w / 2.0, 7.620, title_scale, "#ffffff", "BITTERROOT")
+    ]
 
-    # Version "v2.0.0" in Quicksand-Regular (scale 0.001600, baseline 10.414, centered on 81.28)
-    version_block = [render_qs_text(qs_reg_font, "v2.0.0", center_x, 10.414, 0.001600, "#aaaaaa", "v2.0.0")]
+    version_block = [
+        '  <!-- Label: "v2.0.0" -->',
+        render_qs_text(qs_reg_font, "v2.0.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
+    ]
 
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
