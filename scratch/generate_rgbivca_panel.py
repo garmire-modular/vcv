@@ -46,48 +46,64 @@ def get_simplified_glyph_path(font, char):
     path_d = re.sub(r'\s+', ' ', path_d).strip()
     return path_d
 
+ddin_bold = TTFont('res/D-DIN-Bold.otf')
+ddin_cond_bold = TTFont('res/D-DINCondensed-Bold.otf')
+ddin_cond = TTFont('res/D-DINCondensed.otf')
+qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
+
 def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
-    cmap = font.getBestCmap()
-    hmtx = font['hmtx']
-    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text]
+    if ('v' in str(text) and '.' in str(text)) or 'version' in comment.lower():
+        use_font = qs_reg_font
+        use_scale = 0.001600
+    elif font == ddin_bold:
+        use_font = ddin_bold
+        use_scale = scale
+    elif baseline_y < 52.0:
+        use_font = ddin_cond_bold
+        use_scale = 10.0 * 25.4 / (72.0 * 1000.0)  # 10pt = 0.003528
+    else:
+        use_font = ddin_cond
+        use_scale = 8.0 * 25.4 / (72.0 * 1000.0)   # 8pt = 0.002822
+    
+    cmap = use_font.getBestCmap()
+    hmtx = use_font['hmtx']
+    widths = [hmtx[cmap[ord(c)]][0] * use_scale if ord(c) in cmap else 500 * use_scale for c in str(text)]
     total_w = sum(widths)
     start_x = center_x - total_w / 2.0
     res = []
     if comment:
         res.append(f'  <!-- Label: "{comment}" -->')
     curr = start_x
-    for c, w in zip(text, widths):
+    for c, w in zip(str(text), widths):
         if c != ' ':
-            pd = get_simplified_glyph_path(font, c)
-            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({scale:.6f}, {-scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
+            pd = get_simplified_glyph_path(use_font, c)
+            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({use_scale:.6f}, {-use_scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
         curr += w
     return "\n".join(res)
 
 def main():
-    node_font = TTFont('res/Node.otf')
-    qs_font = TTFont('res/Quicksand-Medium.ttf')
-    qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
+    node_font = ddin_bold
+    qs_font = ddin_cond
+    panel_w = 15.24
+    panel_h = 128.50
 
-    # Title "rgb/i/vca" in Node.otf (scale 0.0028 -> ~10.82mm wide, centered in 15.24 mm)
-    scale = 0.0028
-    text = "rgb/i/vca"
-    cmap = node_font.getBestCmap()
-    hmtx = node_font['hmtx']
-    total_w = sum(hmtx[cmap[ord(c)]][0] * scale for c in text)
-    start_x = (15.24 - total_w) / 2.0
+    # Title "RGB/I/VCA" in D-DIN-Bold (16pt, scale 0.005644, baseline 7.620)
+    base_title_scale = 16.0 * 25.4 / (72.0 * 1000.0)
+    cmap = ddin_bold.getBestCmap()
+    hmtx = ddin_bold['hmtx']
+    raw_w = sum(hmtx[cmap[ord(c)]][0] * base_title_scale if ord(c) in cmap else 500 * base_title_scale for c in "RGB/I/VCA")
+    title_scale = base_title_scale
+    if raw_w > (panel_w - 3.0):
+        title_scale = base_title_scale * ((panel_w - 3.0) / raw_w)
 
-    title_block = ['  <!-- Label: "rgb/i/vca" -->']
-    curr_x = start_x
-    for c in text:
-        w = hmtx[cmap[ord(c)]][0] * scale
-        if c != ' ':
-            path_d = get_simplified_glyph_path(node_font, c)
-            title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
-        curr_x += w
+    title_block = [
+        '  <!-- Label: "RGB/I/VCA" (D-DIN-Bold) -->',
+        render_qs_text(ddin_bold, "RGB/I/VCA", panel_w / 2.0, 7.620, title_scale, "#ffffff", "RGB/I/VCA")
+    ]
 
-    # Version tag "v2.0.0" centered at 7.62, baseline 10.414
     version_block = [
-        render_qs_text(qs_reg_font, "v2.0.0", 7.62, 10.414, 0.001400, "#aaaaaa", "v2.0.0")
+        '  <!-- Label: "v2.0.0" -->',
+        render_qs_text(qs_reg_font, "v2.0.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
     ]
 
     svg_parts = [

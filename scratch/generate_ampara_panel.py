@@ -36,60 +36,68 @@ def get_simplified_glyph_path(font, char):
     path_d = re.sub(r'\s+', ' ', path_d).strip()
     return path_d
 
+ddin_bold = TTFont('res/D-DIN-Bold.otf')
+ddin_cond_bold = TTFont('res/D-DINCondensed-Bold.otf')
+ddin_cond = TTFont('res/D-DINCondensed.otf')
+qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
+
 def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
-    cmap = font.getBestCmap()
-    hmtx = font['hmtx']
-    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text]
+    if ('v' in str(text) and '.' in str(text)) or 'version' in comment.lower():
+        use_font = qs_reg_font
+        use_scale = 0.001600
+    elif font == ddin_bold:
+        use_font = ddin_bold
+        use_scale = scale
+    elif baseline_y < 52.0:
+        use_font = ddin_cond_bold
+        use_scale = 10.0 * 25.4 / (72.0 * 1000.0)  # 10pt = 0.003528
+    else:
+        use_font = ddin_cond
+        use_scale = 8.0 * 25.4 / (72.0 * 1000.0)   # 8pt = 0.002822
+    
+    cmap = use_font.getBestCmap()
+    hmtx = use_font['hmtx']
+    widths = [hmtx[cmap[ord(c)]][0] * use_scale if ord(c) in cmap else 500 * use_scale for c in str(text)]
     total_w = sum(widths)
     start_x = center_x - total_w / 2.0
     res = []
     if comment:
         res.append(f'  <!-- Label: "{comment}" -->')
     curr = start_x
-    for c, w in zip(text, widths):
+    for c, w in zip(str(text), widths):
         if c != ' ':
-            pd = get_simplified_glyph_path(font, c)
-            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({scale:.6f}, {-scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
+            pd = get_simplified_glyph_path(use_font, c)
+            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({use_scale:.6f}, {-use_scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
         curr += w
     return "\n".join(res)
 
 def main():
-    node_font = TTFont('res/Node.otf')
-    qs_font = TTFont('res/Quicksand-Medium.ttf')
-    qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
-
-    # Panel dimensions: 20 HP (101.60 mm x 128.5 mm)
-    # MetaModule pixel width: 20 HP = 190 px (9.5 px/HP), Height = 240 px
+    node_font = ddin_bold
+    qs_font = ddin_cond
+    panel_w = 101.6
+    panel_h = 128.50
     panel_w = 101.60
     panel_h = 128.50
+    cols = [12.00 + i * 15.52 for i in range(6)]
 
-    # Title "ampara" in Node.otf (scale 0.0048, baseline 7.620, centered in 101.60 mm)
-    scale = 0.0048
-    text = "ampara"
-    cmap = node_font.getBestCmap()
-    hmtx = node_font['hmtx']
-    total_w = sum(hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text)
-    start_x = (panel_w - total_w) / 2.0
+    # Title "AMPARA" in D-DIN-Bold (16pt, scale 0.005644, baseline 7.620)
+    base_title_scale = 16.0 * 25.4 / (72.0 * 1000.0)
+    cmap = ddin_bold.getBestCmap()
+    hmtx = ddin_bold['hmtx']
+    raw_w = sum(hmtx[cmap[ord(c)]][0] * base_title_scale if ord(c) in cmap else 500 * base_title_scale for c in "AMPARA")
+    title_scale = base_title_scale
+    if raw_w > (panel_w - 3.0):
+        title_scale = base_title_scale * ((panel_w - 3.0) / raw_w)
 
-    ampara_title_block = ['  <!-- Label: "ampara" -->']
-    curr_x = start_x
-    for c in text:
-        gname = cmap[ord(c)] if ord(c) in cmap else c
-        w = hmtx[gname][0] * scale
-        if c != ' ':
-            path_d = get_simplified_glyph_path(node_font, c)
-            ampara_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
-        curr_x += w
-
-    # Version tag "v2.0.1"
-    version_block = [
-        '  <!-- Label: "v2.0.1" -->',
-        render_qs_text(qs_reg_font, "v2.0.1", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v2.0.1")
+    title_block = [
+        '  <!-- Label: "AMPARA" (D-DIN-Bold) -->',
+        render_qs_text(ddin_bold, "AMPARA", panel_w / 2.0, 7.620, title_scale, "#ffffff", "AMPARA")
     ]
 
-    # 6 Columns across 101.60 mm
-    # cols = [12.00, 27.52, 43.04, 58.56, 74.08, 89.60] mm
-    cols = [12.00 + i * 15.52 for i in range(6)]
+    version_block = [
+        '  <!-- Label: "v2.0.0" -->',
+        render_qs_text(qs_reg_font, "v2.0.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
+    ]
 
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -111,7 +119,7 @@ def main():
         f'  <circle cx="{cols[1]:.3f}" cy="21.590" r="4.120" fill="none" stroke="#3a3a3a" stroke-width="1.400"/>',
         ''
     ]
-    svg_parts.extend(ampara_title_block)
+    svg_parts.extend(title_block)
     svg_parts.extend(version_block)
 
     # UNIFORM FONT SIZE for all control and port labels

@@ -4,6 +4,11 @@ from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
 import pathops
 
+ddin_bold = TTFont('res/D-DIN-Bold.otf')
+ddin_cond_bold = TTFont('res/D-DINCondensed-Bold.otf')
+ddin_cond = TTFont('res/D-DINCondensed.otf')
+qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
+
 def get_simplified_glyph_path(font, char):
     cmap = font.getBestCmap()
     gname = cmap[ord(char)] if cmap and ord(char) in cmap else char
@@ -24,9 +29,22 @@ def get_simplified_glyph_path(font, char):
     return path_d
 
 def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
-    cmap = font.getBestCmap()
-    hmtx = font['hmtx']
-    widths = [hmtx[cmap[ord(c)]][0] * scale for c in text]
+    if ('v' in text and '.' in text) or 'version' in comment.lower():
+        use_font = qs_reg_font
+        use_scale = 0.001600
+    elif font == ddin_bold:
+        use_font = ddin_bold
+        use_scale = scale
+    elif baseline_y < 52.0:
+        use_font = ddin_cond_bold
+        use_scale = 10.0 * 25.4 / (72.0 * 1000.0)  # 10pt = 0.003528
+    else:
+        use_font = ddin_cond
+        use_scale = 8.0 * 25.4 / (72.0 * 1000.0)   # 8pt = 0.002822
+    
+    cmap = use_font.getBestCmap()
+    hmtx = use_font['hmtx']
+    widths = [hmtx[cmap[ord(c)]][0] * use_scale if ord(c) in cmap else 500 * use_scale for c in text]
     total_w = sum(widths)
     start_x = center_x - total_w / 2.0
     res = []
@@ -35,30 +53,20 @@ def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
     curr = start_x
     for c, w in zip(text, widths):
         if c != ' ':
-            pd = get_simplified_glyph_path(font, c)
-            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({scale:.6f}, {-scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
+            pd = get_simplified_glyph_path(use_font, c)
+            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({use_scale:.6f}, {-use_scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
         curr += w
     return "\n".join(res)
 
 def main():
-    node_font = TTFont('res/Node.otf')
-    qs_font = TTFont('res/Quicksand-Medium.ttf')
-    qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
+    panel_w = 30.48
+    title_scale = 16.0 * 25.4 / (72.0 * 1000.0)
 
-    # Title "ants" in Node.otf (scale 0.0048, baseline 7.620)
-    hmtx = node_font['hmtx']
-    scale = 0.0048
-    text = "ants"
-    total_w = sum(hmtx[c][0] * scale for c in text)
-    start_x = (30.48 - total_w) / 2.0
-
-    ants_title_block = ['  <!-- Label: "ants" -->']
-    curr_x = start_x
-    for c in text:
-        w = hmtx[c][0] * scale
-        path_d = get_simplified_glyph_path(node_font, c)
-        ants_title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale:.6f}, {-scale:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
-        curr_x += w
+    # Title "ANTS" in D-DIN-Bold (16pt, scale 0.005644, baseline 7.620)
+    ants_title_block = [
+        '  <!-- Label: "ANTS" (D-DIN-Bold) -->',
+        render_qs_text(ddin_bold, "ANTS", panel_w / 2.0, 7.620, title_scale, "#ffffff", "ANTS")
+    ]
 
     # Version tag "v2.0.0"
     v102_version_block = [
@@ -89,40 +97,38 @@ def main():
     svg_parts.extend(v102_version_block)
 
     # Top Knobs Row 1 Labels (Y = 13.070): COUNT (X=7.62) & LENGTH (X=22.86)
-    svg_parts.append(render_qs_text(qs_font, "COUNT", 7.62, 13.070, 0.002400, "#1c1c1c", "COUNT"))
-    svg_parts.append(render_qs_text(qs_font, "LENGTH", 22.86, 13.070, 0.002400, "#1c1c1c", "LENGTH"))
+    svg_parts.append(render_qs_text(None, "COUNT", 7.62, 13.070, 0.002400, "#1c1c1c", "COUNT"))
+    svg_parts.append(render_qs_text(None, "LENGTH", 22.86, 13.070, 0.002400, "#1c1c1c", "LENGTH"))
 
     # Knob Row 2 Labels (Y = 34.500): POS (X=7.62) & VAR (X=22.86)
-    svg_parts.append(render_qs_text(qs_font, "POS", 7.62, 34.500, 0.002400, "#1c1c1c", "POS"))
-    svg_parts.append(render_qs_text(qs_font, "VAR", 22.86, 34.500, 0.002400, "#1c1c1c", "VAR"))
+    svg_parts.append(render_qs_text(None, "POS", 7.62, 34.500, 0.002400, "#1c1c1c", "POS"))
+    svg_parts.append(render_qs_text(None, "VAR", 22.86, 34.500, 0.002400, "#1c1c1c", "VAR"))
 
     # Trimpot Row 1 Labels (Y = 56.500, scale = 0.002000): COUNT & LENGTH
-    svg_parts.append(render_qs_text(qs_font, "COUNT", 7.62, 56.500, 0.002000, "#2c2c2c", "COUNT TRIM"))
-    svg_parts.append(render_qs_text(qs_font, "LENGTH", 22.86, 56.500, 0.002000, "#2c2c2c", "LENGTH TRIM"))
+    svg_parts.append(render_qs_text(None, "COUNT", 7.62, 56.500, 0.002000, "#2c2c2c", "COUNT TRIM"))
+    svg_parts.append(render_qs_text(None, "LENGTH", 22.86, 56.500, 0.002000, "#2c2c2c", "LENGTH TRIM"))
 
     # Trimpot Row 2 Labels (Y = 68.500, scale = 0.002000): POS & VAR
-    svg_parts.append(render_qs_text(qs_font, "POS", 7.62, 68.500, 0.002000, "#2c2c2c", "POS TRIM"))
-    svg_parts.append(render_qs_text(qs_font, "VAR", 22.86, 68.500, 0.002000, "#2c2c2c", "VAR TRIM"))
+    svg_parts.append(render_qs_text(None, "POS", 7.62, 68.500, 0.002000, "#2c2c2c", "POS TRIM"))
+    svg_parts.append(render_qs_text(None, "VAR", 22.86, 68.500, 0.002000, "#2c2c2c", "VAR TRIM"))
 
     # Jack Row 1: X, Y (Y = 84.000), IN (Y = 88.000)
-    svg_parts.append(render_qs_text(qs_font, "X", 7.62, 84.000, 0.003000, "#1c1c1c", "X"))
-    svg_parts.append(render_qs_text(qs_font, "Y", 22.86, 84.000, 0.003000, "#1c1c1c", "Y"))
-    svg_parts.append(render_qs_text(qs_font, "IN", 15.24, 88.000, 0.002400, "#2c2c2c", "IN"))
+    svg_parts.append(render_qs_text(None, "X", 7.62, 84.000, 0.003000, "#1c1c1c", "X"))
+    svg_parts.append(render_qs_text(None, "Y", 22.86, 84.000, 0.003000, "#1c1c1c", "Y"))
+    svg_parts.append(render_qs_text(None, "IN", 15.24, 88.000, 0.002400, "#2c2c2c", "IN"))
 
     # Jack Row 2: Standard centered CV text between the first two CV jacks (Y = 97.500, scale = 0.002400)
-    svg_parts.append(render_qs_text(qs_font, "CV", 15.24, 97.500, 0.002400, "#2c2c2c", "CV"))
+    svg_parts.append(render_qs_text(None, "CV", 15.24, 97.500, 0.002400, "#2c2c2c", "CV"))
 
     # Jack Row 4: OUT (Y = 116.500)
-    svg_parts.append(render_qs_text(qs_font, "OUT", 15.24, 116.500, 0.002400, "#2c2c2c", "OUT"))
+    svg_parts.append(render_qs_text(None, "OUT", 15.24, 116.500, 0.002400, "#2c2c2c", "OUT"))
 
-    svg_parts.append('</svg>')
+    svg_parts.append('</svg>\n')
 
-    os.makedirs('res', exist_ok=True)
     import sys
     sys.path.insert(0, 'scratch')
     from skin_generator_helper import write_triple_skins
     write_triple_skins('Ants', "\n".join(svg_parts) + "\n")
-    print("Generated res/Ants.svg with v2.0.0.")
 
 if __name__ == '__main__':
     main()

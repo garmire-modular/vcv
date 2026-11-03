@@ -36,61 +36,69 @@ def get_simplified_glyph_path(font, char):
     path_d = re.sub(r'\s+', ' ', path_d).strip()
     return path_d
 
+ddin_bold = TTFont('res/D-DIN-Bold.otf')
+ddin_cond_bold = TTFont('res/D-DINCondensed-Bold.otf')
+ddin_cond = TTFont('res/D-DINCondensed.otf')
+qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
+
 def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
-    cmap = font.getBestCmap()
-    hmtx = font['hmtx']
-    widths = [hmtx[cmap[ord(c)]][0] * scale if ord(c) in cmap else hmtx[c][0] * scale for c in text]
+    if ('v' in str(text) and '.' in str(text)) or 'version' in comment.lower():
+        use_font = qs_reg_font
+        use_scale = 0.001600
+    elif font == ddin_bold:
+        use_font = ddin_bold
+        use_scale = scale
+    elif baseline_y < 52.0:
+        use_font = ddin_cond_bold
+        use_scale = 10.0 * 25.4 / (72.0 * 1000.0)  # 10pt = 0.003528
+    else:
+        use_font = ddin_cond
+        use_scale = 8.0 * 25.4 / (72.0 * 1000.0)   # 8pt = 0.002822
+    
+    cmap = use_font.getBestCmap()
+    hmtx = use_font['hmtx']
+    widths = [hmtx[cmap[ord(c)]][0] * use_scale if ord(c) in cmap else 500 * use_scale for c in str(text)]
     total_w = sum(widths)
     start_x = center_x - total_w / 2.0
     res = []
     if comment:
         res.append(f'  <!-- Label: "{comment}" -->')
     curr = start_x
-    for c, w in zip(text, widths):
+    for c, w in zip(str(text), widths):
         if c != ' ':
-            pd = get_simplified_glyph_path(font, c)
-            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({scale:.6f}, {-scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
+            pd = get_simplified_glyph_path(use_font, c)
+            res.append(f'    <g transform="translate({curr:.3f}, {baseline_y:.3f}) scale({use_scale:.6f}, {-use_scale:.6f})"><path d="{pd}" fill="{fill}"/></g>')
         curr += w
     return "\n".join(res)
 
 def main():
-    node_font = TTFont('res/Node.otf')
-    qs_font = TTFont('res/Quicksand-Medium.ttf')
-    qs_reg_font = TTFont('res/Quicksand-Regular.ttf')
-
-    # 12 HP Dimensions: 60.96 mm x 128.50 mm
+    node_font = ddin_bold
+    qs_font = ddin_cond
+    panel_w = 60.96
+    panel_h = 128.50
     panel_w = 60.96
     panel_h = 128.50
     center_x = panel_w / 2.0  # 30.48 mm
 
-    # Title "matrix 3x3" in Node.otf (scale 0.0044, baseline 7.620)
-    cmap_node = node_font.getBestCmap()
-    hmtx = node_font['hmtx']
-    scale_title = 0.0044
-    title_text = "matrix 3x3"
-    
-    widths = []
-    for c in title_text:
-        if c == ' ':
-            widths.append(500 * scale_title)
-        else:
-            gname = cmap_node[ord(c)] if cmap_node and ord(c) in cmap_node else c
-            widths.append(hmtx[gname][0] * scale_title)
-    total_w = sum(widths)
-    start_x = (panel_w - total_w) / 2.0
+    # Title "MATRIX 3x3" in D-DIN-Bold (16pt, scale 0.005644, baseline 7.620)
+    base_title_scale = 16.0 * 25.4 / (72.0 * 1000.0)
+    cmap = ddin_bold.getBestCmap()
+    hmtx = ddin_bold['hmtx']
+    raw_w = sum(hmtx[cmap[ord(c)]][0] * base_title_scale if ord(c) in cmap else 500 * base_title_scale for c in "MATRIX 3x3")
+    title_scale = base_title_scale
+    if raw_w > (panel_w - 3.0):
+        title_scale = base_title_scale * ((panel_w - 3.0) / raw_w)
 
-    title_block = ['  <!-- Label: "matrix 3x3" -->']
-    curr_x = start_x
-    for c, w in zip(title_text, widths):
-        if c != ' ':
-            path_d = get_simplified_glyph_path(node_font, c)
-            title_block.append(f'    <g transform="translate({curr_x:.3f}, 7.620) scale({scale_title:.6f}, {-scale_title:.6f})"><path d="{path_d}" fill="#ffffff"/></g>')
-        curr_x += w
+    title_block = [
+        '  <!-- Label: "MATRIX 3x3" (D-DIN-Bold) -->',
+        render_qs_text(ddin_bold, "MATRIX 3x3", panel_w / 2.0, 7.620, title_scale, "#ffffff", "MATRIX 3x3")
+    ]
 
-    # Version tag "v2.0.0" in Quicksand-Regular (scale 0.001600, baseline 10.414)
-    version_block = [render_qs_text(qs_reg_font, "v2.0.0", center_x, 10.414, 0.001600, "#aaaaaa", "v2.0.0")]
+    version_block = [
+        '  <!-- Label: "v2.0.0" -->',
+        render_qs_text(qs_reg_font, "v2.0.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
+    ]
 
-    # Delineator line between scanner controls and 3x3 arrays: Y = 78.00 mm
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.2f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.2f}">',
