@@ -2,6 +2,13 @@
 #include <cmath>
 
 struct Quake : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		AMOUNT_X_PARAM,
 		AMOUNT_Y_PARAM,
@@ -87,6 +94,19 @@ struct Quake : Module {
 		return ((float)(seed & 0x00ffffff) / (float)0x00ffffff) * 2.f - 1.f;
 	}
 
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
+
+
+
 	void process(const ProcessArgs& args) override {
 		int xChannels = inputs[X_INPUT].getChannels();
 		int yChannels = inputs[Y_INPUT].getChannels();
@@ -164,9 +184,57 @@ struct Quake : Module {
 };
 
 struct QuakeWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Quake::SkinTheme currentTheme = Quake::THEME_MEDIUM;
+
+	void setTheme(Quake::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Quake::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Quake_Light.svg");
+					break;
+				case Quake::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Quake_Dark.svg");
+					break;
+				case Quake::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Quake.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Quake*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	QuakeWidget(Quake* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Quake.svg")));
+				panel = new SvgPanel();
+		Quake::SkinTheme initTheme = module ? module->skinTheme : Quake::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Quake::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Quake_Light.svg");
+				break;
+			case Quake::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Quake_Dark.svg");
+				break;
+			case Quake::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Quake.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Top 2/3: Main Controls & Attenuverters
 		// Row 1: X & Y Amount Knobs (Center Y = 21.59 mm)
@@ -201,6 +269,31 @@ struct QuakeWidget : ModuleWidget {
 		// Row 4: Signal Outputs (Center Y = 118.00 mm)
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 118.00)), module, Quake::X_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 118.00)), module, Quake::Y_OUTPUT));
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		Quake* module = dynamic_cast<Quake*>(this->module);
+		if (!module) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Quake::SkinTheme theme = (Quake::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 

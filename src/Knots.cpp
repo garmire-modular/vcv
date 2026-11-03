@@ -10,6 +10,13 @@
 // ─────────────────────────────────────────────────────────────────────
 
 struct Knots : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		X_KNOTS_PARAM,
 		Y_KNOTS_PARAM,
@@ -54,6 +61,19 @@ struct Knots : Module {
 		configOutput(X_OUTPUT, "X");
 		configOutput(Y_OUTPUT, "Y");
 	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
+
+
 
 	void process(const ProcessArgs& args) override {
 		int xChannels = inputs[X_INPUT].getChannels();
@@ -108,9 +128,57 @@ struct Knots : Module {
 };
 
 struct KnotsWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Knots::SkinTheme currentTheme = Knots::THEME_MEDIUM;
+
+	void setTheme(Knots::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Knots::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Knots_Light.svg");
+					break;
+				case Knots::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Knots_Dark.svg");
+					break;
+				case Knots::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Knots.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Knots*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	KnotsWidget(Knots* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Knots.svg")));
+				panel = new SvgPanel();
+		Knots::SkinTheme initTheme = module ? module->skinTheme : Knots::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Knots::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Knots_Light.svg");
+				break;
+			case Knots::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Knots_Dark.svg");
+				break;
+			case Knots::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Knots.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Main Controls
 		// Row 1: X Knots (7.62 mm) & Y Knots (22.86 mm) Knobs (Center Y = 21.59 mm)
@@ -134,6 +202,31 @@ struct KnotsWidget : ModuleWidget {
 		// Row 3: Signal Outputs (Center Y = 118.00 mm): X OUT (7.62), Y OUT (22.86)
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 118.00)), module, Knots::X_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 118.00)), module, Knots::Y_OUTPUT));
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		Knots* module = dynamic_cast<Knots*>(this->module);
+		if (!module) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Knots::SkinTheme theme = (Knots::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 

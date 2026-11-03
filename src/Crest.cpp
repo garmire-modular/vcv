@@ -1,6 +1,13 @@
 #include "plugin.hpp"
 
 struct Crest : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		CREST_X_PARAM,
 		CREST_Y_PARAM,
@@ -61,6 +68,19 @@ struct Crest : Module {
 		configOutput(X_OUTPUT, "X Signal");
 		configOutput(Y_OUTPUT, "Y Signal");
 	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
+
+
 
 	void process(const ProcessArgs& args) override {
 		int xChannels = inputs[X_INPUT].getChannels();
@@ -155,9 +175,57 @@ struct Crest : Module {
 };
 
 struct CrestWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Crest::SkinTheme currentTheme = Crest::THEME_MEDIUM;
+
+	void setTheme(Crest::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Crest::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Crest_Light.svg");
+					break;
+				case Crest::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Crest_Dark.svg");
+					break;
+				case Crest::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Crest.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Crest*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	CrestWidget(Crest* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Crest.svg")));
+				panel = new SvgPanel();
+		Crest::SkinTheme initTheme = module ? module->skinTheme : Crest::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Crest::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Crest_Light.svg");
+				break;
+			case Crest::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Crest_Dark.svg");
+				break;
+			case Crest::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Crest.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Top 2/3: Main Controls & Attenuverters
 		// Row 1: X & Y Crest Knobs (Center Y = 21.59 mm)
@@ -192,6 +260,31 @@ struct CrestWidget : ModuleWidget {
 		// Row 4: Signal Outputs (Center Y = 118.00 mm)
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 118.00)), module, Crest::X_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 118.00)), module, Crest::Y_OUTPUT));
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		Crest* module = dynamic_cast<Crest*>(this->module);
+		if (!module) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Crest::SkinTheme theme = (Crest::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 

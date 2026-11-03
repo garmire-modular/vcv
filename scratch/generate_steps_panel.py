@@ -108,8 +108,10 @@ def main():
 
     svg_parts.append('</svg>')
 
-    with open('res/Steps.svg', 'w', encoding='utf-8') as f:
-        f.write("\n".join(svg_parts) + "\n")
+    import sys
+    sys.path.insert(0, 'scratch')
+    from skin_generator_helper import write_triple_skins
+    write_triple_skins('Steps', "\n".join(svg_parts) + "\n")
     print("Generated res/Steps.svg successfully.")
 
 if __name__ == '__main__':

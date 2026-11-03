@@ -122,8 +122,10 @@ def main():
     svg_parts.append('</svg>')
 
     os.makedirs('res', exist_ok=True)
-    with open('res/Vortex.svg', 'w', encoding='utf-8') as f:
-        f.write("\n".join(svg_parts) + "\n")
+    import sys
+    sys.path.insert(0, 'scratch')
+    from skin_generator_helper import write_triple_skins
+    write_triple_skins('Vortex', "\n".join(svg_parts) + "\n")
     print("Generated res/Vortex.svg with v2.0.0.")
 
 if __name__ == '__main__':

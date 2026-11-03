@@ -6,6 +6,13 @@
 // ─────────────────────────────────────────────────────────────────────
 
 struct Instability : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		FREQ_DRIFT_PARAM,
 		PHASE_DRIFT_PARAM,
@@ -78,6 +85,19 @@ struct Instability : Module {
 		return val;
 	}
 
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
+
+
+
 	void process(const ProcessArgs& args) override {
 		int freqCh  = inputs[FREQ_INPUT].getChannels();
 		int phaseCh = inputs[PHASE_INPUT].getChannels();
@@ -113,9 +133,57 @@ struct Instability : Module {
 };
 
 struct InstabilityWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Instability::SkinTheme currentTheme = Instability::THEME_MEDIUM;
+
+	void setTheme(Instability::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Instability::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Instability_Light.svg");
+					break;
+				case Instability::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Instability_Dark.svg");
+					break;
+				case Instability::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Instability.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Instability*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	InstabilityWidget(Instability* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Instability.svg")));
+				panel = new SvgPanel();
+		Instability::SkinTheme initTheme = module ? module->skinTheme : Instability::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Instability::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Instability_Light.svg");
+				break;
+			case Instability::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Instability_Dark.svg");
+				break;
+			case Instability::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Instability.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Main Controls
 		// Row 1: FREQ (7.62 mm) & PHASE (22.86 mm) (Center Y = 21.59 mm)
@@ -144,6 +212,31 @@ struct InstabilityWidget : ModuleWidget {
 		// Row 3: Signal I/O (Center Y = 118.00 mm): Signal IN (7.62), Signal OUT (22.86)
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(7.62, 118.00)), module, Instability::SIGNAL_INPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 118.00)), module, Instability::SIGNAL_OUTPUT));
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		Instability* module = dynamic_cast<Instability*>(this->module);
+		if (!module) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Instability::SkinTheme theme = (Instability::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 

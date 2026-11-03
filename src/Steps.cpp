@@ -2,6 +2,13 @@
 #include <cmath>
 
 struct Steps : Module {
+	enum SkinTheme {
+		THEME_MEDIUM = 0,
+		THEME_LIGHT,
+		THEME_DARK
+	};
+	SkinTheme skinTheme = THEME_MEDIUM;
+
 	enum ParamId {
 		STEPS_X_PARAM,
 		STEPS_Y_PARAM,
@@ -57,6 +64,19 @@ struct Steps : Module {
 
 		return clamp(xQuant * vPeak, -12.f, 12.f);
 	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* stJ = json_object_get(rootJ, "skinTheme");
+		if (stJ) skinTheme = (SkinTheme)json_integer_value(stJ);
+	}
+
+
 
 	void process(const ProcessArgs& args) override {
 		int xChannels = inputs[X_INPUT].getChannels();
@@ -117,9 +137,57 @@ struct Steps : Module {
 };
 
 struct StepsWidget : ModuleWidget {
+	SvgPanel* panel = nullptr;
+	Steps::SkinTheme currentTheme = Steps::THEME_MEDIUM;
+
+	void setTheme(Steps::SkinTheme theme) {
+		currentTheme = theme;
+		if (panel) {
+			std::string path;
+			switch (theme) {
+				case Steps::THEME_LIGHT:
+					path = asset::plugin(pluginInstance, "res/Steps_Light.svg");
+					break;
+				case Steps::THEME_DARK:
+					path = asset::plugin(pluginInstance, "res/Steps_Dark.svg");
+					break;
+				case Steps::THEME_MEDIUM:
+				default:
+					path = asset::plugin(pluginInstance, "res/Steps.svg");
+					break;
+			}
+			panel->setBackground(Svg::load(path));
+		}
+	}
+
+	void step() override {
+		ModuleWidget::step();
+		auto* mod = dynamic_cast<Steps*>(module);
+		if (mod && mod->skinTheme != currentTheme) {
+			setTheme(mod->skinTheme);
+		}
+	}
+
 	StepsWidget(Steps* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Steps.svg")));
+				panel = new SvgPanel();
+		Steps::SkinTheme initTheme = module ? module->skinTheme : Steps::THEME_MEDIUM;
+		currentTheme = initTheme;
+		std::string initPath;
+		switch (initTheme) {
+			case Steps::THEME_LIGHT:
+				initPath = asset::plugin(pluginInstance, "res/Steps_Light.svg");
+				break;
+			case Steps::THEME_DARK:
+				initPath = asset::plugin(pluginInstance, "res/Steps_Dark.svg");
+				break;
+			case Steps::THEME_MEDIUM:
+			default:
+				initPath = asset::plugin(pluginInstance, "res/Steps.svg");
+				break;
+		}
+		panel->setBackground(Svg::load(initPath));
+		setPanel(panel);
 
 		// Main Controls
 		// Row 1: X & Y Steps Crush Knobs (Center Y = 21.59 mm)
@@ -142,6 +210,31 @@ struct StepsWidget : ModuleWidget {
 		// Row 3: Signal Outputs (Center Y = 118.00 mm)
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(7.62, 118.00)), module, Steps::X_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(22.86, 118.00)), module, Steps::Y_OUTPUT));
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		Steps* module = dynamic_cast<Steps*>(this->module);
+		if (!module) return;
+
+		menu->addChild(new ui::MenuSeparator);
+		menu->addChild(createMenuLabel("Skin"));
+
+		static const char* skinLabels[] = {
+			"Medium (Default)",
+			"Light",
+			"Dark"
+		};
+
+		for (int i = 0; i < 3; ++i) {
+			Steps::SkinTheme theme = (Steps::SkinTheme)i;
+			menu->addChild(createCheckMenuItem(skinLabels[i], "",
+				[=]() { return module->skinTheme == theme; },
+				[=]() {
+					module->skinTheme = theme;
+					setTheme(theme);
+				}
+			));
+		}
 	}
 };
 
