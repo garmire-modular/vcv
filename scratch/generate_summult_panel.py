@@ -100,23 +100,27 @@ def main():
     panel_w = 15.24
     panel_h = 128.50
 
-    # Title "SUM/MULT" in D-DIN-Bold (16pt, scale 0.005644, baseline 7.620)
-    base_title_scale = 16.0 * 25.4 / (72.0 * 1000.0)
+    # Title "SUM /" and "MULT" in D-DIN-Bold (12pt, scale 0.004233, baselines 5.20 and 9.20)
+    title_lines = ["SUM /", "MULT"]
+    base_title_scale = 12.0 * 25.4 / (72.0 * 1000.0)
     cmap = ddin_bold.getBestCmap()
     hmtx = ddin_bold['hmtx']
-    raw_w = sum(hmtx[cmap[ord(c)]][0] * base_title_scale if ord(c) in cmap else 500 * base_title_scale for c in "SUM/MULT")
     title_scale = base_title_scale
-    if raw_w > (panel_w - 3.0):
-        title_scale = base_title_scale * ((panel_w - 3.0) / raw_w)
+    for t_line in title_lines:
+        raw_w = sum(hmtx[cmap[ord(c)]][0] * base_title_scale if ord(c) in cmap else 500 * base_title_scale for c in t_line)
+        if raw_w > (panel_w - 3.0):
+            title_scale = min(title_scale, base_title_scale * ((panel_w - 3.0) / raw_w))
 
     title_block = [
-        '  <!-- Label: "SUM/MULT" (D-DIN-Bold) -->',
-        render_qs_text(ddin_bold, "SUM/MULT", panel_w / 2.0, 7.620, title_scale, "#ffffff", "SUM/MULT")
+        '  <!-- Label: "SUM /" (D-DIN-Bold) -->',
+        render_qs_text(ddin_bold, "SUM /", panel_w / 2.0, 5.200, title_scale, "#ffffff", "SUM /"),
+        '  <!-- Label: "MULT" (D-DIN-Bold) -->',
+        render_qs_text(ddin_bold, "MULT", panel_w / 2.0, 9.200, title_scale, "#ffffff", "MULT")
     ]
 
     v221_version_block = [
         '  <!-- Label: "v2.0.0" -->',
-        render_qs_text(qs_reg_font, "v2.0.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
+        render_qs_text(qs_reg_font, "v2.0.0", panel_w / 2.0, 12.000, 0.001600, "#aaaaaa", "v2.0.0")
     ]
 
     svg_parts = [

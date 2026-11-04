@@ -91,27 +91,30 @@ def render_qs_text(font, text, center_x, baseline_y, scale, fill, comment=""):
         curr += w
     return "\n".join(res)
 
-def generate_3hp_logic_panel(module_slug, title_text, out_pair1_labels, out_pair2_labels, version_str="v2.0.0"):
+def generate_3hp_logic_panel(module_slug, title_lines, out_pair1_labels, out_pair2_labels, version_str="v2.0.0"):
     node_font = ddin_bold
     qs_font = ddin_cond
     panel_w = 15.24
 
-    # Title "XOR XY" in D-DIN-Bold (16pt, scale 0.005644, baseline 7.620)
-    base_title_scale = 16.0 * 25.4 / (72.0 * 1000.0)
+    # Title lines in D-DIN-Bold (12pt, scale 0.004233, baselines 5.20 and 9.20)
+    base_title_scale = 12.0 * 25.4 / (72.0 * 1000.0)
     cmap = ddin_bold.getBestCmap()
     hmtx = ddin_bold['hmtx']
-    raw_w = sum(hmtx[cmap[ord(c)]][0] * base_title_scale if ord(c) in cmap else 500 * base_title_scale for c in title_text)
     title_scale = base_title_scale
-    if raw_w > (panel_w - 3.0):
-        title_scale = base_title_scale * ((panel_w - 3.0) / raw_w)
+    for t_line in title_lines:
+        raw_w = sum(hmtx[cmap[ord(c)]][0] * base_title_scale if ord(c) in cmap else 500 * base_title_scale for c in t_line)
+        if raw_w > (panel_w - 3.0):
+            title_scale = min(title_scale, base_title_scale * ((panel_w - 3.0) / raw_w))
 
     title_block = [
-        f'  <!-- Label: "{title_text}" (D-DIN-Bold) -->',
-        render_qs_text(ddin_bold, title_text, panel_w / 2.0, 7.620, title_scale, "#ffffff", title_text)
+        f'  <!-- Label: "{title_lines[0]}" (D-DIN-Bold) -->',
+        render_qs_text(ddin_bold, title_lines[0], panel_w / 2.0, 5.200, title_scale, "#ffffff", title_lines[0]),
+        f'  <!-- Label: "{title_lines[1]}" (D-DIN-Bold) -->',
+        render_qs_text(ddin_bold, title_lines[1], panel_w / 2.0, 9.200, title_scale, "#ffffff", title_lines[1])
     ]
 
     version_block = [
-        render_qs_text(qs_reg_font, version_str, 7.62, 10.414, 0.001600, "#aaaaaa", version_str)
+        render_qs_text(qs_reg_font, version_str, panel_w / 2.0, 12.000, 0.001600, "#aaaaaa", version_str)
     ]
 
     svg_parts = [
@@ -178,7 +181,7 @@ def generate_3hp_logic_panel(module_slug, title_text, out_pair1_labels, out_pair
     print(f"Rendered verification bitmap with ports: {verify_png}")
 
 def main():
-    generate_3hp_logic_panel("Xorxy", "XOR XY", ["XOR X", "XOR Y"], ["XNOR X", "XNOR Y"])
+    generate_3hp_logic_panel("Xorxy", ['XOR', 'XY'], ["XOR X", "XOR Y"], ["XNOR X", "XNOR Y"])
 
 if __name__ == '__main__':
     main()

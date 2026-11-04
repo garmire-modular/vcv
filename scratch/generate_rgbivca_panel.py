@@ -87,23 +87,27 @@ def main():
     panel_w = 15.24
     panel_h = 128.50
 
-    # Title "RGB/I/VCA" in D-DIN-Bold (16pt, scale 0.005644, baseline 7.620)
-    base_title_scale = 16.0 * 25.4 / (72.0 * 1000.0)
+    # Title "RGBI" and "VCA" in D-DIN-Bold (11.5pt, scale 0.004057, baselines 4.80 and 8.40)
+    title_lines = ["RGBI", "VCA"]
+    base_title_scale = 11.5 * 25.4 / (72.0 * 1000.0)
     cmap = ddin_bold.getBestCmap()
     hmtx = ddin_bold['hmtx']
-    raw_w = sum(hmtx[cmap[ord(c)]][0] * base_title_scale if ord(c) in cmap else 500 * base_title_scale for c in "RGB/I/VCA")
     title_scale = base_title_scale
-    if raw_w > (panel_w - 3.0):
-        title_scale = base_title_scale * ((panel_w - 3.0) / raw_w)
+    for t_line in title_lines:
+        raw_w = sum(hmtx[cmap[ord(c)]][0] * base_title_scale if ord(c) in cmap else 500 * base_title_scale for c in t_line)
+        if raw_w > (panel_w - 3.0):
+            title_scale = min(title_scale, base_title_scale * ((panel_w - 3.0) / raw_w))
 
     title_block = [
-        '  <!-- Label: "RGB/I/VCA" (D-DIN-Bold) -->',
-        render_qs_text(ddin_bold, "RGB/I/VCA", panel_w / 2.0, 7.620, title_scale, "#ffffff", "RGB/I/VCA")
+        '  <!-- Label: "RGBI" (D-DIN-Bold) -->',
+        render_qs_text(ddin_bold, "RGBI", panel_w / 2.0, 4.800, title_scale, "#ffffff", "RGBI"),
+        '  <!-- Label: "VCA" (D-DIN-Bold) -->',
+        render_qs_text(ddin_bold, "VCA", panel_w / 2.0, 8.400, title_scale, "#ffffff", "VCA")
     ]
 
     version_block = [
         '  <!-- Label: "v2.0.0" -->',
-        render_qs_text(qs_reg_font, "v2.0.0", panel_w / 2.0, 10.414, 0.001600, "#aaaaaa", "v2.0.0")
+        render_qs_text(qs_reg_font, "v2.0.0", panel_w / 2.0, 10.600, 0.001600, "#aaaaaa", "v2.0.0")
     ]
 
     svg_parts = [
