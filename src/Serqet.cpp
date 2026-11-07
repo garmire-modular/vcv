@@ -3,10 +3,14 @@
 #include <cmath>
 #include <algorithm>
 #include <chrono>
+#ifndef METAMODULE
 #include <GL/glew.h>
 #include <nanovg.h>
 #include <nanovg_gl.h>
 #include <GLFW/glfw3.h>
+#else
+#include <nanovg.h>
+#endif
 
 // ─────────────────────────────────────────────────────────────────────
 //  SERQET — Dual-Preview CRT Oscilloscope & Video Crossfader (28 HP)
@@ -435,7 +439,11 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 	// Precomputed vignette factor per coordinate
 	std::vector<float> vignetteTable;
 
+#ifndef METAMODULE
 	GLuint glTexId = 0;
+#else
+	uint32_t glTexId = 0;
+#endif
 	int nvgImageId = -1;
 	NVGcontext* boundVg = nullptr;
 
@@ -476,12 +484,14 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 	}
 
 	~SerqetCrtWidget() {
+#ifndef METAMODULE
 		if (glTexId != 0) {
 			if (glfwGetCurrentContext()) {
 				glDeleteTextures(1, &glTexId);
 			}
 			glTexId = 0;
 		}
+#endif
 		nvgImageId = -1;
 		boundVg = nullptr;
 	}
@@ -888,6 +898,7 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		// 1. Scissor clip to the 66x66 mm CRT scope screen area with 1.5mm corner radius
 		nvgIntersectScissor(args.vg, 0.0f, 0.0f, w, h);
 
+#ifndef METAMODULE
 		// 2. Interleaved 30 Hz updates per scope (~32ms) to ensure rock-solid 60 FPS UI performance without CPU spikes
 		auto now = std::chrono::steady_clock::now();
 		float elapsedMs = std::chrono::duration<float, std::milli>(now - lastRenderTime).count();
@@ -930,6 +941,7 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 			nvgFillPaint(args.vg, imgPaint);
 			nvgFill(args.vg);
 		}
+#endif
 
 		// 4. Draw Vector Graticule Grid (if opacity > 0)
 		if (gratAlpha > 0.005f) {

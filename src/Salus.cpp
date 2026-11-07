@@ -644,6 +644,7 @@ struct SalusStatusLed : Widget {
 			nvgFillPaint(args.vg, imgPaint);
 			nvgFill(args.vg);
 			nvgRestore(args.vg);
+#ifndef METAMODULE
 		} else if (activeSvg && activeSvg->handle) {
 			nvgSave(args.vg);
 			float sx = box.size.x / activeSvg->handle->width;
@@ -651,6 +652,7 @@ struct SalusStatusLed : Widget {
 			nvgScale(args.vg, sx, sy);
 			svgDraw(args.vg, activeSvg->handle);
 			nvgRestore(args.vg);
+#endif
 		}
 	}
 };
@@ -695,11 +697,13 @@ struct SalusTripLed : Widget {
 				nvgRect(args.vg, 0.0f, 0.0f, box.size.x, box.size.y);
 				nvgFillPaint(args.vg, redPaint);
 				nvgFill(args.vg);
+#ifndef METAMODULE
 			} else if (svgRed && svgRed->handle) {
 				float sx = box.size.x / svgRed->handle->width;
 				float sy = box.size.y / svgRed->handle->height;
 				nvgScale(args.vg, sx, sy);
 				svgDraw(args.vg, svgRed->handle);
+#endif
 			}
 			nvgRestore(args.vg);
 		}

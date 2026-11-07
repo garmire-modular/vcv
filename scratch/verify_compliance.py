@@ -155,6 +155,42 @@ def check_plugin_json(filepath):
         errors.append(f"Failed to parse plugin.json: {e}")
     return errors, warnings
 
+def check_metamodule_synchrony():
+    """Verify that all modules in plugin.json / Makefile have corresponding res/*.svg and metamodule/assets/*.png."""
+    errors = []
+    warnings = []
+    
+    # 1. Check Makefile sources exist on disk
+    if os.path.exists("Makefile"):
+        with open("Makefile", "r", encoding="utf-8") as f:
+            for line in f:
+                m = re.match(r"^SOURCES\s*\+=\s*(src/.*\.cpp)", line.strip())
+                if m:
+                    src_file = m.group(1).replace('\\', '/')
+                    if not os.path.exists(src_file):
+                        errors.append(f"Makefile references missing source file: '{src_file}'")
+
+    # 2. Check plugin.json modules have SVG and MetaModule PNG assets
+    if os.path.exists("plugin.json"):
+        try:
+            import json
+            with open("plugin.json", "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for mod in data.get("modules", []):
+                slug = mod.get("slug")
+                if not slug:
+                    continue
+                svg_path = f"res/{slug}.svg"
+                png_path = f"metamodule/assets/{slug}.png"
+                if not os.path.exists(svg_path):
+                    errors.append(f"Module '{slug}' missing vector faceplate: '{svg_path}'")
+                if not os.path.exists(png_path):
+                    errors.append(f"Module '{slug}' missing MetaModule hardware asset: '{png_path}'. Run 'python scratch/render_metamodule_assets.py {slug}'")
+        except Exception as e:
+            errors.append(f"Failed to verify MetaModule asset synchrony: {e}")
+
+    return errors, warnings
+
 def main():
     parser = argparse.ArgumentParser(description="Verify codebase compliance with AGENTS.md rules.")
     parser.add_argument("--all", action="store_true", help="Scan all project files instead of just modified files.")
@@ -215,6 +251,17 @@ def main():
             for warn in warnings:
                 print(f"  [WARN]  {warn}")
                 total_warnings += 1
+
+    # Always verify MetaModule asset and build synchrony
+    mm_errors, mm_warnings = check_metamodule_synchrony()
+    if mm_errors or mm_warnings:
+        print("\n[METAMODULE SYNCHRONY]")
+        for err in mm_errors:
+            print(f"  [ERROR] {err}")
+            total_errors += 1
+        for warn in mm_warnings:
+            print(f"  [WARN]  {warn}")
+            total_warnings += 1
 
     print("\n-------------------------------------------------------")
     if total_errors > 0:

@@ -19,59 +19,18 @@ project(Garmire VERSION 2.25.0 DESCRIPTION "Garmire Laser Trajectory & Color Con
 
 add_library(Garmire STATIC)
 
-# ── Source files ─────────────────────────────────────────────────────
+# ── Source files (dynamically synchronized from Makefile) ────────────
 set(SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/..)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${SOURCE_DIR}/Makefile")
 
-target_sources(Garmire PRIVATE
-    ${SOURCE_DIR}/src/plugin.cpp
-    ${SOURCE_DIR}/src/Chromance.cpp
-    ${SOURCE_DIR}/src/Ants.cpp
-    ${SOURCE_DIR}/src/HsvRgb.cpp
-    ${SOURCE_DIR}/src/OklchRgb.cpp
-    ${SOURCE_DIR}/src/Rgb.cpp
-    ${SOURCE_DIR}/src/Instability.cpp
-    ${SOURCE_DIR}/src/Scale.cpp
-    ${SOURCE_DIR}/src/Position.cpp
-    ${SOURCE_DIR}/src/Rotate.cpp
-    ${SOURCE_DIR}/src/Spin.cpp
-    ${SOURCE_DIR}/src/Fold.cpp
-    ${SOURCE_DIR}/src/Stretch.cpp
-    ${SOURCE_DIR}/src/Shear.cpp
-    ${SOURCE_DIR}/src/Smooth.cpp
-    ${SOURCE_DIR}/src/Wiggle.cpp
-    ${SOURCE_DIR}/src/Crest.cpp
-    ${SOURCE_DIR}/src/Quake.cpp
-    ${SOURCE_DIR}/src/Steps.cpp
-    ${SOURCE_DIR}/src/Copycat.cpp
-    ${SOURCE_DIR}/src/Petals.cpp
-    ${SOURCE_DIR}/src/Knots.cpp
-    ${SOURCE_DIR}/src/Vortex.cpp
-    ${SOURCE_DIR}/src/Trough.cpp
-    ${SOURCE_DIR}/src/Switch.cpp
-    ${SOURCE_DIR}/src/Route.cpp
-    ${SOURCE_DIR}/src/SumMult.cpp
-    ${SOURCE_DIR}/src/SwitchXL.cpp
-    ${SOURCE_DIR}/src/RouteXL.cpp
-    ${SOURCE_DIR}/src/SumMixXL.cpp
-    ${SOURCE_DIR}/src/Andxy.cpp
-    ${SOURCE_DIR}/src/Orxy.cpp
-    ${SOURCE_DIR}/src/Xorxy.cpp
-    ${SOURCE_DIR}/src/ChopXL.cpp
-    ${SOURCE_DIR}/src/Rescale.cpp
-    ${SOURCE_DIR}/src/Bleed.cpp
-    ${SOURCE_DIR}/src/Lisa.cpp
-    ${SOURCE_DIR}/src/Rose.cpp
-    ${SOURCE_DIR}/src/Eunice.cpp
-    ${SOURCE_DIR}/src/SteppedSlew.cpp
-    ${SOURCE_DIR}/src/Bitterroot.cpp
-    ${SOURCE_DIR}/src/RgbIVca.cpp
-    ${SOURCE_DIR}/src/Ampara.cpp
-    ${SOURCE_DIR}/src/Georgia.cpp
-    ${SOURCE_DIR}/src/Aion.cpp
-    ${SOURCE_DIR}/src/Aionidion.cpp
-    ${SOURCE_DIR}/src/Aiona.cpp
-    ${SOURCE_DIR}/src/Beatrice.cpp
-)
+file(STRINGS "${SOURCE_DIR}/Makefile" MAKEFILE_SOURCES REGEX "^SOURCES \\+= src/.*\\.cpp$")
+set(GARMIRE_SOURCES)
+foreach(LINE ${MAKEFILE_SOURCES})
+    string(REGEX REPLACE "^SOURCES \\+= src/(.*\\.cpp)$" "\\1" SRC_FILE "${LINE}")
+    list(APPEND GARMIRE_SOURCES "${SOURCE_DIR}/src/${SRC_FILE}")
+endforeach()
+
+target_sources(Garmire PRIVATE ${GARMIRE_SOURCES})
 
 # ── Include paths ────────────────────────────────────────────────────
 target_include_directories(Garmire PRIVATE

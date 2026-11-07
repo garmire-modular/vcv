@@ -76,6 +76,7 @@ This script automatically enforces:
 - **Sentence Case**: All `configParam()`, `configInput()`, and `configOutput()` tooltips use sentence case.
 - **SVG Integrity**: Zero `<text>` tags (all fonts must be cubic Bezier paths) and zero `<style>` blocks (Illustrator export fix).
 - **Taxonomy**: Valid functional class assigned in `plugin.json`.
+- **MetaModule Synchrony**: All modules in `plugin.json` and `Makefile` must have valid `res/<Module>.svg` faceplates and 240px `metamodule/assets/<Module>.png` hardware assets (rendered via `python scratch/render_metamodule_assets.py`). `metamodule/CMakeLists.txt` dynamically reads sources from `Makefile`.
 
 If any `[ERROR]` is flagged, it must be resolved prior to committing or installing.
 
@@ -105,6 +106,6 @@ Tag the confirmed class in `plugin.json` and consult the class-specific directiv
 | Class | Scope | Specialized Directives File |
 | :--- | :--- | :--- |
 | **Generate** | Oscillators, chaos engines, sources, pattern generators | [docs/classes/generate.md](file:///g:/dupe/work/garmire/docs/classes/generate.md) *(Mandates 6 output voltage standards, right-click menu, JSON persistence)* |
-| **Transform / Effect** | Waveshapers, filters, slew, warpers, math, effects | [docs/classes/transform.md](file:///g:/dupe/work/garmire/docs/classes/transform.md) or [docs/classes/effect.md](file:///g:/dupe/work/garmire/docs/classes/effect.md) |
+| **Transform / Effect** | Waveshapers, filters, slew, warpers, math, effects | [docs/classes/transform.md](file:///g:/dupe/work/garmire/docs/classes/transform.md) |
 | **Utility** | Mixers, attenuverters, switches, mutes, routing, splitters | [docs/classes/utility.md](file:///g:/dupe/work/garmire/docs/classes/utility.md) |
 | **Control** | Envelopes, CV sources, sequencers, macro controllers, LFOs | [docs/classes/control.md](file:///g:/dupe/work/garmire/docs/classes/control.md) |
