@@ -157,8 +157,14 @@ struct Eunice : Module {
 		engine.slewProfile = eunice::SLEW_LINEAR;
 	}
 
+	void onSampleRateChange(const SampleRateChangeEvent& e) override {
+		engine.setSampleRate(e.sampleRate);
+	}
+
 	void onSampleRateChange() override {
-		engine.setSampleRate(APP->engine->getSampleRate());
+		if (APP && APP->engine) {
+			engine.setSampleRate(APP->engine->getSampleRate());
+		}
 	}
 
 	json_t* dataToJson() override {

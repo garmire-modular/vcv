@@ -1,82 +1,93 @@
 #include "plugin.hpp"
+#include <cstdio>
 
 Plugin* pluginInstance;
 
 void init(Plugin* p) {
 	pluginInstance = p;
+	printf("[Garmire] === init() started ===\n");
+
+	#define REGISTER_MODEL(m, name) \
+		do { \
+			printf("[Garmire] Registering " name "...\n"); \
+			p->addModel(m); \
+		} while (0)
 
 	// Register modules
-	p->addModel(modelChromance);
-	p->addModel(modelAnts);
-	p->addModel(modelHsvRgb);
-	p->addModel(modelOklchRgb);
-	p->addModel(modelRgb);
-	p->addModel(modelInstability);
-	p->addModel(modelScale);
-	p->addModel(modelPosition);
-	p->addModel(modelRotate);
-	p->addModel(modelSpin);
-	p->addModel(modelFold);
-	p->addModel(modelStretch);
-	p->addModel(modelShear);
-	p->addModel(modelSmooth);
-	p->addModel(modelWiggle);
-	p->addModel(modelCrest);
-	p->addModel(modelQuake);
-	p->addModel(modelSteps);
-	p->addModel(modelCopycat);
-	p->addModel(modelPetals);
-	p->addModel(modelKnots);
-	p->addModel(modelVortex);
-	p->addModel(modelTrough);
-	p->addModel(modelSwitch);
-	p->addModel(modelRoute);
-	p->addModel(modelSumMult);
-	p->addModel(modelSwitchXL);
-	p->addModel(modelRouteXL);
-	p->addModel(modelSumMixXL);
-	p->addModel(modelAndxy);
-	p->addModel(modelOrxy);
-	p->addModel(modelXorxy);
-	p->addModel(modelChopXL);
-	p->addModel(modelRescale);
-	p->addModel(modelBleed);
-	p->addModel(modelLisa);
-	p->addModel(modelDaisy);
-	p->addModel(modelPolly);
-	p->addModel(modelCirce);
-	p->addModel(modelMaude);
-	p->addModel(modelEunice);
-	p->addModel(modelSteppedSlew);
-	p->addModel(modelRgbIVca);
-	p->addModel(modelMatrix3x3);
-	p->addModel(modelBitMorton);
-	p->addModel(modelBitReverse);
-	p->addModel(modelBitTranspose);
-	p->addModel(modelBitValanche);
-	p->addModel(modelBitPermute);
-	p->addModel(modelBitGrayBin);
-	p->addModel(modelBitGalois);
-	p->addModel(modelBitomata);
-	p->addModel(modelBitHamming);
-	p->addModel(modelAmpara);
-	p->addModel(modelGeorgia);
-	p->addModel(modelPanopia);
-	p->addModel(modelPanopticon);
-	p->addModel(modelCrissy);
-	p->addModel(modelZiggy);
-	p->addModel(modelAnnette);
-	p->addModel(modelEris);
-	p->addModel(modelAion);
-	p->addModel(modelAionidion);
-	p->addModel(modelAiona);
-	p->addModel(modelBeatrice);
-	p->addModel(modelReverie);
-	p->addModel(modelOctavia);
-	p->addModel(modelRandi);
-	p->addModel(modelGrainne);
-	p->addModel(modelLain);
-	p->addModel(modelSalus);
-	p->addModel(modelSerqet);
+	REGISTER_MODEL(modelChromance, "Chromance");
+	REGISTER_MODEL(modelAnts, "Ants");
+	REGISTER_MODEL(modelHsvRgb, "HsvRgb");
+	REGISTER_MODEL(modelOklchRgb, "OklchRgb");
+	REGISTER_MODEL(modelRgb, "Rgb");
+	REGISTER_MODEL(modelInstability, "Instability");
+	REGISTER_MODEL(modelScale, "Scale");
+	REGISTER_MODEL(modelPosition, "Position");
+	REGISTER_MODEL(modelRotate, "Rotate");
+	REGISTER_MODEL(modelSpin, "Spin");
+	REGISTER_MODEL(modelFold, "Fold");
+	REGISTER_MODEL(modelStretch, "Stretch");
+	REGISTER_MODEL(modelShear, "Shear");
+	REGISTER_MODEL(modelSmooth, "Smooth");
+	REGISTER_MODEL(modelWiggle, "Wiggle");
+	REGISTER_MODEL(modelCrest, "Crest");
+	REGISTER_MODEL(modelQuake, "Quake");
+	REGISTER_MODEL(modelSteps, "Steps");
+	REGISTER_MODEL(modelCopycat, "Copycat");
+	REGISTER_MODEL(modelPetals, "Petals");
+	REGISTER_MODEL(modelKnots, "Knots");
+	REGISTER_MODEL(modelVortex, "Vortex");
+	REGISTER_MODEL(modelTrough, "Trough");
+	REGISTER_MODEL(modelSwitch, "Switch");
+	REGISTER_MODEL(modelRoute, "Route");
+	REGISTER_MODEL(modelSumMult, "SumMult");
+	REGISTER_MODEL(modelSwitchXL, "SwitchXL");
+	REGISTER_MODEL(modelRouteXL, "RouteXL");
+	REGISTER_MODEL(modelSumMixXL, "SumMixXL");
+	REGISTER_MODEL(modelAndxy, "Andxy");
+	REGISTER_MODEL(modelOrxy, "Orxy");
+	REGISTER_MODEL(modelXorxy, "Xorxy");
+	REGISTER_MODEL(modelChopXL, "ChopXL");
+	REGISTER_MODEL(modelRescale, "Rescale");
+	REGISTER_MODEL(modelBleed, "Bleed");
+	REGISTER_MODEL(modelLisa, "Lisa");
+	REGISTER_MODEL(modelDaisy, "Daisy");
+	REGISTER_MODEL(modelPolly, "Polly");
+	REGISTER_MODEL(modelCirce, "Circe");
+	REGISTER_MODEL(modelMaude, "Maude");
+	REGISTER_MODEL(modelEunice, "Eunice");
+	REGISTER_MODEL(modelSteppedSlew, "SteppedSlew");
+	REGISTER_MODEL(modelRgbIVca, "RgbIVca");
+	REGISTER_MODEL(modelMatrix3x3, "Matrix3x3");
+	REGISTER_MODEL(modelBitMorton, "BitMorton");
+	REGISTER_MODEL(modelBitReverse, "BitReverse");
+	REGISTER_MODEL(modelBitTranspose, "BitTranspose");
+	REGISTER_MODEL(modelBitValanche, "BitValanche");
+	REGISTER_MODEL(modelBitPermute, "BitPermute");
+	REGISTER_MODEL(modelBitGrayBin, "BitGrayBin");
+	REGISTER_MODEL(modelBitGalois, "BitGalois");
+	REGISTER_MODEL(modelBitomata, "Bitomata");
+	REGISTER_MODEL(modelBitHamming, "BitHamming");
+	REGISTER_MODEL(modelAmpara, "Ampara");
+	REGISTER_MODEL(modelGeorgia, "Georgia");
+	REGISTER_MODEL(modelPanopia, "Panopia");
+	REGISTER_MODEL(modelPanopticon, "Panopticon");
+	REGISTER_MODEL(modelCrissy, "Crissy");
+	REGISTER_MODEL(modelZiggy, "Ziggy");
+	REGISTER_MODEL(modelAnnette, "Annette");
+	REGISTER_MODEL(modelEris, "Eris");
+	REGISTER_MODEL(modelAion, "Aion");
+	REGISTER_MODEL(modelAionidion, "Aionidion");
+	REGISTER_MODEL(modelAiona, "Aiona");
+	REGISTER_MODEL(modelBeatrice, "Beatrice");
+	REGISTER_MODEL(modelReverie, "Reverie");
+	REGISTER_MODEL(modelOctavia, "Octavia");
+	REGISTER_MODEL(modelRandi, "Randi");
+	REGISTER_MODEL(modelGrainne, "Grainne");
+	REGISTER_MODEL(modelLain, "Lain");
+	REGISTER_MODEL(modelSalus, "Salus");
+	REGISTER_MODEL(modelSerqet, "Serqet");
+
+	#undef REGISTER_MODEL
+	printf("[Garmire] === init() completed successfully! ===\n");
 }
 

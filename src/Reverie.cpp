@@ -1093,11 +1093,18 @@ struct PresetGridWidget : OpaqueWidget {
         float btnSz = mm2px(BTN_SIZE_MM);
         float halfSz = btnSz * 0.5f;
 
-        std::shared_ptr<window::Image> imgEmpty = APP->window->loadImage(asset::plugin(pluginInstance, "res/preset-empty.png"));
-        std::shared_ptr<window::Image> imgRec   = APP->window->loadImage(asset::plugin(pluginInstance, "res/preset-recording.png"));
-        std::shared_ptr<window::Image> imgStore = APP->window->loadImage(asset::plugin(pluginInstance, "res/preset-stored.png"));
-        std::shared_ptr<window::Image> imgSel   = APP->window->loadImage(asset::plugin(pluginInstance, "res/preset-selected.png"));
-        std::shared_ptr<window::Font> font = APP->window->loadFont(asset::plugin(pluginInstance, "res/D-DINCondensed-Bold.otf"));
+        std::shared_ptr<window::Image> imgEmpty;
+        std::shared_ptr<window::Image> imgRec;
+        std::shared_ptr<window::Image> imgStore;
+        std::shared_ptr<window::Image> imgSel;
+        std::shared_ptr<window::Font> font;
+        if (APP && APP->window) {
+            imgEmpty = APP->window->loadImage(asset::plugin(pluginInstance, "res/preset-empty.png"));
+            imgRec   = APP->window->loadImage(asset::plugin(pluginInstance, "res/preset-recording.png"));
+            imgStore = APP->window->loadImage(asset::plugin(pluginInstance, "res/preset-stored.png"));
+            imgSel   = APP->window->loadImage(asset::plugin(pluginInstance, "res/preset-selected.png"));
+            font     = APP->window->loadFont(asset::plugin(pluginInstance, "res/D-DINCondensed-Bold.otf"));
+        }
 
         for (int r = 0; r < 4; ++r) {
             for (int c = 0; c < 4; ++c) {
