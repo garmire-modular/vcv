@@ -1205,8 +1205,9 @@ struct SerqetWidget : ModuleWidget {
 				break;
 		}
 		panel->setBackground(Svg::load(path));
-		box.size = panel->box.size;
+		printf("[SerqetWidget] Background loaded\n");
 		setPanel(panel);
+		printf("[SerqetWidget] Panel set\n");
 
 		// ── Column Coordinates (mm) ──
 		const float col_x[11] = {
@@ -1232,14 +1233,21 @@ struct SerqetWidget : ModuleWidget {
 		// CH 1 button at Center X = 7.00 mm, CH 2 button at Center X = 67.00 mm
 		addParam(createParamCentered<SerqetButton>(mm2px(Vec(7.00f, 80.00f)), module, Serqet::CUE_CH1_PARAM));
 		addParam(createParamCentered<SerqetButton>(mm2px(Vec(67.00f, 80.00f)), module, Serqet::CUE_CH2_PARAM));
+		printf("[SerqetWidget] Cue buttons added\n");
 
+#ifndef METAMODULE
 		// ── Horizontal Crossfader Slider (Center X = 71.12 mm, Center Y = 88.50 mm, Travel = 108.24 mm) ──
 		addParam(createParamCentered<SerqetFader>(mm2px(Vec(71.12f, 88.50f)), module, Serqet::CROSSFADE_PARAM));
+#else
+		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(71.12f, 88.50f)), module, Serqet::CROSSFADE_PARAM));
+#endif
+		printf("[SerqetWidget] Crossfader added\n");
 
 		// ── Crossfader Bumper Buttons (8x8mm, Center Y = 88.50 mm) ──
 		// Ch 1 bumper at Center X = 9.00 mm, Ch 2 bumper at Center X = 133.24 mm
 		addParam(createParamCentered<SerqetBumperButton>(mm2px(Vec(9.00f, 88.50f)), module, Serqet::BUMPER_CH1_PARAM));
 		addParam(createParamCentered<SerqetBumperButton>(mm2px(Vec(133.24f, 88.50f)), module, Serqet::BUMPER_CH2_PARAM));
+		printf("[SerqetWidget] Bumper buttons added\n");
 
 		// ── Row 1 (Center Y = 104.00 mm) ──
 		// CH 1 Inputs (X, Y, R, G, B)
@@ -1256,6 +1264,7 @@ struct SerqetWidget : ModuleWidget {
 		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col_x[8], 104.00f)), module, Serqet::BEAM_PARAM));
 		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col_x[9], 104.00f)), module, Serqet::DECAY_PARAM));
 		addParam(createParamCentered<GarmireTrimpot>(mm2px(Vec(col_x[10], 104.00f)), module, Serqet::BLOOM_PARAM));
+		printf("[SerqetWidget] Row 1 added\n");
 
 		// ── Row 2 (Center Y = 117.00 mm) ──
 		// CH 2 Inputs (X, Y, R, G, B)
@@ -1274,6 +1283,7 @@ struct SerqetWidget : ModuleWidget {
 		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col_x[8], 117.00f)), module, Serqet::R_OUTPUT));
 		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col_x[9], 117.00f)), module, Serqet::G_OUTPUT));
 		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col_x[10], 117.00f)), module, Serqet::B_OUTPUT));
+		printf("[SerqetWidget] Row 2 added\n");
 		printf("[SerqetWidget] Constructor end\n");
 	}
 };
