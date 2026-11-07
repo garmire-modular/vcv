@@ -25,8 +25,24 @@ namespace SerqetConstants {
 	static constexpr size_t BUFFER_SIZE = 16384;
 #else
 	static constexpr size_t BUFFER_SIZE = 64;
+	static constexpr size_t MM_RING_SIZE = 128;
 #endif
 }
+
+#ifdef METAMODULE
+struct SerqetScopeRingBuffer {
+	float bufX[SerqetConstants::MM_RING_SIZE] = {};
+	float bufY[SerqetConstants::MM_RING_SIZE] = {};
+	uint32_t writeHead = 0;
+
+	inline void write(float x, float y) {
+		uint32_t idx = writeHead & (SerqetConstants::MM_RING_SIZE - 1);
+		bufX[idx] = x;
+		bufY[idx] = y;
+		writeHead++;
+	}
+};
+#endif
 
 struct SerqetSample {
 	float x = 0.0f;
@@ -152,6 +168,15 @@ struct Serqet : Module {
 	// Dual ring buffers for CRT displays
 	SerqetRingBuffer mainBuffer;
 	SerqetRingBuffer cueBuffer;
+
+#ifdef METAMODULE
+	SerqetScopeRingBuffer mmMainRing;
+	SerqetScopeRingBuffer mmCueRing;
+	int mmDecimateCounter = 0;
+	float mmLastR[2] = {0.f, 0.f};
+	float mmLastG[2] = {0.f, 0.f};
+	float mmLastB[2] = {0.f, 0.f};
+#endif
 
 	Serqet() {
 		printf("[Serqet] Module constructor start\n");
@@ -373,6 +398,23 @@ struct Serqet : Module {
 					cueBuffer.write(x1 * 0.2f, y1 * 0.2f, 1.0f, r1 * 0.1f, g1 * 0.1f, b1 * 0.1f);
 				} else {
 					cueBuffer.write(x2 * 0.2f, y2 * 0.2f, 1.0f, r2 * 0.1f, g2 * 0.1f, b2 * 0.1f);
+				}
+			}
+#else
+			// Downsample to 128-point oscilloscope buffer for MetaModule live preview
+			if (c == 0) {
+				if (++mmDecimateCounter >= 16) {
+					mmDecimateCounter = 0;
+					mmMainRing.write(mx, my);
+					if (cueSource == 0) {
+						mmCueRing.write(x1, y1);
+					} else {
+						mmCueRing.write(x2, y2);
+					}
+					mmLastR[0] = mr; mmLastG[0] = mg; mmLastB[0] = mb;
+					mmLastR[1] = (cueSource == 0 ? r1 : r2);
+					mmLastG[1] = (cueSource == 0 ? g1 : g2);
+					mmLastB[1] = (cueSource == 0 ? b1 : b2);
 				}
 			}
 #endif
@@ -1033,6 +1075,132 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 };
 #endif // !METAMODULE
 
+#ifdef METAMODULE
+// ─────────────────────────────────────────────────────────────────────
+//  SerqetMetaModuleScopeWidget — Live Vector CRT Scope for MetaModule
+// ─────────────────────────────────────────────────────────────────────
+
+struct SerqetMetaModuleScopeWidget : widget::TransparentWidget {
+	Serqet* module = nullptr;
+	bool isMainOut = true;
+
+	SerqetMetaModuleScopeWidget(Serqet* m, bool mainOut) : module(m), isMainOut(mainOut) {
+		box.size = mm2px(math::Vec(66.0f, 66.0f));
+	}
+
+	void draw(const DrawArgs& args) override {
+		if (!args.vg) return;
+		float w = box.size.x;
+		float h = box.size.y;
+		if (w <= 0.0f || h <= 0.0f) return;
+
+		nvgSave(args.vg);
+
+		// 1. Dark CRT Faceplate
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.0f, 0.0f, w, h, mm2px(1.5f));
+		nvgFillColor(args.vg, nvgRGBA(0x0a, 0x12, 0x08, 0xff));
+		nvgFill(args.vg);
+
+		// 2. Graticule Reticle & Border
+		float cx = w * 0.5f;
+		float cy = h * 0.5f;
+		nvgBeginPath(args.vg);
+		nvgMoveTo(args.vg, mm2px(2.0f), cy);
+		nvgLineTo(args.vg, w - mm2px(2.0f), cy);
+		nvgMoveTo(args.vg, cx, mm2px(2.0f));
+		nvgLineTo(args.vg, cx, h - mm2px(2.0f));
+		nvgRoundedRect(args.vg, 0.5f, 0.5f, w - 1.0f, h - 1.0f, mm2px(1.5f));
+		nvgStrokeWidth(args.vg, 1.0f);
+		if (isMainOut) {
+			nvgStrokeColor(args.vg, nvgRGBA(0x00, 0x66, 0x33, 0xff));
+		} else {
+			nvgStrokeColor(args.vg, nvgRGBA(0x66, 0x44, 0x00, 0xff));
+		}
+		nvgStroke(args.vg);
+
+		// 3. Live Waveform / Lissajous Vector Plot
+		if (module) {
+			const auto& ring = isMainOut ? module->mmMainRing : module->mmCueRing;
+			uint32_t head = ring.writeHead;
+			static constexpr size_t N = SerqetConstants::MM_RING_SIZE;
+
+			bool ch1X = module->inputs[Serqet::CH1_X_INPUT].isConnected();
+			bool ch1Y = module->inputs[Serqet::CH1_Y_INPUT].isConnected();
+			bool ch2X = module->inputs[Serqet::CH2_X_INPUT].isConnected();
+			bool ch2Y = module->inputs[Serqet::CH2_Y_INPUT].isConnected();
+
+			bool isXConn = isMainOut ? (ch1X || ch2X) : (module->cueSource == 0 ? ch1X : ch2X);
+			bool isYConn = isMainOut ? (ch1Y || ch2Y) : (module->cueSource == 0 ? ch1Y : ch2Y);
+
+			if (!isXConn && !isYConn) {
+				// Idle resting phosphor spot at center
+				nvgBeginPath(args.vg);
+				nvgCircle(args.vg, cx, cy, 1.5f);
+				nvgFillColor(args.vg, isMainOut ? nvgRGBA(0x00, 0xbb, 0x44, 0x88) : nvgRGBA(0xcc, 0x88, 0x00, 0x88));
+				nvgFill(args.vg);
+			} else {
+				NVGcolor traceColor;
+				float r = module->mmLastR[isMainOut ? 0 : 1];
+				float g = module->mmLastG[isMainOut ? 0 : 1];
+				float b = module->mmLastB[isMainOut ? 0 : 1];
+				float maxRgb = std::max(r, std::max(g, b));
+				if (maxRgb > 0.05f) {
+					float invMax = 1.0f / maxRgb;
+					uint8_t cr = (uint8_t)clamp(r * invMax * 255.0f, 40.0f, 255.0f);
+					uint8_t cg = (uint8_t)clamp(g * invMax * 255.0f, 40.0f, 255.0f);
+					uint8_t cb = (uint8_t)clamp(b * invMax * 255.0f, 40.0f, 255.0f);
+					traceColor = nvgRGBA(cr, cg, cb, 0xff);
+				} else {
+					traceColor = isMainOut ? nvgRGBA(0x00, 0xff, 0x66, 0xff) : nvgRGBA(0xff, 0xb0, 0x00, 0xff);
+				}
+
+				nvgBeginPath(args.vg);
+				nvgLineCap(args.vg, NVG_ROUND);
+				nvgLineJoin(args.vg, NVG_ROUND);
+				bool first = true;
+				float margin = mm2px(3.0f);
+				float plotW = w - 2.0f * margin;
+				float plotH = h - 2.0f * margin;
+
+				for (size_t i = 0; i < N; ++i) {
+					size_t idx = (head - N + i) & (N - 1);
+					float sampleX = ring.bufX[idx];
+					float sampleY = ring.bufY[idx];
+
+					float px, py;
+					if (isXConn || !isYConn) {
+						// XY Lissajous mode (+/-5V full scale)
+						px = margin + (sampleX * 0.1f + 0.5f) * plotW;
+						py = margin + (-sampleY * 0.1f + 0.5f) * plotH;
+					} else {
+						// Y-T oscilloscope sweep mode (when only Y is connected)
+						px = margin + ((float)i / (float)(N - 1)) * plotW;
+						py = margin + (-sampleY * 0.1f + 0.5f) * plotH;
+					}
+
+					px = clamp(px, margin, w - margin);
+					py = clamp(py, margin, h - margin);
+
+					if (first) {
+						nvgMoveTo(args.vg, px, py);
+						first = false;
+					} else {
+						nvgLineTo(args.vg, px, py);
+					}
+				}
+
+				nvgStrokeColor(args.vg, traceColor);
+				nvgStrokeWidth(args.vg, 1.5f);
+				nvgStroke(args.vg);
+			}
+		}
+
+		nvgRestore(args.vg);
+	}
+};
+#endif // METAMODULE
+
 // ─────────────────────────────────────────────────────────────────────
 //  Hardware Widgets
 // ─────────────────────────────────────────────────────────────────────
@@ -1225,6 +1393,15 @@ struct SerqetWidget : ModuleWidget {
 
 		// Scope 2: MAIN OUT (Center X = 105.24 mm, Center Y = 43.50 mm)
 		auto* scopeMain = new SerqetCrtWidget(module, true);
+		scopeMain->box.pos = mm2px(Vec(105.24f - 33.00f, 43.50f - 33.00f));
+		addChild(scopeMain);
+#else
+		// ── Dual CRT Scopes for MetaModule (Vector NanoVG) ──
+		auto* scopeCue = new SerqetMetaModuleScopeWidget(module, false);
+		scopeCue->box.pos = mm2px(Vec(37.00f - 33.00f, 43.50f - 33.00f));
+		addChild(scopeCue);
+
+		auto* scopeMain = new SerqetMetaModuleScopeWidget(module, true);
 		scopeMain->box.pos = mm2px(Vec(105.24f - 33.00f, 43.50f - 33.00f));
 		addChild(scopeMain);
 #endif
