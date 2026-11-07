@@ -14,14 +14,18 @@ endif()
 
 include(${METAMODULE_SDK_DIR}/plugin.cmake)
 
-# ── Project ──────────────────────────────────────────────────────────
-project(Garmire VERSION 2.25.0 DESCRIPTION "Garmire Laser Trajectory & Color Control System" LANGUAGES C CXX ASM)
+# ── Project & Version ────────────────────────────────────────────────
+set(SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/..)
+file(READ "${SOURCE_DIR}/plugin.json" PLUGIN_JSON_RAW)
+string(JSON PLUGIN_VERSION GET "${PLUGIN_JSON_RAW}" "version")
+
+project(Garmire VERSION ${PLUGIN_VERSION} DESCRIPTION "Garmire Laser Trajectory & Color Control System" LANGUAGES C CXX ASM)
 
 add_library(Garmire STATIC)
 
 # ── Source files (dynamically synchronized from Makefile) ────────────
-set(SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/..)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${SOURCE_DIR}/Makefile")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${SOURCE_DIR}/plugin.json")
 
 file(STRINGS "${SOURCE_DIR}/Makefile" MAKEFILE_SOURCES REGEX "^SOURCES \\+= src/.*\\.cpp$")
 set(GARMIRE_SOURCES)
@@ -44,4 +48,17 @@ create_plugin(
     PLUGIN_JSON     ${SOURCE_DIR}/plugin.json
     SOURCE_ASSETS   ${CMAKE_CURRENT_LIST_DIR}/assets
     DESTINATION     ${CMAKE_CURRENT_LIST_DIR}/output
+)
+
+# ── Release Bundle with Official Version Tag ─────────────────────────
+# Produces Garmire-v[version].mmplugin per 4ms specification:
+# https://github.com/4ms/metamodule-plugin-sdk/blob/main/docs/release.md#mmplugin-file-name
+add_custom_command(
+    TARGET plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_CURRENT_LIST_DIR}/output/Garmire.mmplugin
+        ${CMAKE_CURRENT_LIST_DIR}/output/Garmire-v${PLUGIN_VERSION}.mmplugin
+    COMMAND ${CMAKE_COMMAND} -E echo
+        "Created official release bundle: ${CMAKE_CURRENT_LIST_DIR}/output/Garmire-v${PLUGIN_VERSION}.mmplugin"
+    VERBATIM
 )
