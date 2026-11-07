@@ -50,15 +50,17 @@ create_plugin(
     DESTINATION     ${CMAKE_CURRENT_LIST_DIR}/output
 )
 
-# ── Release Bundle with Official Version Tag ─────────────────────────
+# ── Official Release Bundle ──────────────────────────────────────────
 # Produces Garmire-v[version].mmplugin per 4ms specification:
 # https://github.com/4ms/metamodule-plugin-sdk/blob/main/docs/release.md#mmplugin-file-name
 add_custom_command(
     TARGET plugin POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
+    COMMAND ${CMAKE_COMMAND} -E rm -f
+        ${CMAKE_CURRENT_LIST_DIR}/output/Garmire-v${PLUGIN_VERSION}.mmplugin
+    COMMAND ${CMAKE_COMMAND} -E rename
         ${CMAKE_CURRENT_LIST_DIR}/output/Garmire.mmplugin
         ${CMAKE_CURRENT_LIST_DIR}/output/Garmire-v${PLUGIN_VERSION}.mmplugin
     COMMAND ${CMAKE_COMMAND} -E echo
-        "Created official release bundle: ${CMAKE_CURRENT_LIST_DIR}/output/Garmire-v${PLUGIN_VERSION}.mmplugin"
+        "Official release bundle: ${CMAKE_CURRENT_LIST_DIR}/output/Garmire-v${PLUGIN_VERSION}.mmplugin"
     VERBATIM
 )
