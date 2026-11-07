@@ -154,6 +154,7 @@ struct Serqet : Module {
 	SerqetRingBuffer cueBuffer;
 
 	Serqet() {
+		printf("[Serqet] Module constructor start\n");
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		// CRT Emulation Attenuverter Knobs
@@ -1043,7 +1044,9 @@ struct GarmirePort : app::SvgPort {
 struct GarmireTrimpot : RoundKnob {
 	GarmireTrimpot() {
 		setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob.svg")));
-		bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob_bg.svg")));
+		if (bg) {
+			bg->setSvg(Svg::load(asset::plugin(pluginInstance, "res/tinyknob_bg.svg")));
+		}
 	}
 };
 
@@ -1067,9 +1070,11 @@ struct SerqetFader : app::SvgSlider {
 	SerqetFader() {
 		horizontal = true;
 		box.size = mm2px(math::Vec(108.24f, 10.00f));
-		fb->box.size = box.size;
+		if (fb) {
+			fb->box.size = box.size;
+		}
 		setHandleSvg(Svg::load(asset::plugin(pluginInstance, "res/crossfader.svg")));
-		float halfHandleX = handle->box.size.x / 2.0f;
+		float halfHandleX = (handle && handle->box.size.x > 0.0f) ? (handle->box.size.x / 2.0f) : mm2px(4.0f);
 		float cy = box.size.y / 2.0f;
 		setHandlePosCentered(
 			math::Vec(halfHandleX, cy),                  // minValue (0.0, Ch 1) at LEFT
@@ -1181,6 +1186,7 @@ struct SerqetWidget : ModuleWidget {
 	}
 
 	SerqetWidget(Serqet* module) {
+		printf("[SerqetWidget] Constructor start\n");
 		setModule(module);
 		panel = new SvgPanel();
 		Serqet::SkinTheme initTheme = module ? module->skinTheme : Serqet::THEME_MEDIUM;
@@ -1268,6 +1274,7 @@ struct SerqetWidget : ModuleWidget {
 		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col_x[8], 117.00f)), module, Serqet::R_OUTPUT));
 		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col_x[9], 117.00f)), module, Serqet::G_OUTPUT));
 		addOutput(createOutputCentered<GarmirePort>(mm2px(Vec(col_x[10], 117.00f)), module, Serqet::B_OUTPUT));
+		printf("[SerqetWidget] Constructor end\n");
 	}
 };
 

@@ -9,8 +9,12 @@ void init(Plugin* p) {
 
 	#define REGISTER_MODEL(m, name) \
 		do { \
-			printf("[Garmire] Registering " name "...\n"); \
-			p->addModel(m); \
+			printf("[Garmire] Registering " name " (model=%p)...\n", (void*)m); \
+			if (m) { \
+				p->addModel(m); \
+			} else { \
+				printf("[Garmire] ERROR: " name " model pointer is NULL!\n"); \
+			} \
 		} while (0)
 
 	// Register modules
