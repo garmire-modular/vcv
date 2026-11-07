@@ -21,7 +21,11 @@
 // ─────────────────────────────────────────────────────────────────────
 
 namespace SerqetConstants {
+#ifndef METAMODULE
 	static constexpr size_t BUFFER_SIZE = 16384;
+#else
+	static constexpr size_t BUFFER_SIZE = 64;
+#endif
 }
 
 struct SerqetSample {
@@ -358,6 +362,7 @@ struct Serqet : Module {
 			outputs[G_OUTPUT].setVoltage(mg, c);
 			outputs[B_OUTPUT].setVoltage(mb, c);
 
+#ifndef METAMODULE
 			// Write poly channel 0 to visual oscilloscopes
 			if (c == 0) {
 				// Normalize +/-5V to +/-1.0 coordinate space for oscilloscope display
@@ -369,10 +374,12 @@ struct Serqet : Module {
 					cueBuffer.write(x2 * 0.2f, y2 * 0.2f, 1.0f, r2 * 0.1f, g2 * 0.1f, b2 * 0.1f);
 				}
 			}
+#endif
 		}
 	}
 };
 
+#ifndef METAMODULE
 // ─────────────────────────────────────────────────────────────────────
 //  SerqetCrtWidget — Authentic Real-Time CRT Oscilloscope Display
 // ─────────────────────────────────────────────────────────────────────
@@ -1023,6 +1030,7 @@ struct SerqetCrtWidget : widget::TransparentWidget {
 		nvgRestore(args.vg);
 	}
 };
+#endif // !METAMODULE
 
 // ─────────────────────────────────────────────────────────────────────
 //  Hardware Widgets
@@ -1201,6 +1209,7 @@ struct SerqetWidget : ModuleWidget {
 			83.944f, 96.768f, 109.592f, 122.416f, 135.240f
 		};
 
+#ifndef METAMODULE
 		// ── Dual CRT Scopes (66 x 66 mm, Y center = 43.50 mm) ──
 		// Scope 1: CUE MONITOR (Center X = 37.00 mm, Center Y = 43.50 mm)
 		auto* scopeCue = new SerqetCrtWidget(module, false);
@@ -1211,6 +1220,7 @@ struct SerqetWidget : ModuleWidget {
 		auto* scopeMain = new SerqetCrtWidget(module, true);
 		scopeMain->box.pos = mm2px(Vec(105.24f - 33.00f, 43.50f - 33.00f));
 		addChild(scopeMain);
+#endif
 
 		// ── Cue Buttons (Center Y = 80.00 mm) ──
 		// CH 1 button at Center X = 7.00 mm, CH 2 button at Center X = 67.00 mm
