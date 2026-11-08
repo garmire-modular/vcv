@@ -54,7 +54,7 @@ struct Joy : Module {
 		RANGE_UNIPOLAR_1V = 0,
 		RANGE_BIPOLAR_1V,
 		RANGE_UNIPOLAR_5V,
-		RANGE_BIPOLAR_5V,
+		RANGE_BIPOLAR_5V,       // Strict default: ±5V
 		RANGE_UNIPOLAR_10V,
 		RANGE_BIPOLAR_10V,
 		NUM_VOLTAGE_RANGES
@@ -68,12 +68,12 @@ struct Joy : Module {
 	};
 	ZScaleMode zScaleMode = Z_SCALE_MATCH_RANGE;
 
-	enum FadeMode {
-		FADE_TOP = 0,    // Fades towards top (distant horizon dims)
-		FADE_BOTTOM = 1, // Fades towards bottom (foreground dims)
-		FADE_EDGES = 2   // Fades towards left/right edges (center is highest intensity)
+	enum DrawDirection {
+		DRAW_BOTTOM_TO_TOP = 0,    // Starts at foreground, draws up to horizon
+		DRAW_TOP_TO_BOTTOM = 1,    // Starts at top horizon, draws down to foreground
+		DRAW_CENTER_OUTWARD = 2    // Starts in middle, alternates outward
 	};
-	FadeMode fadeMode = FADE_TOP;
+	DrawDirection drawDirection = DRAW_BOTTOM_TO_TOP;
 
 	enum ScanMode {
 		SCAN_RASTER = 0,
@@ -103,48 +103,41 @@ struct Joy : Module {
 		// Zone 3 Attenuverter Trimpots: Row 1
 		FREQ_TRIM_PARAM,
 		AUDIO_TRIM_PARAM,
-		FINE_TRIM_PARAM,
 		HEIGHT_TRIM_PARAM,
+		SMOOTH_TRIM_PARAM,
 
 		// Zone 3 Attenuverter Trimpots: Row 2
-		SMOOTH_TRIM_PARAM,
-		REFRESH_TRIM_PARAM,
 		LINES_TRIM_PARAM,
 		DECAY_TRIM_PARAM,
-
-		// Zone 3 Attenuverter Trimpots: Row 3
 		WINDOW_TRIM_PARAM,
 		TILT_TRIM_PARAM,
-		OCCLUSION_TRIM_PARAM,
-		ZFADE_TRIM_PARAM,
 
 		PARAMS_LEN
 	};
 
 	enum InputId {
-		// Jack Row 1 (Inputs)
+		// Jack Row 1: SYNC IN, FREQ, AUDIO/FM, LOCK, HEIGHT
+		SYNC_INPUT,
 		FREQ_CV_INPUT,
 		AUDIO_INPUT,
-		FINE_CV_INPUT,
+		LOCK_INPUT,
 		HEIGHT_CV_INPUT,
 
-		// Jack Row 2 (Inputs)
+		// Jack Row 2: SMOOTH, LINES, DECAY, WINDOW, TILT
 		SMOOTH_CV_INPUT,
-		REFRESH_CV_INPUT,
 		LINES_CV_INPUT,
 		DECAY_CV_INPUT,
-
-		// Jack Row 3 (Inputs)
 		WINDOW_CV_INPUT,
 		TILT_CV_INPUT,
-		OCCLUSION_CV_INPUT,
+
+		// Jack Row 3: ZFADE
 		ZFADE_CV_INPUT,
 
 		INPUTS_LEN
 	};
 
 	enum OutputId {
-		// Jack Row 4 (Outputs)
+		// Jack Row 3: X, Y, Z, SYNC OUT
 		X_OUTPUT,
 		Y_OUTPUT,
 		Z_OUTPUT,
@@ -302,6 +295,23 @@ struct Joy : Module {
 		}
 	};
 
+	struct RefreshParamQuantity : ParamQuantity {
+		std::string getDisplayValueString() override {
+			float hz = getValue();
+			char buf[32];
+			if (hz < 0.1f) {
+				std::snprintf(buf, sizeof(buf), "%.3f", hz);
+			} else if (hz < 1.0f) {
+				std::snprintf(buf, sizeof(buf), "%.2f", hz);
+			} else if (hz < 10.0f) {
+				std::snprintf(buf, sizeof(buf), "%.1f", hz);
+			} else {
+				std::snprintf(buf, sizeof(buf), "%.0f", hz);
+			}
+			return std::string(buf);
+		}
+	};
+
 	struct IntegerParamQuantity : ParamQuantity {
 		std::string getDisplayValueString() override {
 			int val = (int)std::round(getValue());
@@ -321,16 +331,19 @@ struct Joy : Module {
 	static constexpr int SAMPLES_PER_LINE = 512;
 
 	float history[MAX_LINES][SAMPLES_PER_LINE];
-	float currentLine[SAMPLES_PER_LINE];
+	float liveBuffer[SAMPLES_PER_LINE];
 	float occlusionSilhouette[SAMPLES_PER_LINE];
 
 	int historyHead = 0;
-	int writeIndex = 0;
+	int liveWriteIdx = 0;
 
 	float audioFilterState = 0.0f;
 	float refreshPhase = 0.0f;
 	float scanPhase = 0.0f;
+	float prevAudioRaw = 0.0f;
+	bool armedTrigger = true;
 
+	dsp::SchmittTrigger syncInputTrigger;
 	dsp::PulseGenerator syncPulse;
 
 	void getRangeVoltages(float& vMin, float& vMax) const {
@@ -348,7 +361,7 @@ struct Joy : Module {
 	float getZMaxVoltage() const {
 		if (zScaleMode == Z_SCALE_5V) return 5.0f;
 		if (zScaleMode == Z_SCALE_10V) return 10.0f;
-		// Default Z_SCALE_MATCH_RANGE: strictly defaults to vMax of active voltage range
+		// Default Z_SCALE_MATCH_RANGE: strictly defaults to vMax of active voltage range (5V for ±5V default)
 		float vMin = -5.0f, vMax = 5.0f;
 		getRangeVoltages(vMin, vMax);
 		return vMax;
@@ -363,9 +376,9 @@ struct Joy : Module {
 		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine tune");
 		configParam(HEIGHT_PARAM, 0.f, 2.f, 1.0f, "Waveform height");
 
-		// Row 2 Knobs: Smooth default strictly 0% per directive
+		// Row 2 Knobs: Smooth default strictly 0% per directive; Refresh rate in Hz
 		configParam(SMOOTH_PARAM, 0.f, 1.f, 0.0f, "Smoothness", "%", 0.f, 100.f);
-		configParam(REFRESH_PARAM, 0.f, 1.f, 0.5f, "Refresh rate");
+		configParam<RefreshParamQuantity>(REFRESH_PARAM, 0.02f, 100.f, 5.0f, "Refresh rate", " Hz", 10.f);
 		configParam<IntegerParamQuantity>(LINES_PARAM, 1.f, 64.f, 32.f, "History lines");
 		configParam(DECAY_PARAM, 0.f, 1.f, 0.5f, "Decay spacing");
 
@@ -376,48 +389,46 @@ struct Joy : Module {
 		configParam(ZFADE_PARAM, 0.f, 1.f, 0.50f, "Z-Fade depth", "%", 0.f, 100.f);
 
 		// Zone 3 Attenuverter Trimpots (Strictly '<Parameter> CV depth' and sentence case per AGENTS.md 7.5.4)
+		// Row 1: freq, audio, height, smooth
 		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV depth");
 		configParam(AUDIO_TRIM_PARAM, 0.f, 2.f, 1.f, "Audio level");
-		configParam(FINE_TRIM_PARAM, -1.f, 1.f, 0.f, "Fine tune CV depth");
 		configParam(HEIGHT_TRIM_PARAM, -1.f, 1.f, 0.f, "Height CV depth");
-
 		configParam(SMOOTH_TRIM_PARAM, -1.f, 1.f, 0.f, "Smooth CV depth");
-		configParam(REFRESH_TRIM_PARAM, -1.f, 1.f, 0.f, "Refresh CV depth");
+
+		// Row 2: lines, decay, window, tilt
 		configParam(LINES_TRIM_PARAM, -1.f, 1.f, 0.f, "Lines CV depth");
 		configParam(DECAY_TRIM_PARAM, -1.f, 1.f, 0.f, "Decay CV depth");
-
 		configParam(WINDOW_TRIM_PARAM, -1.f, 1.f, 0.f, "Window CV depth");
 		configParam(TILT_TRIM_PARAM, -1.f, 1.f, 0.f, "Tilt CV depth");
-		configParam(OCCLUSION_TRIM_PARAM, -1.f, 1.f, 0.f, "Occlusion CV depth");
-		configParam(ZFADE_TRIM_PARAM, -1.f, 1.f, 0.f, "Z-Fade CV depth");
 
-		// Zone 4 Jacks: Row 1
+		// Zone 4 Jacks: Row 1: sync in, freq, audio/fm, lock, height
+		configInput(SYNC_INPUT, "Sync");
 		configInput(FREQ_CV_INPUT, "Frequency");
 		configInput(AUDIO_INPUT, "Audio");
-		configInput(FINE_CV_INPUT, "Fine tune");
+		configInput(LOCK_INPUT, "Lock");
 		configInput(HEIGHT_CV_INPUT, "Height");
 
-		// Zone 4 Jacks: Row 2
+		// Zone 4 Jacks: Row 2: smooth, lines, decay, window, tilt
 		configInput(SMOOTH_CV_INPUT, "Smooth");
-		configInput(REFRESH_CV_INPUT, "Refresh");
 		configInput(LINES_CV_INPUT, "Lines");
 		configInput(DECAY_CV_INPUT, "Decay");
-
-		// Zone 4 Jacks: Row 3
 		configInput(WINDOW_CV_INPUT, "Window");
 		configInput(TILT_CV_INPUT, "Tilt");
-		configInput(OCCLUSION_CV_INPUT, "Occlusion");
-		configInput(ZFADE_CV_INPUT, "Z-Fade");
 
-		// Zone 4 Jacks: Row 4 Outputs
+		// Zone 4 Jacks: Row 3: z-fade, x, y, z, sync out
+		configInput(ZFADE_CV_INPUT, "Z-Fade");
 		configOutput(X_OUTPUT, "X");
 		configOutput(Y_OUTPUT, "Y");
 		configOutput(Z_OUTPUT, "Z");
 		configOutput(SYNC_OUTPUT, "Sync");
 
+		// Default voltage range strictly ±5V
+		voltageRange = RANGE_BIPOLAR_5V;
+		drawDirection = DRAW_BOTTOM_TO_TOP;
+
 		// Initialize pre-allocated buffers
 		std::memset(history, 0, sizeof(history));
-		std::memset(currentLine, 0, sizeof(currentLine));
+		std::memset(liveBuffer, 0, sizeof(liveBuffer));
 		for (int i = 0; i < SAMPLES_PER_LINE; ++i) {
 			occlusionSilhouette[i] = -10.0f;
 		}
@@ -425,16 +436,19 @@ struct Joy : Module {
 
 	void onReset() override {
 		std::memset(history, 0, sizeof(history));
-		std::memset(currentLine, 0, sizeof(currentLine));
+		std::memset(liveBuffer, 0, sizeof(liveBuffer));
 		for (int i = 0; i < SAMPLES_PER_LINE; ++i) {
 			occlusionSilhouette[i] = -10.0f;
 		}
 		historyHead = 0;
-		writeIndex = 0;
+		liveWriteIdx = 0;
 		audioFilterState = 0.0f;
 		refreshPhase = 0.0f;
 		scanPhase = 0.0f;
-		fadeMode = FADE_TOP;
+		prevAudioRaw = 0.0f;
+		armedTrigger = true;
+		voltageRange = RANGE_BIPOLAR_5V;
+		drawDirection = DRAW_BOTTOM_TO_TOP;
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -448,44 +462,88 @@ struct Joy : Module {
 		lights[RANGE_LIGHT_TEAL].setBrightness(rangeMode == RANGE_LFO ? 1.0f : 0.0f);
 		lights[RANGE_LIGHT_MAGENTA].setBrightness(rangeMode == RANGE_VCO ? 1.0f : 0.0f);
 
-		// 2. Incoming Audio Sampling & Lowpass Smoothing
+		// Handle external Sync reset trigger
+		if (inputs[SYNC_INPUT].isConnected() && syncInputTrigger.process(inputs[SYNC_INPUT].getVoltage())) {
+			scanPhase = 0.0f;
+			for (int s = 0; s < SAMPLES_PER_LINE; ++s) {
+				occlusionSilhouette[s] = -10.0f;
+			}
+		}
+
+		// 2. Incoming Audio Sampling & Dynamic Peak Smoothing
 		float audioIn = inputs[AUDIO_INPUT].getVoltage();
 		float audioGain = params[AUDIO_TRIM_PARAM].getValue();
-		float rawAudio = audioIn * audioGain * 0.2f; // Scaled to ~ ±1.0 nominal
+		float rawAudio = audioIn * audioGain * 0.2f; // Scaled to nominal ±1.0V
 
 		float smoothParam = clampf(params[SMOOTH_PARAM].getValue() + inputs[SMOOTH_CV_INPUT].getVoltage() * params[SMOOTH_TRIM_PARAM].getValue() * 0.1f, 0.0f, 1.0f);
 		if (smoothParam <= 0.0001f) {
 			// Zero smoothing default: raw audio waveform
 			audioFilterState = rawAudio;
 		} else {
-			// Exponential cutoff smoothing filter
-			float cutoffHz = 20.0f + 18000.0f * std::pow(1.0f - smoothParam, 2.5f);
-			float alpha = clampf(2.0f * (float)M_PI * cutoffHz * args.sampleTime, 0.0001f, 1.0f);
-			audioFilterState += alpha * (rawAudio - audioFilterState);
+			// Heavy exponential peak smoothing filter: at smooth=0 -> 20kHz, at smooth=1 -> 20Hz
+			float cutoffHz = 20000.0f * std::pow(0.001f, smoothParam);
+			float smoothAlpha = std::exp(-2.0f * (float)M_PI * cutoffHz * args.sampleTime);
+			audioFilterState = smoothAlpha * audioFilterState + (1.0f - smoothAlpha) * rawAudio;
 		}
 
-		currentLine[writeIndex] = audioFilterState;
-		writeIndex = (writeIndex + 1) % SAMPLES_PER_LINE;
+		// Record incoming audio into current line live buffer
+		if (liveWriteIdx < SAMPLES_PER_LINE) {
+			liveBuffer[liveWriteIdx++] = audioFilterState;
+		}
 
-		// 3. Line Advance & History Refresh Rate
-		// Refresh knob ranges from 0.02 Hz (stroboscopic stepping) up to 100 Hz (flowing waterfall)
-		float refreshParam = clampf(params[REFRESH_PARAM].getValue() + inputs[REFRESH_CV_INPUT].getVoltage() * params[REFRESH_TRIM_PARAM].getValue() * 0.1f, 0.0f, 1.0f);
-		float refreshHz = 0.02f * std::pow(5000.0f, refreshParam);
+		// 3. Refresh Rate & Line Commit Ingestion
+		// Lock gate: when high (> 1.0V), freezes history advance (locking the 3D landscape)
+		bool isLocked = inputs[LOCK_INPUT].isConnected() && (inputs[LOCK_INPUT].getVoltage() > 1.0f);
 
+		float refreshHz = params[REFRESH_PARAM].getValue();
 		refreshPhase += refreshHz * args.sampleTime;
-		if (refreshPhase >= 1.0f) {
+		bool timeToCapture = (refreshPhase >= 1.0f);
+		if (timeToCapture) {
 			refreshPhase -= 1.0f;
-			// Push current live line into circular history ring buffer
+		}
+
+		bool shouldCommitSlice = false;
+		if (isLocked) {
+			// When locked, freeze history advance (do not push new lines)
+			shouldCommitSlice = false;
+		} else {
+			// Zero-crossing pitch stabilization
+			if (armedTrigger && rawAudio > 0.04f && prevAudioRaw <= 0.04f) {
+				shouldCommitSlice = (liveWriteIdx >= (SAMPLES_PER_LINE / 2));
+				armedTrigger = false;
+			} else if (!armedTrigger && rawAudio < -0.04f) {
+				armedTrigger = true;
+			}
+			if (timeToCapture && liveWriteIdx >= SAMPLES_PER_LINE) {
+				shouldCommitSlice = true;
+			}
+		}
+		prevAudioRaw = rawAudio;
+
+		if (shouldCommitSlice) {
+			// Push liveBuffer into circular history array
 			historyHead = (historyHead + 1) % MAX_LINES;
 			for (int s = 0; s < SAMPLES_PER_LINE; ++s) {
-				history[historyHead][s] = currentLine[s];
+				history[historyHead][s] = liveBuffer[s];
 			}
+
+			// Apply 3-tap intra-line smoothing across stored waveform peaks when smooth > 0
+			if (smoothParam > 0.01f) {
+				float beta = smoothParam * 0.65f;
+				for (int pass = 0; pass < 2; ++pass) {
+					for (int s = 1; s < SAMPLES_PER_LINE - 1; ++s) {
+						float avg = 0.5f * (history[historyHead][s - 1] + history[historyHead][s + 1]);
+						history[historyHead][s] = (1.0f - beta) * history[historyHead][s] + beta * avg;
+					}
+				}
+			}
+			liveWriteIdx = 0;
 		}
 
 		// 4. Trajectory Frequency & Scanning Speed
 		float scanHz = 1.0f;
 		float coarse = params[FREQ_PARAM].getValue();
-		float fine = params[FINE_PARAM].getValue() + inputs[FINE_CV_INPUT].getVoltage() * params[FINE_TRIM_PARAM].getValue() * 0.1f;
+		float fine = params[FINE_PARAM].getValue();
 		float freqCV = inputs[FREQ_CV_INPUT].getVoltage() * params[FREQ_TRIM_PARAM].getValue();
 
 		if (rangeMode == RANGE_VERY_SLOW) {
@@ -520,21 +578,19 @@ struct Joy : Module {
 
 		// Map scanPhase across activeLines
 		float totalPos = scanPhase * (float)activeLines;
-		int lineIdx = (int)totalPos;
-		if (lineIdx >= activeLines) lineIdx = activeLines - 1;
-		float lineFraction = totalPos - (float)lineIdx; // intra-line position 0..1
+		int stepIdx = (int)totalPos;
+		if (stepIdx >= activeLines) stepIdx = activeLines - 1;
+		float lineFraction = totalPos - (float)stepIdx; // intra-line position 0..1
 
 		// Horizontal sample position u in [-1.0, 1.0]
 		float u = lineFraction;
 		bool isRetrace = false;
 
 		if (scanMode == SCAN_SERPENTINE) {
-			// Bidirectional serpentine scanning
-			if (lineIdx % 2 == 1) {
+			if (stepIdx % 2 == 1) {
 				u = 1.0f - u;
 			}
 		} else {
-			// Raster scanning with flyback blanking at line boundaries
 			if (u > 0.96f) {
 				isRetrace = true; // Flyback retrace blanking
 			}
@@ -542,17 +598,45 @@ struct Joy : Module {
 
 		float xNorm = u * 2.0f - 1.0f; // -1.0 to +1.0
 
+		// 6. Draw Direction & Decay Stacking
+		// Maps stepIdx according to drawDirection:
+		// DRAW_BOTTOM_TO_TOP: line 0 is foreground (bottom), activeLines-1 is horizon (top)
+		// DRAW_TOP_TO_BOTTOM: line 0 is top horizon, activeLines-1 is bottom foreground
+		// DRAW_CENTER_OUTWARD: starts in middle and alternates outward
+		int lineSlot = stepIdx;
+		float zDepth = 0.0f;
+
+		if (activeLines > 1) {
+			if (drawDirection == DRAW_TOP_TO_BOTTOM) {
+				// Starts at horizon (top), works down to foreground (bottom)
+				zDepth = 1.0f - ((float)stepIdx / (float)(activeLines - 1));
+				lineSlot = activeLines - 1 - stepIdx;
+			} else if (drawDirection == DRAW_CENTER_OUTWARD) {
+				// Starts in middle, alternates outward
+				int mid = activeLines / 2;
+				if (stepIdx % 2 == 0) {
+					lineSlot = clampf(mid + (stepIdx / 2), 0, activeLines - 1);
+				} else {
+					lineSlot = clampf(mid - ((stepIdx + 1) / 2), 0, activeLines - 1);
+				}
+				zDepth = (float)lineSlot / (float)(activeLines - 1);
+			} else { // DRAW_BOTTOM_TO_TOP
+				// Starts at foreground (bottom), works up to horizon (top)
+				zDepth = (float)stepIdx / (float)(activeLines - 1);
+				lineSlot = stepIdx;
+			}
+		}
+
 		// Sample from historical line buffer
-		// lineIdx 0 is foreground (closest/newest), activeLines-1 is background/horizon
-		int ringSlot = (historyHead - lineIdx + MAX_LINES * 2) % MAX_LINES;
+		int ringSlot = (historyHead - lineSlot + MAX_LINES * 2) % MAX_LINES;
 		int samplePos = (int)clampf(u * (SAMPLES_PER_LINE - 1), 0.0f, (float)(SAMPLES_PER_LINE - 1));
 		float waveVal = history[ringSlot][samplePos];
 
-		// 6. Active Window Aperture (Central Wave Clustering)
-		// Window knob allows shrinking the active audio wave down to a narrow central band (12% to 100%)
+		// 7. Active Window Aperture (Scaled fully to 100% edges at maximum)
+		// Window knob allows shrinking the active audio wave down to a narrow central band (10% to 100%)
 		// with dead-flat zero baseline wings on either side
 		float winParam = clampf(params[WINDOW_PARAM].getValue() + inputs[WINDOW_CV_INPUT].getVoltage() * params[WINDOW_TRIM_PARAM].getValue() * 0.1f, 0.0f, 1.0f);
-		float winHalfWidth = 0.06f + 0.44f * winParam; // Ranges from 0.06 (12% width) to 0.50 (100% width)
+		float winHalfWidth = 0.10f + 0.90f * winParam; // At 100%, reaches all the way to 1.00 (the extreme edges)
 		float absX = std::abs(xNorm);
 		float windowTaper = 0.0f;
 		if (absX < winHalfWidth) {
@@ -561,31 +645,32 @@ struct Joy : Module {
 		}
 		float disp = waveVal * windowTaper;
 
-		// 7. Star Wars Crawl 3D Perspective Tilt
-		// zDepth = 0 at foreground (bottom line), 1 at horizon (top line)
-		float zDepth = (activeLines > 1) ? ((float)lineIdx / (float)(activeLines - 1)) : 0.0f;
+		// 8. Star Wars Crawl 3D Perspective Tilt with Travel Compression
 		float tiltParam = clampf(params[TILT_PARAM].getValue() + inputs[TILT_CV_INPUT].getVoltage() * params[TILT_TRIM_PARAM].getValue() * 0.1f, 0.0f, 1.0f);
 
 		// True 3D perspective scaling: foreground expands wide and tall, horizon tapers to vanishing point
 		float frontScale = 1.0f + 2.0f * tiltParam;
 		float perspFactor = frontScale / (1.0f + 4.0f * tiltParam * zDepth);
 
-		// Star Wars crawl vertical baseline compression: wide line spacing at bottom, compressed at horizon
+		// Star Wars crawl vertical baseline compression
 		float decayParam = clampf(params[DECAY_PARAM].getValue() + inputs[DECAY_CV_INPUT].getVoltage() * params[DECAY_TRIM_PARAM].getValue() * 0.1f, 0.0f, 1.0f);
 		float gamma = 1.0f + 2.5f * tiltParam;
 		float crawlY = 1.0f - std::pow(clampf(1.0f - zDepth, 0.0f, 1.0f), gamma);
-		float yBaseline = -0.70f + 1.40f * crawlY * decayParam;
+
+		// Landscape flight height reduction: as tilt increases, overall height reduces to shorten travel time
+		float yTravelCompression = 1.0f - 0.45f * tiltParam;
+		float yBaseline = (-0.65f + 1.30f * crawlY * decayParam) * yTravelCompression;
 
 		// Wave height scaling
 		float heightParam = clampf(params[HEIGHT_PARAM].getValue() + inputs[HEIGHT_CV_INPUT].getVoltage() * params[HEIGHT_TRIM_PARAM].getValue() * 0.2f, 0.0f, 2.0f);
-		float yPeak = disp * heightParam * 0.65f * perspFactor;
+		float yPeak = disp * heightParam * 0.65f * perspFactor * (1.0f - 0.25f * tiltParam);
 
 		// Combined (X, Y) normalized coordinates [-1.0, 1.0]
 		float xOutNorm = xNorm * perspFactor;
 		float yOutNorm = yBaseline + yPeak;
 
-		// 8. Crest Occlusion (Foreground Mountain Silhouette Blanking)
-		float occlusionParam = clampf(params[OCCLUSION_PARAM].getValue() + inputs[OCCLUSION_CV_INPUT].getVoltage() * params[OCCLUSION_TRIM_PARAM].getValue() * 0.1f, 0.0f, 1.0f);
+		// 9. Crest Occlusion (Foreground Mountain Silhouette Blanking)
+		float occlusionParam = clampf(params[OCCLUSION_PARAM].getValue(), 0.0f, 1.0f);
 		float zOcclude = 1.0f;
 		if (occlusionParam > 0.001f) {
 			if (yOutNorm <= occlusionSilhouette[samplePos]) {
@@ -597,34 +682,19 @@ struct Joy : Module {
 			}
 		}
 
-		// 9. Z-Fade Depth and Direction
-		// User selectable: Fade to Top, Fade to Bottom, or Fade to Edges
-		// At 100% depth, fully extends to complete extinction (0.0)
-		float zFadeParam = clampf(params[ZFADE_PARAM].getValue() + inputs[ZFADE_CV_INPUT].getVoltage() * params[ZFADE_TRIM_PARAM].getValue() * 0.1f, 0.0f, 1.0f);
-		float fadeFactor = 1.0f;
-
-		switch (fadeMode) {
-			case FADE_BOTTOM:
-				// Fades towards foreground (bottom of screen dims)
-				fadeFactor = 1.0f - zFadeParam * std::pow(clampf(1.0f - zDepth, 0.0f, 1.0f), 0.75f);
-				break;
-			case FADE_EDGES:
-				// Fades towards left and right edges (center bright)
-				fadeFactor = 1.0f - zFadeParam * std::pow(clampf(absX, 0.0f, 1.0f), 1.0f);
-				break;
-			case FADE_TOP:
-			default:
-				// Fades towards distant horizon (top of screen dims)
-				fadeFactor = 1.0f - zFadeParam * std::pow(clampf(zDepth, 0.0f, 1.0f), 0.75f);
-				break;
-		}
+		// 10. Z-Fade Depth along Draw Direction
+		// Modulates laser intensity along the progression of the raster draw
+		float zFadeParam = clampf(params[ZFADE_PARAM].getValue() + inputs[ZFADE_CV_INPUT].getVoltage() * 0.1f, 0.0f, 1.0f);
+		float stepProgress = (activeLines > 1) ? ((float)stepIdx / (float)(activeLines - 1)) : 0.0f;
+		float fadeFactor = 1.0f - zFadeParam * std::pow(stepProgress, 0.85f);
+		fadeFactor = clampf(fadeFactor, 0.0f, 1.0f);
 
 		float zNormalized = clampf(fadeFactor * zOcclude, 0.0f, 1.0f);
 		if (isRetrace) {
 			zNormalized = 0.0f; // Blank laser during raster flyback retrace
 		}
 
-		// 10. Output Voltage Bounds & Soft-Knee Scaling
+		// 11. Output Voltage Bounds & Soft-Knee Scaling (Defaults strictly to ±5V)
 		float vMin = -5.0f, vMax = 5.0f;
 		getRangeVoltages(vMin, vMax);
 		float vMid = 0.5f * (vMin + vMax);
@@ -637,7 +707,7 @@ struct Joy : Module {
 		voltX = softKneeClamp(voltX, vMax * 0.95f, vMax);
 		voltY = softKneeClamp(voltY, vMax * 0.95f, vMax);
 
-		// Z Output Voltage
+		// Z Output Voltage (defaults to vMax: 5V for ±5V default)
 		float zVolt = zNormalized * getZMaxVoltage();
 
 		// Write outputs
@@ -653,7 +723,7 @@ struct Joy : Module {
 		json_object_set_new(rootJ, "rangeMode", json_integer((int)rangeMode));
 		json_object_set_new(rootJ, "voltageRange", json_integer((int)voltageRange));
 		json_object_set_new(rootJ, "zScaleMode", json_integer((int)zScaleMode));
-		json_object_set_new(rootJ, "fadeMode", json_integer((int)fadeMode));
+		json_object_set_new(rootJ, "drawDirection", json_integer((int)drawDirection));
 		json_object_set_new(rootJ, "scanMode", json_integer((int)scanMode));
 		return rootJ;
 	}
@@ -667,12 +737,13 @@ struct Joy : Module {
 
 		json_t* vrJ = json_object_get(rootJ, "voltageRange");
 		if (vrJ) voltageRange = (VoltageRange)json_integer_value(vrJ);
+		else voltageRange = RANGE_BIPOLAR_5V;
 
 		json_t* zsJ = json_object_get(rootJ, "zScaleMode");
 		if (zsJ) zScaleMode = (ZScaleMode)json_integer_value(zsJ);
 
-		json_t* fmJ = json_object_get(rootJ, "fadeMode");
-		if (fmJ) fadeMode = (FadeMode)json_integer_value(fmJ);
+		json_t* ddJ = json_object_get(rootJ, "drawDirection");
+		if (ddJ) drawDirection = (DrawDirection)json_integer_value(ddJ);
 
 		json_t* smJ = json_object_get(rootJ, "scanMode");
 		if (smJ) scanMode = (ScanMode)json_integer_value(smJ);
@@ -682,10 +753,8 @@ struct Joy : Module {
 // ── Custom Hardware Widgets ──
 struct JoyRangeLightRing : ModuleLightWidget {
 	JoyRangeLightRing() {
-		// Box size (11.0 mm x 11.0 mm) encompasses R=4.82 mm ring plus optical halo
 		box.size = mm2px(Vec(11.0f, 11.0f));
 
-		// Base colors for 3-Color Range Engine
 		this->addBaseColor(nvgRGBA(0xe1, 0xbe, 0x6a, 0xff)); // State 0: Warm Gold (Very Slow)
 		this->addBaseColor(nvgRGBA(0x40, 0xb0, 0xa6, 0xff)); // State 1: Teal (LFO)
 		this->addBaseColor(nvgRGBA(0xd3, 0x5f, 0xb7, 0xff)); // State 2: Magenta (VCO)
@@ -794,74 +863,67 @@ struct JoyWidget : ModuleWidget {
 		panel->setBackground(Svg::load(initPath));
 		setPanel(panel);
 
-		// 4 Standard Columns matching MAUDE (7.62, 22.86, 38.10, 53.34 mm)
-		const float col_x[4] = {7.62f, 22.86f, 38.10f, 53.34f};
+		// 4 Standard Columns for Knobs & Trims (15.24 mm pitch)
+		const float col_knob_x[4] = {7.62f, 22.86f, 38.10f, 53.34f};
+		// 5 Standard Columns for Jacks (11.43 mm pitch)
+		const float col_jack_x[5] = {7.62f, 19.05f, 30.48f, 41.91f, 53.34f};
 
-		// ── Zone 1 & 2: Primary Parameter Knobs ──
+		// ── Zone 1 & 2: Primary Parameter Knobs (3 Rows of 4 Knobs) ──
 		// Row 1: FREQ, RANGE (Button + Ring), FINE, HEIGHT (Center Y = 18.50 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 18.50f)), module, Joy::FREQ_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_knob_x[0], 18.50f)), module, Joy::FREQ_PARAM));
 		// Concentric illuminated ring added first (in background under button cap)
-		addChild(createLightCentered<JoyRangeLightRing>(mm2px(Vec(col_x[1], 18.50f)), module, Joy::RANGE_LIGHT_YELLOW));
+		addChild(createLightCentered<JoyRangeLightRing>(mm2px(Vec(col_knob_x[1], 18.50f)), module, Joy::RANGE_LIGHT_YELLOW));
 		// Button added second (captures mouse events directly)
-		addParam(createParamCentered<JoyCustomButton>(mm2px(Vec(col_x[1], 18.50f)), module, Joy::RANGE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 18.50f)), module, Joy::FINE_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 18.50f)), module, Joy::HEIGHT_PARAM));
+		addParam(createParamCentered<JoyCustomButton>(mm2px(Vec(col_knob_x[1], 18.50f)), module, Joy::RANGE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_knob_x[2], 18.50f)), module, Joy::FINE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_knob_x[3], 18.50f)), module, Joy::HEIGHT_PARAM));
 
 		// Row 2: SMOOTH, REFRESH, LINES, DECAY (Center Y = 32.00 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 32.00f)), module, Joy::SMOOTH_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 32.00f)), module, Joy::REFRESH_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 32.00f)), module, Joy::LINES_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 32.00f)), module, Joy::DECAY_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_knob_x[0], 32.00f)), module, Joy::SMOOTH_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_knob_x[1], 32.00f)), module, Joy::REFRESH_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_knob_x[2], 32.00f)), module, Joy::LINES_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_knob_x[3], 32.00f)), module, Joy::DECAY_PARAM));
 
 		// Row 3: WINDOW, TILT, OCCLUSION, ZFADE (Center Y = 45.50 mm)
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[0], 45.50f)), module, Joy::WINDOW_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[1], 45.50f)), module, Joy::TILT_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[2], 45.50f)), module, Joy::OCCLUSION_PARAM));
-		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_x[3], 45.50f)), module, Joy::ZFADE_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_knob_x[0], 45.50f)), module, Joy::WINDOW_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_knob_x[1], 45.50f)), module, Joy::TILT_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_knob_x[2], 45.50f)), module, Joy::OCCLUSION_PARAM));
+		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(col_knob_x[3], 45.50f)), module, Joy::ZFADE_PARAM));
 
-		// ── Zone 3: CV Attenuverter Trimpots (3 Rows x 4 Trimpots) ──
-		// Trim Row 1: FREQ, AUDIO, FINE, HEIGHT (Center Y = 56.50 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 56.50f)), module, Joy::FREQ_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 56.50f)), module, Joy::AUDIO_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 56.50f)), module, Joy::FINE_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[3], 56.50f)), module, Joy::HEIGHT_TRIM_PARAM));
+		// ── Zone 3: CV Attenuverter Trimpots (2 Rows of 4 Trimpots) ──
+		// Row 1: FREQ, AUDIO, HEIGHT, SMOOTH (Center Y = 58.00 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_knob_x[0], 58.00f)), module, Joy::FREQ_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_knob_x[1], 58.00f)), module, Joy::AUDIO_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_knob_x[2], 58.00f)), module, Joy::HEIGHT_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_knob_x[3], 58.00f)), module, Joy::SMOOTH_TRIM_PARAM));
 
-		// Trim Row 2: SMOOTH, REFRESH, LINES, DECAY (Center Y = 64.50 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 64.50f)), module, Joy::SMOOTH_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 64.50f)), module, Joy::REFRESH_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 64.50f)), module, Joy::LINES_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[3], 64.50f)), module, Joy::DECAY_TRIM_PARAM));
+		// Row 2: LINES, DECAY, WINDOW, TILT (Center Y = 68.00 mm)
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_knob_x[0], 68.00f)), module, Joy::LINES_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_knob_x[1], 68.00f)), module, Joy::DECAY_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_knob_x[2], 68.00f)), module, Joy::WINDOW_TRIM_PARAM));
+		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_knob_x[3], 68.00f)), module, Joy::TILT_TRIM_PARAM));
 
-		// Trim Row 3: WINDOW, TILT, OCCLUSION, ZFADE (Center Y = 72.50 mm)
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[0], 72.50f)), module, Joy::WINDOW_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[1], 72.50f)), module, Joy::TILT_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[2], 72.50f)), module, Joy::OCCLUSION_TRIM_PARAM));
-		addParam(createParamCentered<Trimpot>(mm2px(Vec(col_x[3], 72.50f)), module, Joy::ZFADE_TRIM_PARAM));
+		// ── Zone 4: I/O Jacks (3 Rows of 5 Jacks) ──
+		// Row 1: SYNC IN, FREQ, AUDIO/FM, LOCK, HEIGHT (Center Y = 85.00 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[0], 85.00f)), module, Joy::SYNC_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[1], 85.00f)), module, Joy::FREQ_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[2], 85.00f)), module, Joy::AUDIO_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[3], 85.00f)), module, Joy::LOCK_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[4], 85.00f)), module, Joy::HEIGHT_CV_INPUT));
 
-		// ── Zone 4: I/O Jacks (4 Rows x 4 Jacks) ──
-		// Jack Row 1 (Inputs): FREQ, AUDIO, FINE, HEIGHT (Center Y = 85.00 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 85.00f)), module, Joy::FREQ_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 85.00f)), module, Joy::AUDIO_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 85.00f)), module, Joy::FINE_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 85.00f)), module, Joy::HEIGHT_CV_INPUT));
+		// Row 2: SMOOTH, LINES, DECAY, WINDOW, TILT (Center Y = 98.00 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[0], 98.00f)), module, Joy::SMOOTH_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[1], 98.00f)), module, Joy::LINES_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[2], 98.00f)), module, Joy::DECAY_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[3], 98.00f)), module, Joy::WINDOW_CV_INPUT));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[4], 98.00f)), module, Joy::TILT_CV_INPUT));
 
-		// Jack Row 2 (Inputs): SMOOTH, REFRESH, LINES, DECAY (Center Y = 96.00 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 96.00f)), module, Joy::SMOOTH_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 96.00f)), module, Joy::REFRESH_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 96.00f)), module, Joy::LINES_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 96.00f)), module, Joy::DECAY_CV_INPUT));
-
-		// Jack Row 3 (Inputs): WINDOW, TILT, OCCLUSION, ZFADE (Center Y = 107.00 mm)
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 107.00f)), module, Joy::WINDOW_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 107.00f)), module, Joy::TILT_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 107.00f)), module, Joy::OCCLUSION_CV_INPUT));
-		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 107.00f)), module, Joy::ZFADE_CV_INPUT));
-
-		// Jack Row 4 (Fixed Bottom Signal/Sync Row: X OUT, Y OUT, Z OUT, SYNC OUT, Center Y = 118.00 mm)
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_x[0], 118.00f)), module, Joy::X_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_x[1], 118.00f)), module, Joy::Y_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_x[2], 118.00f)), module, Joy::Z_OUTPUT));
-		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_x[3], 118.00f)), module, Joy::SYNC_OUTPUT));
+		// Row 3: ZFADE, X, Y, Z, SYNC (Center Y = 112.00 mm)
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[0], 112.00f)), module, Joy::ZFADE_CV_INPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[1], 112.00f)), module, Joy::X_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[2], 112.00f)), module, Joy::Y_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[3], 112.00f)), module, Joy::Z_OUTPUT));
+		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(col_jack_x[4], 112.00f)), module, Joy::SYNC_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
@@ -902,32 +964,17 @@ struct JoyWidget : ModuleWidget {
 		}
 
 		menu->addChild(new MenuSeparator());
-		menu->addChild(createMenuLabel("Z Voltage Scale"));
-		const char* zLabels[] = {
-			"Match Output Range (Default)",
-			"Unipolar 5V",
-			"Unipolar 10V"
+		menu->addChild(createMenuLabel("Draw Direction"));
+		const char* dirLabels[] = {
+			"Bottom to Top (Foreground to Horizon)",
+			"Top to Bottom (Horizon to Foreground)",
+			"Center Outward (Alternating)"
 		};
 		for (int i = 0; i < 3; i++) {
-			Joy::ZScaleMode mode = (Joy::ZScaleMode)i;
-			menu->addChild(createCheckMenuItem(zLabels[i], "",
-				[=]() { return module->zScaleMode == mode; },
-				[=]() { module->zScaleMode = mode; }
-			));
-		}
-
-		menu->addChild(new MenuSeparator());
-		menu->addChild(createMenuLabel("Z-Fade Direction"));
-		const char* fadeLabels[] = {
-			"Fade towards Top (Horizon)",
-			"Fade towards Bottom (Foreground)",
-			"Fade towards Edges (Center Bright)"
-		};
-		for (int i = 0; i < 3; i++) {
-			Joy::FadeMode mode = (Joy::FadeMode)i;
-			menu->addChild(createCheckMenuItem(fadeLabels[i], "",
-				[=]() { return module->fadeMode == mode; },
-				[=]() { module->fadeMode = mode; }
+			Joy::DrawDirection mode = (Joy::DrawDirection)i;
+			menu->addChild(createCheckMenuItem(dirLabels[i], "",
+				[=]() { return module->drawDirection == mode; },
+				[=]() { module->drawDirection = mode; }
 			));
 		}
 
@@ -942,6 +989,21 @@ struct JoyWidget : ModuleWidget {
 			menu->addChild(createCheckMenuItem(scanLabels[i], "",
 				[=]() { return module->scanMode == mode; },
 				[=]() { module->scanMode = mode; }
+			));
+		}
+
+		menu->addChild(new MenuSeparator());
+		menu->addChild(createMenuLabel("Z Voltage Scale"));
+		const char* zLabels[] = {
+			"Match Output Range (Default)",
+			"Unipolar 5V",
+			"Unipolar 10V"
+		};
+		for (int i = 0; i < 3; i++) {
+			Joy::ZScaleMode mode = (Joy::ZScaleMode)i;
+			menu->addChild(createCheckMenuItem(zLabels[i], "",
+				[=]() { return module->zScaleMode == mode; },
+				[=]() { module->zScaleMode = mode; }
 			));
 		}
 

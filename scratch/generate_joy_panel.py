@@ -124,9 +124,10 @@ def render_section_divider(center_y, panel_w, hi_color, sh_color):
   </g>'''
 
 def main():
-    panel_w = 60.96  # 12 HP = 12 * 5.08 mm (Exact match with MAUDE)
+    panel_w = 60.96  # 12 HP = 12 * 5.08 mm
     panel_h = 128.50 # Standard Eurorack 3U height
-    col_x = [7.62, 22.86, 38.10, 53.34]  # 4 columns with exact pitch of 15.24 mm (Exact match with MAUDE)
+    col_knob_x = [7.62, 22.86, 38.10, 53.34]  # 4 columns for Knobs & Trims (15.24 mm pitch)
+    col_jack_x = [7.62, 19.05, 30.48, 41.91, 53.34]  # 5 columns for Jacks (11.43 mm pitch)
 
     # Title "JOY" in D-DIN-Bold (16pt, scale 0.005644, baseline 7.620)
     title_scale = 16.0 * 25.4 / (72.0 * 1000.0)
@@ -136,8 +137,8 @@ def main():
     ]
 
     version_block = [
-        '  <!-- Label: "v1.3.0" -->',
-        render_qs_text(qs_reg_font, "v1.3.0", panel_w - 2.15, 8.000, 0.001600, "#aaaaaa", "v1.3.0", align="right")
+        '  <!-- Label: "v1.4.0" -->',
+        render_qs_text(qs_reg_font, "v1.4.0", panel_w - 2.15, 8.000, 0.001600, "#aaaaaa", "v1.4.0", align="right")
     ]
 
     badge_svg = get_palette_badge_svg("Joy")
@@ -151,72 +152,63 @@ def main():
         '',
         render_section_divider(51.50, panel_w, "#999999", "#5e5e5e"),
         '',
-        render_section_divider(77.50, panel_w, "#999999", "#5e5e5e"),
+        render_section_divider(74.50, panel_w, "#999999", "#5e5e5e"),
         '',
         '  <!-- Range Button Indicator Ring Track (R = 4.12mm, Stroke = 1.40mm) -->',
-        f'  <circle cx="{col_x[1]:.3f}" cy="18.500" r="4.120" fill="none" stroke="#3a3a3a" stroke-width="1.400"/>',
+        f'  <circle cx="{col_knob_x[1]:.3f}" cy="18.500" r="4.120" fill="none" stroke="#3a3a3a" stroke-width="1.400"/>',
         ''
     ]
     svg_parts.extend(joy_title_block)
     svg_parts.extend(version_block)
 
-    # ── Zone 1 & 2: Main Parameter Knobs (Matching MAUDE spacing) ──
+    # ── Zone 1 & 2: Main Parameter Knobs (3 Rows of 4 Knobs) ──
     # Row 1 Labels (Knob center Y = 18.50 mm, Label Y = 12.20 mm, Scale 0.0024, Color #1c1c1c)
     row1_labels = ["FREQ", "RANGE", "FINE", "HEIGHT"]
     for i, lbl in enumerate(row1_labels):
-        svg_parts.append(render_qs_text(ddin_cond_bold, lbl, col_x[i], 12.200, 0.002400, "#1c1c1c", f"Row 1: {lbl}"))
+        svg_parts.append(render_qs_text(ddin_cond_bold, lbl, col_knob_x[i], 12.200, 0.002400, "#1c1c1c", f"Row 1: {lbl}"))
 
-    # Row 2 Labels: History & Dynamics (Knob center Y = 32.00 mm, Label Y = 25.70 mm)
+    # Row 2 Labels: Dynamics & Engine (Knob center Y = 32.00 mm, Label Y = 25.70 mm)
     row2_labels = ["SMOOTH", "REFRESH", "LINES", "DECAY"]
     for i, lbl in enumerate(row2_labels):
-        svg_parts.append(render_qs_text(ddin_cond_bold, lbl, col_x[i], 25.700, 0.002400, "#1c1c1c", f"Row 2: {lbl}"))
+        svg_parts.append(render_qs_text(ddin_cond_bold, lbl, col_knob_x[i], 25.700, 0.002400, "#1c1c1c", f"Row 2: {lbl}"))
 
     # Row 3 Labels: Transformations & Shading (Knob center Y = 45.50 mm, Label Y = 39.20 mm)
     row3_labels = ["WINDOW", "TILT", "OCCLUSION", "ZFADE"]
     for i, lbl in enumerate(row3_labels):
-        svg_parts.append(render_qs_text(ddin_cond_bold, lbl, col_x[i], 39.200, 0.002200, "#1c1c1c", f"Row 3: {lbl}"))
+        svg_parts.append(render_qs_text(ddin_cond_bold, lbl, col_knob_x[i], 39.200, 0.002200, "#1c1c1c", f"Row 3: {lbl}"))
 
-    # ── Zone 3: CV Attenuverter Trimpots (3 Rows of 4 Trimpots) ──
-    # Trim Row 1: FREQ, AUDIO, FINE, HEIGHT (Center Y = 56.50 mm, Label Y = 53.20 mm, Scale 0.0014)
-    trim1_labels = ["FREQ", "AUDIO", "FINE", "HEIGHT"]
+    # ── Zone 3: CV Attenuverter Trimpots (2 Rows of 4 Trimpots) ──
+    # Trim Row 1: FREQ, AUDIO, HEIGHT, SMOOTH (Center Y = 58.00 mm, Label Y = 54.00 mm, Scale 0.0014)
+    trim1_labels = ["FREQ", "AUDIO", "HEIGHT", "SMOOTH"]
     for i, lbl in enumerate(trim1_labels):
-        svg_parts.append(render_qs_text(ddin_cond, lbl, col_x[i], 53.200, 0.001400, "#2c2c2c", f"Trim 1: {lbl}"))
+        svg_parts.append(render_qs_text(ddin_cond, lbl, col_knob_x[i], 54.000, 0.001400, "#2c2c2c", f"Trim 1: {lbl}"))
 
-    # Trim Row 2: SMOOTH, REFRESH, LINES, DECAY (Center Y = 64.50 mm, Label Y = 61.20 mm, Scale 0.0014)
-    trim2_labels = ["SMOOTH", "REFRESH", "LINES", "DECAY"]
+    # Trim Row 2: LINES, DECAY, WINDOW, TILT (Center Y = 68.00 mm, Label Y = 64.00 mm, Scale 0.0014)
+    trim2_labels = ["LINES", "DECAY", "WINDOW", "TILT"]
     for i, lbl in enumerate(trim2_labels):
-        svg_parts.append(render_qs_text(ddin_cond, lbl, col_x[i], 61.200, 0.001400, "#2c2c2c", f"Trim 2: {lbl}"))
+        svg_parts.append(render_qs_text(ddin_cond, lbl, col_knob_x[i], 64.000, 0.001400, "#2c2c2c", f"Trim 2: {lbl}"))
 
-    # Trim Row 3: WINDOW, TILT, OCCLUSION, ZFADE (Center Y = 72.50 mm, Label Y = 69.20 mm, Scale 0.0013)
-    trim3_labels = ["WINDOW", "TILT", "OCCLUSION", "ZFADE"]
-    for i, lbl in enumerate(trim3_labels):
-        svg_parts.append(render_qs_text(ddin_cond, lbl, col_x[i], 69.200, 0.001300, "#2c2c2c", f"Trim 3: {lbl}"))
-
-    # ── Zone 4: I/O Jacks (4 Rows of 4 Jacks) ──
-    # Jack Row 1 (Inputs): FREQ, AUDIO, FINE, HEIGHT (Center Y = 85.00 mm, Label Y = 80.20 mm, Scale 0.0014)
-    jack1_labels = ["FREQ", "AUDIO", "FINE", "HEIGHT"]
+    # ── Zone 4: I/O Jacks (3 Rows of 5 Jacks) ──
+    # Jack Row 1: SYNC, FREQ, AUDIO, LOCK, HEIGHT (Center Y = 85.00 mm, Label Y = 80.00 mm, Scale 0.0013)
+    jack1_labels = ["SYNC", "FREQ", "AUDIO", "LOCK", "HEIGHT"]
     for i, lbl in enumerate(jack1_labels):
-        svg_parts.append(render_qs_text(ddin_cond, lbl, col_x[i], 80.200, 0.001400, "#2c2c2c", f"Jack 1: {lbl}"))
+        svg_parts.append(render_qs_text(ddin_cond, lbl, col_jack_x[i], 80.000, 0.001300, "#2c2c2c", f"Jack 1: {lbl}"))
 
-    # Jack Row 2 (Inputs): SMOOTH, REFRESH, LINES, DECAY (Center Y = 96.00 mm, Label Y = 91.20 mm, Scale 0.0014)
-    jack2_labels = ["SMOOTH", "REFRESH", "LINES", "DECAY"]
+    # Jack Row 2: SMOOTH, LINES, DECAY, WINDOW, TILT (Center Y = 98.00 mm, Label Y = 93.00 mm, Scale 0.0013)
+    jack2_labels = ["SMOOTH", "LINES", "DECAY", "WINDOW", "TILT"]
     for i, lbl in enumerate(jack2_labels):
-        svg_parts.append(render_qs_text(ddin_cond, lbl, col_x[i], 91.200, 0.001400, "#2c2c2c", f"Jack 2: {lbl}"))
+        svg_parts.append(render_qs_text(ddin_cond, lbl, col_jack_x[i], 93.000, 0.001300, "#2c2c2c", f"Jack 2: {lbl}"))
 
-    # Jack Row 3 (Inputs): WINDOW, TILT, OCCLUSION, ZFADE (Center Y = 107.00 mm, Label Y = 102.20 mm, Scale 0.0013)
-    jack3_labels = ["WINDOW", "TILT", "OCCLUSION", "ZFADE"]
+    # Jack Row 3: ZFADE, X, Y, Z, SYNC (Center Y = 112.00 mm, Label Y = 107.00 mm, Scale 0.0014)
+    jack3_labels = ["ZFADE", "X", "Y", "Z", "SYNC"]
     for i, lbl in enumerate(jack3_labels):
-        svg_parts.append(render_qs_text(ddin_cond, lbl, col_x[i], 102.200, 0.001300, "#2c2c2c", f"Jack 3: {lbl}"))
+        scale = 0.001600 if lbl in ["X", "Y", "Z"] else 0.001300
+        svg_parts.append(render_qs_text(ddin_cond, lbl, col_jack_x[i], 107.000, scale, "#2c2c2c", f"Jack 3: {lbl}"))
 
-    # Jack Row 4 (Fixed Bottom Signal/Sync Row: X OUT, Y OUT, Z OUT, SYNC OUT, Center Y = 118.00 mm)
-    svg_parts.append(render_qs_text(ddin_cond, "X", col_x[0], 113.200, 0.001800, "#3c3c3c", "Jack 4: X OUT"))
-    svg_parts.append(render_qs_text(ddin_cond, "Y", col_x[1], 113.200, 0.001800, "#3c3c3c", "Jack 4: Y OUT"))
-    svg_parts.append(render_qs_text(ddin_cond, "Z", col_x[2], 113.200, 0.001800, "#3c3c3c", "Jack 4: Z OUT"))
-    svg_parts.append(render_qs_text(ddin_cond, "SYNC", col_x[3], 113.200, 0.001400, "#2c2c2c", "Jack 4: SYNC OUT"))
-
-    # Centered IN / OUT port subheaders (below jacks at Y = 124.50 mm, matching MAUDE)
-    svg_parts.append(render_qs_text(ddin_cond, "OUT", (col_x[0] + col_x[2]) / 2.0, 124.500, 0.001800, "#2c2c2c", "OUT Sub"))
-    svg_parts.append(render_qs_text(ddin_cond, "OUT", col_x[3], 124.500, 0.001500, "#2c2c2c", "SYNC OUT Sub"))
+    # Centered IN / OUT port subheaders (below jacks at Y = 119.50 mm)
+    svg_parts.append(render_qs_text(ddin_cond, "IN", col_jack_x[0], 119.500, 0.001400, "#2c2c2c", "SYNC IN Sub"))
+    svg_parts.append(render_qs_text(ddin_cond, "OUT", (col_jack_x[1] + col_jack_x[3]) / 2.0, 119.500, 0.001600, "#2c2c2c", "OUT Sub"))
+    svg_parts.append(render_qs_text(ddin_cond, "OUT", col_jack_x[4], 119.500, 0.001400, "#2c2c2c", "SYNC OUT Sub"))
 
     svg_parts.append('</svg>')
 
@@ -244,7 +236,7 @@ def main():
     # Knobs at Y = [18.50, 32.00, 45.50]
     kr = 4.75 * r_px
     for i, ky in enumerate([18.50, 32.00, 45.50]):
-        for j, kx in enumerate(col_x):
+        for j, kx in enumerate(col_knob_x):
             if i == 0 and j == 1:
                 # Range Button with illuminated ring (R = 4.12 mm, W = 1.40 mm)
                 btn_r = 2.60 * r_px
@@ -258,16 +250,16 @@ def main():
             else:
                 draw.ellipse([kx * r_px - kr, ky * r_px - kr, kx * r_px + kr, ky * r_px + kr], outline='#ffaa00', width=2)
 
-    # Trimpots at Y = [56.50, 64.50, 72.50]
+    # Trimpots at Y = [58.00, 68.00]
     tr = 2.4 * r_px
-    for ty in [56.50, 64.50, 72.50]:
-        for tx in col_x:
+    for ty in [58.00, 68.00]:
+        for tx in col_knob_x:
             draw.ellipse([tx * r_px - tr, ty * r_px - tr, tx * r_px + tr, ty * r_px + tr], outline='#00ff88', width=2)
 
-    # Jacks at Y = [85.00, 96.00, 107.00, 118.00]
+    # Jacks at Y = [85.00, 98.00, 112.00]
     jr = 4.0 * r_px
-    for jy in [85.00, 96.00, 107.00, 118.00]:
-        for jx in col_x:
+    for jy in [85.00, 98.00, 112.00]:
+        for jx in col_jack_x:
             draw.ellipse([jx * r_px - jr, jy * r_px - jr, jx * r_px + jr, jy * r_px + jr], outline='#00aaff', width=2)
 
     im.save(verify_png)
