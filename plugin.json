@@ -799,6 +799,16 @@
         "Dual",
         "Mixer"
       ]
+    },
+    {
+      "slug": "Joy",
+      "name": "Joy",
+      "description": "2D ridgeline trajectory and waterfall audio vector synthesizer inspired by Unknown Pleasures, featuring real-time crest occlusion, galvanometer scanning, and laser Z intensity modulation",
+      "tags": [
+        "Visual",
+        "Transform",
+        "Waveshaper"
+      ]
     }
   ]
 }

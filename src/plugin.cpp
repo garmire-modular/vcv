@@ -90,6 +90,7 @@ void init(Plugin* p) {
 	REGISTER_MODEL(modelLain, "Lain");
 	REGISTER_MODEL(modelSalus, "Salus");
 	REGISTER_MODEL(modelSerqet, "Serqet");
+	REGISTER_MODEL(modelJoy, "Joy");
 
 	#undef REGISTER_MODEL
 	printf("[Garmire] === init() completed successfully! ===\n");
