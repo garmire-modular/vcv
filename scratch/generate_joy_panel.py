@@ -115,23 +115,23 @@ def render_section_divider(center_y, panel_w, hi_color, sh_color):
   </g>'''
 
 def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, hi_color, sh_color, ring_color, fonts):
-    panel_w = 71.12  # 14 HP = 14 * 5.08 mm
-    panel_h = 128.50 # Standard Eurorack 3U height
+    panel_w = 101.60  # 20 HP = 20 * 5.08 mm
+    panel_h = 128.50  # Standard Eurorack 3U height
 
     d_din_bold = fonts['d_din_bold']
     d_din_cond_bold = fonts['d_din_cond_bold']
     d_din_cond = fonts['d_din_cond']
     qs_reg_font = fonts['qs_reg_font']
 
-    # 4 Columns: outer margins 7.00mm, inner pitch 19.04mm
-    col_x = [7.000, 26.040, 45.080, 64.120]
+    # 5 Columns: outer margins 7.00mm, center column at 50.80mm (exact 50% midline), pitch 21.90mm
+    col_x = [7.000, 28.900, 50.800, 72.700, 94.600]
 
     badge_svg = get_palette_badge_svg("Joy")
 
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{panel_w:.2f}mm" height="{panel_h:.1f}mm" viewBox="0 0 {panel_w:.2f} {panel_h:.1f}">',
-        f'  <!-- Panel Background: 14 HP ({theme_name} Theme) -->',
+        f'  <!-- Panel Background: 20 HP ({theme_name} Theme) -->',
         f'  <rect width="{panel_w:.2f}" height="{panel_h:.1f}" fill="{bg_color}"/>',
         badge_svg,
         '',
@@ -148,25 +148,25 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     title_scale = 16.0 * 25.4 / 72.0 / 1000.0  # 0.0056444
     svg_parts.append(render_text(d_din_bold, "JOY", panel_w / 2.0, 8.000, title_scale, title_color, "JOY", align="center"))
 
-    # Version number "v1.0.0" in Quicksand-Regular, scale 0.001600, Y baseline 8mm, right-aligned at X = (panel_w - 2.15 mm)
+    # Version number "v1.1.0" in Quicksand-Regular, scale 0.001600, Y baseline 8mm, right-aligned at X = (panel_w - 2.15 mm)
     version_x = panel_w - 2.15
-    svg_parts.append(render_text(qs_reg_font, "v1.0.0", version_x, 8.000, 0.001600, "#aaaaaa", "v1.0.0", align="right"))
+    svg_parts.append(render_text(qs_reg_font, "v1.1.0", version_x, 8.000, 0.001600, "#aaaaaa", "v1.1.0", align="right"))
 
     # Zone 2: Primary Knobs (D-DIN Condensed Bold, 10pt, baseline - 5.75mm)
     knob_label_scale = 10.0 * 25.4 / 72.0 / 1000.0  # 0.0035278
 
     # Row 1 Knobs: Center Y = 18.00 mm -> Label baseline Y = 18.00 - 5.75 = 12.25 mm
-    row1_labels = ["FREQ", "RANGE", "FINE", "HEIGHT"]
+    row1_labels = ["FREQ", "RANGE", "FINE", "WIDTH", "HEIGHT"]
     for i, lbl in enumerate(row1_labels):
         svg_parts.append(render_text(d_din_cond_bold, lbl, col_x[i], 12.250, knob_label_scale, label_color, f"Row 1: {lbl}"))
 
     # Row 2 Knobs: Center Y = 34.00 mm -> Label baseline Y = 34.00 - 5.75 = 28.25 mm
-    row2_labels = ["SMOOTH", "REFRESH", "LINES", "DECAY"]
+    row2_labels = ["SMOOTH", "REFRESH", "LINES", "DECAY", "WINDOW"]
     for i, lbl in enumerate(row2_labels):
         svg_parts.append(render_text(d_din_cond_bold, lbl, col_x[i], 28.250, knob_label_scale, label_color, f"Row 2: {lbl}"))
 
     # Row 3 Knobs: Center Y = 50.00 mm -> Label baseline Y = 50.00 - 5.75 = 44.25 mm
-    row3_labels = ["WINDOW", "TILT", "OCCLUSION", "Z-FADE"]
+    row3_labels = ["TILT", "OCCLUSION", "Z-FADE", "FADE MODE", "LOCK"]
     for i, lbl in enumerate(row3_labels):
         svg_parts.append(render_text(d_din_cond_bold, lbl, col_x[i], 44.250, knob_label_scale, label_color, f"Row 3: {lbl}"))
 
@@ -174,23 +174,23 @@ def build_svg_panel(theme_name, bg_color, title_color, label_color, line_color, 
     trim_label_scale = 8.0 * 25.4 / 72.0 / 1000.0  # 0.0028222
 
     # Row 1 Attenuverters: Center Y = 69.00 mm -> Label baseline Y = 69.00 - 4.00 = 65.00 mm
-    trim_labels = ["FREQ", "HEIGHT", "REFRESH", "DECAY"]
+    trim_labels = ["FREQ", "REFRESH", "TILT", "WIDTH", "HEIGHT"]
     for i, lbl in enumerate(trim_labels):
         svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 65.000, trim_label_scale, label_color, f"Trim: {lbl}"))
 
     # Zone 4: I/O Jacks (D-DIN Condensed, 8pt, baseline - 5.00mm)
     # Jack Row 1 (Inputs): Center Y = 91.00 mm -> Label baseline Y = 91.00 - 5.00 = 86.00 mm
-    jack1_labels = ["AUDIO", "ADV", "SYNC", "LOCK"]
+    jack1_labels = ["AUDIO", "ADV", "SYNC", "LOCK", "FADE"]
     for i, lbl in enumerate(jack1_labels):
         svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 86.000, trim_label_scale, label_color, f"Jack 1: {lbl}"))
 
     # Jack Row 2 (CV Inputs): Center Y = 104.00 mm -> Label baseline Y = 104.00 - 5.00 = 99.00 mm
-    jack2_labels = ["FREQ", "HEIGHT", "REFRESH", "DECAY"]
+    jack2_labels = ["FREQ", "REFRESH", "TILT", "WIDTH", "HEIGHT"]
     for i, lbl in enumerate(jack2_labels):
         svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 99.000, trim_label_scale, label_color, f"Jack 2: {lbl}"))
 
     # Jack Row 3 (Outputs): Center Y = 117.00 mm -> Label baseline Y = 117.00 - 5.00 = 112.00 mm
-    jack3_labels = ["X", "Y", "Z", "EOF"]
+    jack3_labels = ["X", "Y", "Z", "EOF", "EOR"]
     for i, lbl in enumerate(jack3_labels):
         svg_parts.append(render_text(d_din_cond, lbl, col_x[i], 112.000, trim_label_scale, label_color, f"Jack 3: {lbl}"))
 
@@ -258,14 +258,15 @@ def main():
             f.write(svg_content)
         print(f"Generated {skin['filename']} successfully.")
 
-    col_x = [7.000, 26.040, 45.080, 64.120]
+    col_x = [7.000, 28.900, 50.800, 72.700, 94.600]
 
     verify_png = 'scratch/joy_verify.png'
-    cairosvg.svg2png(url='res/Joy.svg', write_to=verify_png, output_width=133 * 4, output_height=240 * 4)
+    # 20 HP = 190 x 240 MetaModule pixel aspect ratio
+    cairosvg.svg2png(url='res/Joy.svg', write_to=verify_png, output_width=190 * 4, output_height=240 * 4)
 
-    # Render MetaModule asset (133 x 240)
+    # Render MetaModule asset (190 x 240)
     os.makedirs('metamodule/assets', exist_ok=True)
-    cairosvg.svg2png(url='res/Joy.svg', write_to='metamodule/assets/Joy.png', output_width=133, output_height=240)
+    cairosvg.svg2png(url='res/Joy.svg', write_to='metamodule/assets/Joy.png', output_width=190, output_height=240)
     print("Rendered metamodule/assets/Joy.png successfully.")
 
     im = Image.open(verify_png)
@@ -281,7 +282,7 @@ def main():
                 continue
             draw.ellipse([kx * r_px - kr, ky * r_px - kr, kx * r_px + kr, ky * r_px + kr], outline='#ffaa00', width=2)
 
-    # Range Button at col_x[1] (26.04 mm, 20.00 mm) with LED Ring (R = 4.12 mm, stroke = 1.40 mm)
+    # Range Button at col_x[1] (28.90 mm, 20.00 mm) with LED Ring (R = 4.12 mm, stroke = 1.40 mm)
     btn_r = 2.60 * r_px
     draw.ellipse([col_x[1] * r_px - btn_r, 20.00 * r_px - btn_r, col_x[1] * r_px + btn_r, 20.00 * r_px + btn_r], outline='#f0e442', width=2)
     ring_r = 4.12 * r_px
