@@ -62,7 +62,7 @@ struct Joy : Module {
 	VoltageRange voltageRange = RANGE_BIPOLAR_5V;
 
 	enum ZScaleMode {
-		Z_SCALE_MATCH_RANGE = 0, // Defaults to vMax of active voltage range (5V for ±5V, 10V for ±10V, 1V for ±1V)
+		Z_SCALE_MATCH_RANGE = 0, // Defaults to vMax of active voltage range (5V for ±5V default)
 		Z_SCALE_5V = 1,
 		Z_SCALE_10V = 2
 	};
@@ -376,22 +376,22 @@ struct Joy : Module {
 		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine tune");
 		configParam(HEIGHT_PARAM, 0.f, 2.f, 1.0f, "Waveform height");
 
-		// Row 2 Knobs: Smooth default strictly 0% per directive; Refresh rate in Hz
+		// Row 2 Knobs: Smooth default strictly 0% per directive; Refresh rate in Hz; Decay spacing in %
 		configParam(SMOOTH_PARAM, 0.f, 1.f, 0.0f, "Smoothness", "%", 0.f, 100.f);
 		configParam<RefreshParamQuantity>(REFRESH_PARAM, 0.02f, 100.f, 5.0f, "Refresh rate", " Hz", 10.f);
 		configParam<IntegerParamQuantity>(LINES_PARAM, 1.f, 64.f, 32.f, "History lines");
-		configParam(DECAY_PARAM, 0.f, 1.f, 0.5f, "Decay spacing");
+		configParam(DECAY_PARAM, 0.f, 1.f, 0.5f, "Decay spacing", "%", 0.f, 100.f);
 
-		// Row 3 Knobs
+		// Row 3 Knobs: Tilt default 0%; Z-Fade default 0%
 		configParam(WINDOW_PARAM, 0.f, 1.f, 0.35f, "Active window width", "%", 0.f, 100.f);
-		configParam(TILT_PARAM, 0.f, 1.f, 0.60f, "Perspective tilt", "%", 0.f, 100.f);
+		configParam(TILT_PARAM, 0.f, 1.f, 0.0f, "Perspective tilt", "%", 0.f, 100.f);
 		configParam(OCCLUSION_PARAM, 0.f, 1.f, 1.0f, "Crest occlusion", "%", 0.f, 100.f);
-		configParam(ZFADE_PARAM, 0.f, 1.f, 0.50f, "Z-Fade depth", "%", 0.f, 100.f);
+		configParam(ZFADE_PARAM, 0.f, 1.f, 0.0f, "Z-Fade depth", "%", 0.f, 100.f);
 
 		// Zone 3 Attenuverter Trimpots (Strictly '<Parameter> CV depth' and sentence case per AGENTS.md 7.5.4)
-		// Row 1: freq, audio, height, smooth
+		// Row 1: freq, audio (attenuator 0-200%), height, smooth
 		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV depth");
-		configParam(AUDIO_TRIM_PARAM, 0.f, 2.f, 1.f, "Audio level");
+		configParam(AUDIO_TRIM_PARAM, 0.f, 2.f, 1.f, "Audio level", "%", 0.f, 100.f);
 		configParam(HEIGHT_TRIM_PARAM, -1.f, 1.f, 0.f, "Height CV depth");
 		configParam(SMOOTH_TRIM_PARAM, -1.f, 1.f, 0.f, "Smooth CV depth");
 
@@ -403,20 +403,20 @@ struct Joy : Module {
 
 		// Zone 4 Jacks: Row 1: sync in, freq, audio/fm, lock, height
 		configInput(SYNC_INPUT, "Sync");
-		configInput(FREQ_CV_INPUT, "Frequency");
+		configInput(FREQ_CV_INPUT, "Frequency CV depth");
 		configInput(AUDIO_INPUT, "Audio");
 		configInput(LOCK_INPUT, "Lock");
-		configInput(HEIGHT_CV_INPUT, "Height");
+		configInput(HEIGHT_CV_INPUT, "Height CV depth");
 
 		// Zone 4 Jacks: Row 2: smooth, lines, decay, window, tilt
-		configInput(SMOOTH_CV_INPUT, "Smooth");
-		configInput(LINES_CV_INPUT, "Lines");
-		configInput(DECAY_CV_INPUT, "Decay");
-		configInput(WINDOW_CV_INPUT, "Window");
-		configInput(TILT_CV_INPUT, "Tilt");
+		configInput(SMOOTH_CV_INPUT, "Smooth CV depth");
+		configInput(LINES_CV_INPUT, "Lines CV depth");
+		configInput(DECAY_CV_INPUT, "Decay CV depth");
+		configInput(WINDOW_CV_INPUT, "Window CV depth");
+		configInput(TILT_CV_INPUT, "Tilt CV depth");
 
 		// Zone 4 Jacks: Row 3: z-fade, x, y, z, sync out
-		configInput(ZFADE_CV_INPUT, "Z-Fade");
+		configInput(ZFADE_CV_INPUT, "Z-Fade CV depth");
 		configOutput(X_OUTPUT, "X");
 		configOutput(Y_OUTPUT, "Y");
 		configOutput(Z_OUTPUT, "Z");
@@ -471,9 +471,10 @@ struct Joy : Module {
 		}
 
 		// 2. Incoming Audio Sampling & Dynamic Peak Smoothing
-		float audioIn = inputs[AUDIO_INPUT].getVoltage();
-		float audioGain = params[AUDIO_TRIM_PARAM].getValue();
-		float rawAudio = audioIn * audioGain * 0.2f; // Scaled to nominal ±1.0V
+		// Audio level is an attenuator with 0-200% amplitude
+		float audioGain = clampf(params[AUDIO_TRIM_PARAM].getValue(), 0.0f, 2.0f);
+		float audioIn = inputs[AUDIO_INPUT].isConnected() ? inputs[AUDIO_INPUT].getVoltage() : 0.0f;
+		float rawAudio = audioIn * audioGain * 0.2f; // Scaled to nominal ±1.0V (at 100% gain)
 
 		float smoothParam = clampf(params[SMOOTH_PARAM].getValue() + inputs[SMOOTH_CV_INPUT].getVoltage() * params[SMOOTH_TRIM_PARAM].getValue() * 0.1f, 0.0f, 1.0f);
 		if (smoothParam <= 0.0001f) {
@@ -503,19 +504,18 @@ struct Joy : Module {
 		}
 
 		bool shouldCommitSlice = false;
-		if (isLocked) {
-			// When locked, freeze history advance (do not push new lines)
-			shouldCommitSlice = false;
-		} else {
-			// Zero-crossing pitch stabilization
-			if (armedTrigger && rawAudio > 0.04f && prevAudioRaw <= 0.04f) {
-				shouldCommitSlice = (liveWriteIdx >= (SAMPLES_PER_LINE / 2));
-				armedTrigger = false;
-			} else if (!armedTrigger && rawAudio < -0.04f) {
-				armedTrigger = true;
-			}
-			if (timeToCapture && liveWriteIdx >= SAMPLES_PER_LINE) {
+		if (!isLocked) {
+			// Unconditionally commit slice whenever refresh interval elapses
+			if (timeToCapture) {
 				shouldCommitSlice = true;
+			} else if (inputs[AUDIO_INPUT].isConnected() && audioGain > 0.01f && armedTrigger && rawAudio > 0.02f && prevAudioRaw <= 0.02f) {
+				// Pitch stabilization trigger
+				if (liveWriteIdx >= (SAMPLES_PER_LINE / 2)) {
+					shouldCommitSlice = true;
+				}
+				armedTrigger = false;
+			} else if (!armedTrigger && rawAudio < -0.02f) {
+				armedTrigger = true;
 			}
 		}
 		prevAudioRaw = rawAudio;
@@ -524,7 +524,7 @@ struct Joy : Module {
 			// Push liveBuffer into circular history array
 			historyHead = (historyHead + 1) % MAX_LINES;
 			for (int s = 0; s < SAMPLES_PER_LINE; ++s) {
-				history[historyHead][s] = liveBuffer[s];
+				history[historyHead][s] = (s < liveWriteIdx) ? liveBuffer[s] : liveBuffer[liveWriteIdx - 1];
 			}
 
 			// Apply 3-tap intra-line smoothing across stored waveform peaks when smooth > 0
@@ -555,7 +555,7 @@ struct Joy : Module {
 			scanHz = clampf(fCoarse + fine * 20.0f, 0.005f, 300.0f);
 		} else { // RANGE_VCO
 			float fCoarse = 150.0f * std::pow(2000.0f / 150.0f, clampf(coarse + freqCV * 0.1f, 0.f, 1.f));
-			scanHz = clampf(fCoarse * (1.0f + fine * 0.10f), 50.0f, 3000.0f);
+			scanHz = clampf(fCoarse + fine * 0.10f, 50.0f, 3000.0f);
 		}
 
 		// 5. Active Lines Parameter
@@ -598,7 +598,7 @@ struct Joy : Module {
 
 		float xNorm = u * 2.0f - 1.0f; // -1.0 to +1.0
 
-		// 6. Draw Direction & Decay Stacking
+		// 6. Draw Direction & Center-Outward Baseline Calculation
 		// Maps stepIdx according to drawDirection:
 		// DRAW_BOTTOM_TO_TOP: line 0 is foreground (bottom), activeLines-1 is horizon (top)
 		// DRAW_TOP_TO_BOTTOM: line 0 is top horizon, activeLines-1 is bottom foreground
@@ -608,11 +608,9 @@ struct Joy : Module {
 
 		if (activeLines > 1) {
 			if (drawDirection == DRAW_TOP_TO_BOTTOM) {
-				// Starts at horizon (top), works down to foreground (bottom)
 				zDepth = 1.0f - ((float)stepIdx / (float)(activeLines - 1));
 				lineSlot = activeLines - 1 - stepIdx;
 			} else if (drawDirection == DRAW_CENTER_OUTWARD) {
-				// Starts in middle, alternates outward
 				int mid = activeLines / 2;
 				if (stepIdx % 2 == 0) {
 					lineSlot = clampf(mid + (stepIdx / 2), 0, activeLines - 1);
@@ -621,7 +619,6 @@ struct Joy : Module {
 				}
 				zDepth = (float)lineSlot / (float)(activeLines - 1);
 			} else { // DRAW_BOTTOM_TO_TOP
-				// Starts at foreground (bottom), works up to horizon (top)
 				zDepth = (float)stepIdx / (float)(activeLines - 1);
 				lineSlot = stepIdx;
 			}
@@ -633,8 +630,6 @@ struct Joy : Module {
 		float waveVal = history[ringSlot][samplePos];
 
 		// 7. Active Window Aperture (Scaled fully to 100% edges at maximum)
-		// Window knob allows shrinking the active audio wave down to a narrow central band (10% to 100%)
-		// with dead-flat zero baseline wings on either side
 		float winParam = clampf(params[WINDOW_PARAM].getValue() + inputs[WINDOW_CV_INPUT].getVoltage() * params[WINDOW_TRIM_PARAM].getValue() * 0.1f, 0.0f, 1.0f);
 		float winHalfWidth = 0.10f + 0.90f * winParam; // At 100%, reaches all the way to 1.00 (the extreme edges)
 		float absX = std::abs(xNorm);
@@ -645,21 +640,23 @@ struct Joy : Module {
 		}
 		float disp = waveVal * windowTaper;
 
-		// 8. Star Wars Crawl 3D Perspective Tilt with Travel Compression
+		// 8. Center-Outward Baseline & Star Wars Crawl 3D Perspective Tilt
 		float tiltParam = clampf(params[TILT_PARAM].getValue() + inputs[TILT_CV_INPUT].getVoltage() * params[TILT_TRIM_PARAM].getValue() * 0.1f, 0.0f, 1.0f);
 
 		// True 3D perspective scaling: foreground expands wide and tall, horizon tapers to vanishing point
 		float frontScale = 1.0f + 2.0f * tiltParam;
 		float perspFactor = frontScale / (1.0f + 4.0f * tiltParam * zDepth);
 
-		// Star Wars crawl vertical baseline compression
+		// Center-outward vertical baseline: strictly centered at 0.0V when decay spacing is at 0
 		float decayParam = clampf(params[DECAY_PARAM].getValue() + inputs[DECAY_CV_INPUT].getVoltage() * params[DECAY_TRIM_PARAM].getValue() * 0.1f, 0.0f, 1.0f);
-		float gamma = 1.0f + 2.5f * tiltParam;
-		float crawlY = 1.0f - std::pow(clampf(1.0f - zDepth, 0.0f, 1.0f), gamma);
+		float relLine = (activeLines > 1) ? ((float)lineSlot - (activeLines - 1) * 0.5f) / ((activeLines - 1) * 0.5f) : 0.0f; // in [-1.0, +1.0]
+
+		// Perspective crawl curve
+		float crawl = std::copysign(std::pow(std::abs(relLine), 1.0f + 1.2f * tiltParam), relLine);
 
 		// Landscape flight height reduction: as tilt increases, overall height reduces to shorten travel time
 		float yTravelCompression = 1.0f - 0.45f * tiltParam;
-		float yBaseline = (-0.65f + 1.30f * crawlY * decayParam) * yTravelCompression;
+		float yBaseline = crawl * decayParam * 0.65f * yTravelCompression;
 
 		// Wave height scaling
 		float heightParam = clampf(params[HEIGHT_PARAM].getValue() + inputs[HEIGHT_CV_INPUT].getVoltage() * params[HEIGHT_TRIM_PARAM].getValue() * 0.2f, 0.0f, 2.0f);
@@ -683,7 +680,6 @@ struct Joy : Module {
 		}
 
 		// 10. Z-Fade Depth along Draw Direction
-		// Modulates laser intensity along the progression of the raster draw
 		float zFadeParam = clampf(params[ZFADE_PARAM].getValue() + inputs[ZFADE_CV_INPUT].getVoltage() * 0.1f, 0.0f, 1.0f);
 		float stepProgress = (activeLines > 1) ? ((float)stepIdx / (float)(activeLines - 1)) : 0.0f;
 		float fadeFactor = 1.0f - zFadeParam * std::pow(stepProgress, 0.85f);

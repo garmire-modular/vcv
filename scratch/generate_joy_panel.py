@@ -137,8 +137,8 @@ def main():
     ]
 
     version_block = [
-        '  <!-- Label: "v1.4.0" -->',
-        render_qs_text(qs_reg_font, "v1.4.0", panel_w - 2.15, 8.000, 0.001600, "#aaaaaa", "v1.4.0", align="right")
+        '  <!-- Label: "v1.5.0" -->',
+        render_qs_text(qs_reg_font, "v1.5.0", panel_w - 2.15, 8.000, 0.001600, "#aaaaaa", "v1.5.0", align="right")
     ]
 
     badge_svg = get_palette_badge_svg("Joy")
