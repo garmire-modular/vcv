@@ -68,6 +68,7 @@ SOURCES += src/Lain.cpp
 SOURCES += src/Salus.cpp
 SOURCES += src/Serqet.cpp
 SOURCES += src/Joy.cpp
+SOURCES += src/Hecate.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res

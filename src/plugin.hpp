@@ -80,3 +80,4 @@ extern Model* modelLain;
 extern Model* modelSalus;
 extern Model* modelSerqet;
 extern Model* modelJoy;
+extern Model* modelHecate;

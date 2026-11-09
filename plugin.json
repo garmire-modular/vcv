@@ -809,6 +809,16 @@
         "Transform",
         "Waveshaper"
       ]
+    },
+    {
+      "slug": "Hecate",
+      "name": "Hecate",
+      "description": "3-band envelope follower and audio crossover CV generator with dynamic multi-tint waveform display",
+      "tags": [
+        "Visual",
+        "Utility",
+        "Envelope follower"
+      ]
     }
   ]
 }
