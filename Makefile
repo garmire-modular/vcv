@@ -69,6 +69,7 @@ SOURCES += src/Salus.cpp
 SOURCES += src/Serqet.cpp
 SOURCES += src/Joy.cpp
 SOURCES += src/Hecate.cpp
+SOURCES += src/Silvia.cpp
 
 # Add distributable files
 DISTRIBUTABLES += res

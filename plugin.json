@@ -819,6 +819,17 @@
         "Utility",
         "Envelope follower"
       ]
+    },
+    {
+      "slug": "Silvia",
+      "name": "Silvia",
+      "description": "SVG-to-XY vector trajectory generator with standard Freq/Range/Fine timebase, 3x Scale, Rotate, fake 3D Revolve, SVG luminance inversion, and live trajectory preview",
+      "tags": [
+        "Generate",
+        "Oscillator",
+        "Visual",
+        "Polyphonic"
+      ]
     }
   ]
 }
