@@ -156,23 +156,23 @@ def generate_silvia_svg(skin):
         '',
         '  <!-- ZONE 1: HEADER & TITLE -->',
         render_text(ddin_bold, "SILVIA", mid_x, 8.000, s_title, title_color, "SILVIA"),
-        render_text(qs_reg_font, "v1.0.0", panel_w - 2.150, 8.000, s_version, version_color, "v1.0.0", align="right"),
+        render_text(qs_reg_font, "v1.0.1", panel_w - 2.150, 8.000, s_version, version_color, "v1.0.1", align="right"),
+        '',
+        '  <!-- SVG Trajectory Preview Bezel (Above Parameter Knobs: X = 7.40..43.40 mm, Y = 11.00..35.00 mm) -->',
+        f'  <rect x="7.400" y="11.000" width="36.000" height="24.000" rx="1.500" fill="#121216" stroke="{ring_color}" stroke-width="0.350"/>',
         '',
         '  <!-- ZONE 2: PRIMARY KNOBS (3 Columns) -->',
-        '  <!-- Row 1 (Center Y = 18.00 mm, Label Y = 12.250 mm): FREQ, RANGE, FINE -->',
-        render_text(ddin_cond_bold, "FREQ", col3_x[0], 12.250, s_knob, label_color, "FREQ Knob"),
-        render_text(ddin_cond_bold, "RANGE", col3_x[1], 12.250, s_knob, label_color, "RANGE Button"),
-        render_text(ddin_cond_bold, "FINE", col3_x[2], 12.250, s_knob, label_color, "FINE Knob"),
+        '  <!-- Row 1 (Center Y = 46.00 mm, Label Y = 40.250 mm): FREQ, RANGE, FINE -->',
+        render_text(ddin_cond_bold, "FREQ", col3_x[0], 40.250, s_knob, label_color, "FREQ Knob"),
+        render_text(ddin_cond_bold, "RANGE", col3_x[1], 40.250, s_knob, label_color, "RANGE Button"),
+        render_text(ddin_cond_bold, "FINE", col3_x[2], 40.250, s_knob, label_color, "FINE Knob"),
         f'  <!-- Range Button Indicator Ring Track (R = 4.12mm, Stroke = 1.40mm) -->',
-        f'  <circle cx="{col3_x[1]:.3f}" cy="18.000" r="4.120" fill="none" stroke="{ring_color}" stroke-width="1.400"/>',
+        f'  <circle cx="{col3_x[1]:.3f}" cy="46.000" r="4.120" fill="none" stroke="{ring_color}" stroke-width="1.400"/>',
         '',
-        '  <!-- Row 2 (Center Y = 34.00 mm, Label Y = 28.250 mm): SCALE, ROTATE, REVOLVE -->',
-        render_text(ddin_cond_bold, "SCALE", col3_x[0], 28.250, s_knob, label_color, "SCALE Knob"),
-        render_text(ddin_cond_bold, "ROTATE", col3_x[1], 28.250, s_knob, label_color, "ROTATE Knob"),
-        render_text(ddin_cond_bold, "REVOLVE", col3_x[2], 28.250, s_knob, label_color, "REVOLVE Knob"),
-        '',
-        '  <!-- SVG Trajectory Preview Bezel (X = 7.40..43.40 mm, Y = 43.00..67.00 mm) -->',
-        f'  <rect x="7.400" y="43.000" width="36.000" height="24.000" rx="1.500" fill="#121216" stroke="{ring_color}" stroke-width="0.350"/>',
+        '  <!-- Row 2 (Center Y = 62.00 mm, Label Y = 56.250 mm): SCALE, ROTATE, REVOLVE -->',
+        render_text(ddin_cond_bold, "SCALE", col3_x[0], 56.250, s_knob, label_color, "SCALE Knob"),
+        render_text(ddin_cond_bold, "ROTATE", col3_x[1], 56.250, s_knob, label_color, "ROTATE Knob"),
+        render_text(ddin_cond_bold, "REVOLVE", col3_x[2], 56.250, s_knob, label_color, "REVOLVE Knob"),
         '',
         render_section_divider(72.000, panel_w, hi_color, sh_color),
         '',
@@ -268,7 +268,7 @@ def main():
 
     # Row 1 & Row 2 Knobs (R = 4.82 mm) + Range Button (R = 2.60 mm) & Ring (R = 4.12 mm)
     kr = 4.82 * r_px
-    for r_idx, ky in enumerate([18.000, 34.000]):
+    for r_idx, ky in enumerate([46.000, 62.000]):
         for c_idx, kx in enumerate(col3_x):
             if r_idx == 0 and c_idx == 1:
                 br = 2.60 * r_px

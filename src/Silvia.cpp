@@ -24,7 +24,7 @@ namespace silvia_nsvg {
 #endif
 
 // ─────────────────────────────────────────────────────────────────────
-//  Silvia — SVG-to-XY Vector Trajectory Generator (10 HP, v1.0.0)
+//  Silvia — SVG-to-XY Vector Trajectory Generator (10 HP, v1.0.1)
 //  Generate class module opening any SVG file (defaulting to garmire.svg)
 //  and outputting real-time X/Y deflection voltages and Sync pulses.
 //  Features:
@@ -1159,7 +1159,7 @@ struct SilviaDisplayWidget : widget::TransparentWidget {
 	Silvia* module = nullptr;
 
 	SilviaDisplayWidget(Silvia* m) : module(m) {
-		// Box: X = 7.400..43.400 mm (36.000 mm), Y = 43.000..67.000 mm (24.000 mm)
+		// Box: X = 7.400..43.400 mm (36.000 mm), Y = 11.000..35.000 mm (24.000 mm)
 		box.size = mm2px(Vec(36.000f, 24.000f));
 	}
 
@@ -1352,22 +1352,22 @@ struct SilviaWidget : ModuleWidget {
 		// 4-Column Lower Grid
 		const float col4_x[4] = {7.000f, 19.267f, 31.533f, 43.800f};
 
-		// ── Zone 2: Primary Knobs ──
-		// Row 1 (Center Y = 18.00 mm): FREQ, RANGE (Button + Ring), FINE
-		addParam(createParamCentered<SilviaKnob>(mm2px(Vec(col3_x[0], 18.000f)), module, Silvia::FREQ_PARAM));
-		addChild(createLightCentered<SilviaRangeLightRing>(mm2px(Vec(col3_x[1], 18.000f)), module, Silvia::RANGE_LIGHT_YELLOW));
-		addParam(createParamCentered<SilviaButton>(mm2px(Vec(col3_x[1], 18.000f)), module, Silvia::RANGE_PARAM));
-		addParam(createParamCentered<SilviaKnob>(mm2px(Vec(col3_x[2], 18.000f)), module, Silvia::FINE_PARAM));
-
-		// Row 2 (Center Y = 34.00 mm): SCALE, ROTATE, REVOLVE
-		addParam(createParamCentered<SilviaKnob>(mm2px(Vec(col3_x[0], 34.000f)), module, Silvia::SCALE_PARAM));
-		addParam(createParamCentered<SilviaKnob>(mm2px(Vec(col3_x[1], 34.000f)), module, Silvia::ROTATE_PARAM));
-		addParam(createParamCentered<SilviaKnob>(mm2px(Vec(col3_x[2], 34.000f)), module, Silvia::REVOLVE_PARAM));
-
-		// ── Live SVG Trajectory Preview Display (X = 7.400 mm, Y = 43.000 mm) ──
+		// ── Live SVG Trajectory Preview Display (Above Parameter Knobs: X = 7.400 mm, Y = 11.000 mm) ──
 		auto* display = new SilviaDisplayWidget(module);
-		display->box.pos = mm2px(Vec(7.400f, 43.000f));
+		display->box.pos = mm2px(Vec(7.400f, 11.000f));
 		addChild(display);
+
+		// ── Zone 2: Primary Knobs ──
+		// Row 1 (Center Y = 46.00 mm): FREQ, RANGE (Button + Ring), FINE
+		addParam(createParamCentered<SilviaKnob>(mm2px(Vec(col3_x[0], 46.000f)), module, Silvia::FREQ_PARAM));
+		addChild(createLightCentered<SilviaRangeLightRing>(mm2px(Vec(col3_x[1], 46.000f)), module, Silvia::RANGE_LIGHT_YELLOW));
+		addParam(createParamCentered<SilviaButton>(mm2px(Vec(col3_x[1], 46.000f)), module, Silvia::RANGE_PARAM));
+		addParam(createParamCentered<SilviaKnob>(mm2px(Vec(col3_x[2], 46.000f)), module, Silvia::FINE_PARAM));
+
+		// Row 2 (Center Y = 62.00 mm): SCALE, ROTATE, REVOLVE
+		addParam(createParamCentered<SilviaKnob>(mm2px(Vec(col3_x[0], 62.000f)), module, Silvia::SCALE_PARAM));
+		addParam(createParamCentered<SilviaKnob>(mm2px(Vec(col3_x[1], 62.000f)), module, Silvia::ROTATE_PARAM));
+		addParam(createParamCentered<SilviaKnob>(mm2px(Vec(col3_x[2], 62.000f)), module, Silvia::REVOLVE_PARAM));
 
 		// ── Zone 3: CV Attenuverter Trimpots (Center Y = 82.000 mm) ──
 		addParam(createParamCentered<SilviaTrimpot>(mm2px(Vec(col4_x[0], 82.000f)), module, Silvia::SCALE_X_TRIM_PARAM));
