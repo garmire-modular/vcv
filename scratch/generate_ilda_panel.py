@@ -126,8 +126,10 @@ def generate_ilda_svg(skin):
     panel_h = 128.500  # Standard Eurorack 3U
     mid_x = panel_w / 2.0
 
-    # 5-Column Grid (Outer margins 7.00 mm, Center 35.56 mm, Pitch 14.280 mm)
-    col5_x = [7.000, 21.280, 35.560, 49.840, 64.120]
+    # 4-Column Row 1 Knobs (Symmetric across 8.56..62.56 mm, Pitch 18.00 mm >= 15.00 mm)
+    col4_x = [8.560, 26.560, 44.560, 62.560]
+    # 5-Column Lower Matrix (Matching 14 HP Polly pitch 13.50 mm, clear of 2.54 mm badge & edge)
+    col5_x = [8.560, 22.060, 35.560, 49.060, 62.560]
 
     bg_color = skin['bg_color']
     title_color = skin['title_color']
@@ -153,47 +155,52 @@ def generate_ilda_svg(skin):
         '',
         '  <!-- ZONE 1: HEADER & TITLE -->',
         render_text(ddin_bold, "ILDA", mid_x, 8.000, s_title, title_color, "ILDA"),
-        render_text(qs_reg_font, "v1.0.0", panel_w - 2.150, 8.000, s_version, version_color, "v1.0.0", align="right"),
+        render_text(qs_reg_font, "v1.0.1", panel_w - 2.150, 8.000, s_version, version_color, "v1.0.1", align="right"),
         '',
         '  <!-- Large Live Laser Preview Bezel (X = 7.40..63.72 mm, Y = 11.00..41.00 mm) -->',
         f'  <rect x="7.400" y="11.000" width="56.320" height="30.000" rx="1.500" fill="#101014" stroke="{ring_color}" stroke-width="0.350"/>',
         '',
-        '  <!-- ZONE 2: PRIMARY CONTROLS (5 Columns on One Line, Center Y = 52.00 mm, Label Y = 46.250 mm) -->',
-        render_text(ddin_cond_bold, "FREQ", col5_x[0], 46.250, s_knob, label_color, "FREQ Knob"),
-        render_text(ddin_cond_bold, "RANGE", col5_x[1], 46.250, s_knob, label_color, "RANGE Button"),
-        render_text(ddin_cond_bold, "FINE", col5_x[2], 46.250, s_knob, label_color, "FINE Knob"),
-        render_text(ddin_cond_bold, "SCALE", col5_x[3], 46.250, s_knob, label_color, "SCALE Knob"),
-        render_text(ddin_cond_bold, "ROTATE", col5_x[4], 46.250, s_knob, label_color, "ROTATE Knob"),
+        '  <!-- ZONE 2: PRIMARY CONTROLS (Row 1, Center Y = 52.00 mm, Label Y = 46.250 mm) -->',
+        render_text(ddin_cond_bold, "FREQ", col4_x[0], 46.250, s_knob, label_color, "FREQ Knob"),
+        render_text(ddin_cond_bold, "RANGE", col4_x[1], 46.250, s_knob, label_color, "RANGE Button"),
+        render_text(ddin_cond_bold, "FINE", col4_x[2], 46.250, s_knob, label_color, "FINE Knob"),
+        render_text(ddin_cond_bold, "FRAME RATE", col4_x[3], 46.250, s_knob, label_color, "FRAME RATE Knob"),
         '  <!-- Range Button Indicator Ring Track (R = 4.12mm, Stroke = 1.40mm) -->',
-        f'  <circle cx="{col5_x[1]:.3f}" cy="52.000" r="4.120" fill="none" stroke="{ring_color}" stroke-width="1.400"/>',
+        f'  <circle cx="{col4_x[1]:.3f}" cy="52.000" r="4.120" fill="none" stroke="{ring_color}" stroke-width="1.400"/>',
         '',
         render_section_divider(63.000, panel_w, hi_color, sh_color),
         '',
-        '  <!-- ZONE 3: CV ATTENUVERTERS (Center Y = 73.00 mm, Label Y = 69.000 mm, Aligned Over Scale/Rotate CV) -->',
-        render_text(ddin_cond, "SCALE", col5_x[3], 69.000, s_trim, label_color, "SCALE CV Depth"),
-        render_text(ddin_cond, "ROTATE", col5_x[4], 69.000, s_trim, label_color, "ROTATE CV Depth"),
+        '  <!-- ZONE 3: ATTENUVERTERS & SMALL BUTTONS (Center Y = 73.00 mm, Label Y = 69.000 mm) -->',
+        render_text(ddin_cond, "FREQ", col5_x[1], 69.000, s_trim, label_color, "FREQ CV Depth"),
+        render_text(ddin_cond, "RESET", col5_x[2], 69.000, s_trim, label_color, "RESET Button"),
+        render_text(ddin_cond, "FPS", col5_x[3], 69.000, s_trim, label_color, "FPS CV Depth"),
+        render_text(ddin_cond, "FREEZE", col5_x[4], 69.000, s_trim, label_color, "FREEZE Toggle"),
+        '  <!-- Freeze Button Indicator Ring Track (R = 3.20mm, Stroke = 0.85mm) -->',
+        f'  <circle cx="{col5_x[4]:.3f}" cy="73.000" r="3.200" fill="none" stroke="{ring_color}" stroke-width="0.850"/>',
         '',
         render_section_divider(81.000, panel_w, hi_color, sh_color),
         '',
         '  <!-- ZONE 4: I/O JACKS (3 Rows x 5 Columns, Bottom Anchor = 117.00 mm, Pitch = 13.00 mm) -->',
-        '  <!-- Jack Row 1 (Inputs, Center Y = 91.00 mm, Label Y = 86.000 mm) -->',
-        render_text(ddin_cond, "FREQ", col5_x[0], 86.000, s_jack, label_color, "FREQ CV"),
-        render_text(ddin_cond, "SYNC IN", col5_x[1], 86.000, s_jack, label_color, "SYNC IN"),
-        render_text(ddin_cond, "SCALE", col5_x[3], 86.000, s_jack, label_color, "SCALE CV"),
-        render_text(ddin_cond, "ROTATE", col5_x[4], 86.000, s_jack, label_color, "ROTATE CV"),
+        '  <!-- Jack Row 1 (Center Y = 91.00 mm, Label Y = 86.000 mm) -->',
+        render_text(ddin_cond, "SYNC IN", col5_x[0], 86.000, s_jack, label_color, "SYNC IN"),
+        render_text(ddin_cond, "FREQ", col5_x[1], 86.000, s_jack, label_color, "FREQ CV"),
+        render_text(ddin_cond, "RESET", col5_x[2], 86.000, s_jack, label_color, "RESET IN"),
+        render_text(ddin_cond, "FPS", col5_x[3], 86.000, s_jack, label_color, "FPS CV"),
+        render_text(ddin_cond, "FREEZE", col5_x[4], 86.000, s_jack, label_color, "FREEZE GATE"),
         '',
-        '  <!-- Jack Row 2 (Color & Audio Outputs, Center Y = 104.00 mm, Label Y = 99.000 mm) -->',
-        render_text(ddin_cond, "R", col5_x[0], 99.000, s_jack, label_color, "R OUT"),
-        render_text(ddin_cond, "G", col5_x[1], 99.000, s_jack, label_color, "G OUT"),
-        render_text(ddin_cond, "B", col5_x[2], 99.000, s_jack, label_color, "B OUT"),
-        render_text(ddin_cond, "AUDIO L", col5_x[3], 99.000, s_jack, label_color, "AUDIO L OUT"),
-        render_text(ddin_cond, "AUDIO R", col5_x[4], 99.000, s_jack, label_color, "AUDIO R OUT"),
+        '  <!-- Jack Row 2 (Center Y = 104.00 mm, Label Y = 99.000 mm) -->',
+        render_text(ddin_cond, "FREQ SYNC", col5_x[0], 99.000, s_jack, label_color, "FREQ SYNC IN"),
+        render_text(ddin_cond, "X", col5_x[1], 99.000, s_jack, label_color, "X OUT"),
+        render_text(ddin_cond, "Y", col5_x[2], 99.000, s_jack, label_color, "Y OUT"),
+        render_text(ddin_cond, "Z", col5_x[3], 99.000, s_jack, label_color, "Z OUT"),
+        render_text(ddin_cond, "AUDIO L", col5_x[4], 99.000, s_jack, label_color, "AUDIO L OUT"),
         '',
-        '  <!-- Jack Row 3 (XYZ & Sync Output, Center Y = 117.00 mm, Label Y = 112.000 mm) -->',
-        render_text(ddin_cond, "X", col5_x[0], 112.000, s_jack, label_color, "X OUT"),
-        render_text(ddin_cond, "Y", col5_x[1], 112.000, s_jack, label_color, "Y OUT"),
-        render_text(ddin_cond, "Z", col5_x[2], 112.000, s_jack, label_color, "Z OUT"),
-        render_text(ddin_cond, "SYNC OUT", col5_x[4], 112.000, s_jack, label_color, "SYNC OUT"),
+        '  <!-- Jack Row 3 (Center Y = 117.00 mm, Label Y = 112.000 mm) -->',
+        render_text(ddin_cond, "R", col5_x[0], 112.000, s_jack, label_color, "R OUT"),
+        render_text(ddin_cond, "G", col5_x[1], 112.000, s_jack, label_color, "G OUT"),
+        render_text(ddin_cond, "B", col5_x[2], 112.000, s_jack, label_color, "B OUT"),
+        render_text(ddin_cond, "SYNC OUT", col5_x[3], 112.000, s_jack, label_color, "SYNC OUT"),
+        render_text(ddin_cond, "AUDIO R", col5_x[4], 112.000, s_jack, label_color, "AUDIO R OUT"),
         '</svg>'
     ]
     return "\n".join(svg) + "\n"
@@ -243,7 +250,6 @@ def main():
             f.write(svg_content)
         print(f"Generated {skin['filename']} ({skin['name']} skin) successfully.")
 
-    # Render 240px MetaModule asset (14 HP = 71.12 mm -> round(240 * 71.12 / 128.50) = 133 px)
     panel_w = 71.120
     panel_h = 128.500
     target_h = 240
@@ -253,7 +259,6 @@ def main():
                      output_width=target_w, output_height=target_h)
     print(f"Rendered metamodule/assets/Ilda.png ({target_w}x{target_h}) successfully.")
 
-    # Render 4x verification bitmap with hardware footprints overlaid
     verify_png = 'scratch/ilda_verify.png'
     cairosvg.svg2png(url='res/Ilda.svg', write_to=verify_png,
                      output_width=target_w * 4, output_height=target_h * 4)
@@ -261,11 +266,12 @@ def main():
     draw = ImageDraw.Draw(im)
     r_px = (target_w * 4) / panel_w
 
-    col5_x = [7.000, 21.280, 35.560, 49.840, 64.120]
+    col4_x = [8.560, 26.560, 44.560, 62.560]
+    col5_x = [8.560, 22.060, 35.560, 49.060, 62.560]
 
     # Row 1 Primary Knobs / Range Button at Y = 52.00 mm
     kr = 4.82 * r_px
-    for c_idx, kx in enumerate(col5_x):
+    for c_idx, kx in enumerate(col4_x):
         ky = 52.000
         if c_idx == 1:
             br = 2.60 * r_px
@@ -275,20 +281,21 @@ def main():
         else:
             draw.ellipse([kx * r_px - kr, ky * r_px - kr, kx * r_px + kr, ky * r_px + kr], outline='#ffaa00', width=2)
 
-    # Zone 3 Trimpots (Col 3 & Col 4 at Y = 73.00 mm)
+    # Zone 3 Trimpots (Col 1 & Col 3) & Small Buttons (Col 2 & Col 4) at Y = 73.00 mm
     tr = 3.04 * r_px
-    for tx in [col5_x[3], col5_x[4]]:
+    br = 2.60 * r_px
+    rr_f = 3.20 * r_px
+    for tx in [col5_x[1], col5_x[3]]:
         draw.ellipse([tx * r_px - tr, 73.000 * r_px - tr, tx * r_px + tr, 73.000 * r_px + tr], outline='#00ff88', width=2)
+    draw.ellipse([col5_x[2] * r_px - br, 73.000 * r_px - br, col5_x[2] * r_px + br, 73.000 * r_px + br], outline='#f0e442', width=2)
+    draw.ellipse([col5_x[4] * r_px - br, 73.000 * r_px - br, col5_x[4] * r_px + br, 73.000 * r_px + br], outline='#f0e442', width=2)
+    draw.ellipse([col5_x[4] * r_px - rr_f, 73.000 * r_px - rr_f, col5_x[4] * r_px + rr_f, 73.000 * r_px + rr_f], outline='#40b0a6', width=2)
 
-    # Zone 4 Jacks (13 active slots)
+    # Zone 4 Jacks (All 15 slots filled across 3x5)
     jr = 3.89 * r_px
-    jack_coords = [
-        (col5_x[0], 91.000), (col5_x[1], 91.000), (col5_x[3], 91.000), (col5_x[4], 91.000),
-        (col5_x[0], 104.000), (col5_x[1], 104.000), (col5_x[2], 104.000), (col5_x[3], 104.000), (col5_x[4], 104.000),
-        (col5_x[0], 117.000), (col5_x[1], 117.000), (col5_x[2], 117.000), (col5_x[4], 117.000),
-    ]
-    for jx, jy in jack_coords:
-        draw.ellipse([jx * r_px - jr, jy * r_px - jr, jx * r_px + jr, jy * r_px + jr], outline='#00aaff', width=2)
+    for jy in [91.000, 104.000, 117.000]:
+        for jx in col5_x:
+            draw.ellipse([jx * r_px - jr, jy * r_px - jr, jx * r_px + jr, jy * r_px + jr], outline='#00aaff', width=2)
 
     im.save(verify_png)
     print(f"Saved verification image to {verify_png}.")

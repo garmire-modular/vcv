@@ -20,16 +20,17 @@
 #endif
 
 // ─────────────────────────────────────────────────────────────────────
-//  ILDA — ILDA (.ild) & Multi-Channel WAV (.wav) Laser Player (14 HP, v1.0.0)
+//  ILDA — ILDA (.ild) & Multi-Channel WAV (.wav) Laser Player (14 HP, v1.0.1)
 //  Generate class module implementing ILDA Image Data Transfer Format
 //  (Rev 011 Formats 0, 1, 2, 4, 5) and 1–8 channel WAV playback:
 //    - 8-ch WAV: 1:X, 2:Y, 3:R, 4:G, 5:B, 6:Z/Blank, 7:Audio L, 8:Audio R
 //    - Large top full-color laser preview display with live scan beam
-//    - Row 1 (5 cols): Standard Freq, Range, Fine, Scale (0–3x), Rotate (±180°)
-//    - Zone 3: Scale CV depth, Rotate CV depth attenuverters
-//    - Zone 4: Freq CV, Sync In, Scale CV, Rotate CV, R, G, B,
-//              Audio L, Audio R, X, Y, Z, Sync Out
-//    - Right-click context menu for all file, interpolation, frame/sync,
+//    - Row 1 (4 cols): Standard Freq, Range, Fine, Frame Rate
+//    - Zone 3: Freq CV depth, Reset button, FPS CV depth, Freeze button
+//    - Zone 4 Row 1: Sync In (frame), Freq CV, Reset, FPS CV, Freeze Gate
+//    - Zone 4 Row 2: Freq Sync In, X, Y, Z, Audio L
+//    - Zone 4 Row 3: R, G, B, Sync Out, Audio R
+//    - Right-click context menu for file, interpolation, frame/sync,
 //      WAV mapping, voltage range, RGB scale, and skin settings.
 // ─────────────────────────────────────────────────────────────────────
 
@@ -295,10 +296,10 @@ struct Ilda : Module {
 	FrameMode frameMode = FRAME_AUTO_FPS;
 
 	enum SyncInMode {
-		SYNC_RESET_FILE = 0, // Default: reset scan phase & animation back to start
-		SYNC_STEP_FRAME = 1  // Advance 1 frame per Sync In trigger
+		SYNC_RESET_FILE = 0, // Restart animation frame to 0
+		SYNC_STEP_FRAME = 1  // Advance 1 frame per trigger
 	};
-	SyncInMode syncInMode = SYNC_RESET_FILE;
+	SyncInMode syncInMode = SYNC_STEP_FRAME;
 
 	enum WavSpeedMode {
 		WAV_SPEED_VOCT = 0,  // Default: 1.0x native rate at Freq=0.5, V/Oct + Fine
@@ -331,35 +332,38 @@ struct Ilda : Module {
 		FREQ_PARAM,
 		RANGE_PARAM,
 		FINE_PARAM,
-		SCALE_PARAM,
-		ROTATE_PARAM,
+		FRAME_RATE_PARAM,
 
-		SCALE_TRIM_PARAM,
-		ROTATE_TRIM_PARAM,
+		FREQ_TRIM_PARAM,
+		RESET_BUTTON_PARAM,
+		FPS_TRIM_PARAM,
+		FREEZE_BUTTON_PARAM,
 
 		PARAMS_LEN
 	};
 
 	enum InputId {
+		FRAME_SYNC_INPUT,
 		FREQ_CV_INPUT,
-		SYNC_INPUT,
-		SCALE_CV_INPUT,
-		ROTATE_CV_INPUT,
+		RESET_INPUT,
+		FPS_CV_INPUT,
+		FREEZE_INPUT,
+		FREQ_SYNC_INPUT,
 
 		INPUTS_LEN
 	};
 
 	enum OutputId {
-		R_OUTPUT,
-		G_OUTPUT,
-		B_OUTPUT,
-		AUDIO_L_OUTPUT,
-		AUDIO_R_OUTPUT,
-
 		X_OUTPUT,
 		Y_OUTPUT,
 		Z_OUTPUT,
+		AUDIO_L_OUTPUT,
+
+		R_OUTPUT,
+		G_OUTPUT,
+		B_OUTPUT,
 		SYNC_OUTPUT,
+		AUDIO_R_OUTPUT,
 
 		OUTPUTS_LEN
 	};
@@ -368,6 +372,7 @@ struct Ilda : Module {
 		RANGE_LIGHT_YELLOW,
 		RANGE_LIGHT_ORANGE,
 		RANGE_LIGHT_PURPLE,
+		FREEZE_LIGHT,
 
 		LIGHTS_LEN
 	};
@@ -416,24 +421,31 @@ struct Ilda : Module {
 	std::atomic<bool> showBlankedMoves{false};
 	std::atomic<bool> flipX{false};
 	std::atomic<bool> flipY{false};
-	std::atomic<int> fpsSetting{24};
+	std::atomic<bool> masterFrozen{false};
 	std::atomic<int> manualFrame{0};
 	std::atomic<int> displayFrame{0};
 	std::atomic<float> displayScanPos{0.f};
 	std::atomic<float> displayRevolveDeg{0.f};
 
 	dsp::BooleanTrigger rangeTrigger;
+	dsp::BooleanTrigger resetBtnTrigger;
+	dsp::BooleanTrigger freezeBtnTrigger;
 
 	struct VoiceState {
 		float scanPhase = 0.f;
 		float wavSamplePos = 0.f;
+		float wavFreezePos = 0.f;
 		int curFrame = 0;
+		bool frozen = false;
 		float animTimer = 0.f;
 		float timeSinceSync = 0.f;
 		float syncPeriod = 0.f;
 		float dcInX = 0.f, dcOutX = 0.f;
 		float dcInY = 0.f, dcOutY = 0.f;
-		dsp::SchmittTrigger syncTrigger;
+		dsp::SchmittTrigger frameSyncTrigger;
+		dsp::SchmittTrigger freqSyncTrigger;
+		dsp::SchmittTrigger resetTrigger;
+		dsp::SchmittTrigger freezeTrigger;
 		dsp::PulseGenerator syncPulse;
 	};
 	VoiceState voices[16];
@@ -561,27 +573,30 @@ struct Ilda : Module {
 		configParam<FreqParamQuantity>(FREQ_PARAM, 0.f, 1.f, 0.5f, "Frequency");
 		configButton(RANGE_PARAM, "Time-scale");
 		configParam(FINE_PARAM, -1.f, 1.f, 0.f, "Fine frequency", "%", 0.f, 10.f);
-		configParam(SCALE_PARAM, 0.f, 3.f, 1.f, "Scale", "x");
-		configParam(ROTATE_PARAM, -180.f, 180.f, 0.f, "Rotate", "°");
+		configParam(FRAME_RATE_PARAM, 0.f, 60.f, 24.f, "Frame rate", " fps");
 
-		configParam(SCALE_TRIM_PARAM, -1.f, 1.f, 0.f, "Scale CV depth", "%", 0.f, 100.f);
-		configParam(ROTATE_TRIM_PARAM, -1.f, 1.f, 0.f, "Rotate CV depth", "%", 0.f, 100.f);
+		configParam(FREQ_TRIM_PARAM, -1.f, 1.f, 0.f, "Frequency CV depth", "%", 0.f, 100.f);
+		configButton(RESET_BUTTON_PARAM, "Reset playback");
+		configParam(FPS_TRIM_PARAM, -1.f, 1.f, 0.f, "Frame rate CV depth", "%", 0.f, 100.f);
+		configButton(FREEZE_BUTTON_PARAM, "Freeze frame");
 
+		configInput(FRAME_SYNC_INPUT, "Frame sync");
 		configInput(FREQ_CV_INPUT, "Frequency (1V/oct)");
-		configInput(SYNC_INPUT, "Sync");
-		configInput(SCALE_CV_INPUT, "Scale CV");
-		configInput(ROTATE_CV_INPUT, "Rotate CV");
-
-		configOutput(R_OUTPUT, "Red color");
-		configOutput(G_OUTPUT, "Green color");
-		configOutput(B_OUTPUT, "Blue color");
-		configOutput(AUDIO_L_OUTPUT, "Left audio");
-		configOutput(AUDIO_R_OUTPUT, "Right audio");
+		configInput(RESET_INPUT, "Reset playback");
+		configInput(FPS_CV_INPUT, "Frame rate CV");
+		configInput(FREEZE_INPUT, "Freeze frame gate");
+		configInput(FREQ_SYNC_INPUT, "Frequency sync");
 
 		configOutput(X_OUTPUT, "X coordinate");
 		configOutput(Y_OUTPUT, "Y coordinate");
 		configOutput(Z_OUTPUT, "Z coordinate");
+		configOutput(AUDIO_L_OUTPUT, "Left audio");
+
+		configOutput(R_OUTPUT, "Red color");
+		configOutput(G_OUTPUT, "Green color");
+		configOutput(B_OUTPUT, "Blue color");
 		configOutput(SYNC_OUTPUT, "Sync");
+		configOutput(AUDIO_R_OUTPUT, "Right audio");
 
 		loadDefaultSequence();
 	}
@@ -1016,12 +1031,11 @@ struct Ilda : Module {
 	}
 
 	inline void transformXYZ(float inX, float inY, float inZ,
-							 float scale, float rotDeg, float revDeg,
-							 bool fX, bool fY,
+							 float revDeg, bool fX, bool fY,
 							 float& outX, float& outY, float& outZ) const {
-		float sx = (fX ? -inX : inX) * scale;
-		float sy = (fY ? -inY : inY) * scale;
-		float sz = inZ * scale;
+		float sx = fX ? -inX : inX;
+		float sy = fY ? -inY : inY;
+		float sz = inZ;
 
 		// Optional 3D XZ yaw revolve (driven from context menu Revolve preset)
 		float rx = sx;
@@ -1034,12 +1048,8 @@ struct Ilda : Module {
 			rz = -sx * sr + sz * cr;
 		}
 
-		// 2D rotation around Z (Clockwise positive for +degrees)
-		float rotRad = -rotDeg * (float)(M_PI / 180.0);
-		float cosRot = std::cos(rotRad);
-		float sinRot = std::sin(rotRad);
-		outX = rx * cosRot - sy * sinRot;
-		outY = rx * sinRot + sy * cosRot;
+		outX = rx;
+		outY = sy;
 		outZ = rz;
 	}
 
@@ -1059,6 +1069,33 @@ struct Ilda : Module {
 		lights[RANGE_LIGHT_ORANGE].setBrightness(rangeMode == RANGE_LFO ? 1.f : 0.f);
 		lights[RANGE_LIGHT_PURPLE].setBrightness(rangeMode == RANGE_VCO ? 1.f : 0.f);
 
+		int totalFrames = (int)show.frames.size();
+		int totalPts = (int)show.points.size();
+
+		// Front-panel Reset playback button
+		if (resetBtnTrigger.process(params[RESET_BUTTON_PARAM].getValue() > 0.5f)) {
+			for (int i = 0; i < 16; ++i) {
+				voices[i].scanPhase = 0.f;
+				voices[i].wavSamplePos = 0.f;
+				voices[i].wavFreezePos = 0.f;
+				voices[i].curFrame = 0;
+				voices[i].animTimer = 0.f;
+				voices[i].syncPulse.trigger(1e-4f);
+			}
+		}
+
+		// Front-panel Freeze frame toggle button
+		if (freezeBtnTrigger.process(params[FREEZE_BUTTON_PARAM].getValue() > 0.5f)) {
+			bool nextFreeze = !masterFrozen.load(std::memory_order_relaxed);
+			masterFrozen.store(nextFreeze, std::memory_order_relaxed);
+			for (int i = 0; i < 16; ++i) {
+				voices[i].frozen = nextFreeze;
+				if (nextFreeze) {
+					voices[i].wavFreezePos = voices[i].wavSamplePos;
+				}
+			}
+		}
+
 		// Update optional continuous 3D revolve
 		if (revolvePreset == REVOLVE_AUTO_SPIN) {
 			autoSpinDeg += 36.f * args.sampleTime;
@@ -1075,12 +1112,11 @@ struct Ilda : Module {
 		}
 		displayRevolveDeg.store(revDeg, std::memory_order_relaxed);
 
-		// Polyphony count
-		int fCh = inputs[FREQ_CV_INPUT].getChannels();
-		int sCh = inputs[SYNC_INPUT].getChannels();
-		int scCh = inputs[SCALE_CV_INPUT].getChannels();
-		int roCh = inputs[ROTATE_CV_INPUT].getChannels();
-		int numChannels = std::max({fCh, sCh, scCh, roCh, 1});
+		// Polyphony count across all 6 inputs
+		int numChannels = 1;
+		for (int inp = 0; inp < INPUTS_LEN; ++inp) {
+			numChannels = std::max(numChannels, inputs[inp].getChannels());
+		}
 		numChannels = std::min(numChannels, 16);
 
 		outputs[X_OUTPUT].setChannels(numChannels);
@@ -1096,11 +1132,10 @@ struct Ilda : Module {
 		float coarseParam = params[FREQ_PARAM].getValue();
 		float fineParam = params[FINE_PARAM].getValue();
 		float baseFreqHz = calculateBaseFrequency(coarseParam, fineParam);
+		float frameRateParam = params[FRAME_RATE_PARAM].getValue();
 
-		float scaleParam = params[SCALE_PARAM].getValue();
-		float rotateParam = params[ROTATE_PARAM].getValue();
-		float scaleTrim = params[SCALE_TRIM_PARAM].getValue();
-		float rotateTrim = params[ROTATE_TRIM_PARAM].getValue();
+		float freqTrim = params[FREQ_TRIM_PARAM].getValue();
+		float fpsTrim = params[FPS_TRIM_PARAM].getValue();
 
 		float vMin, vMax;
 		getRangeVoltages(vMin, vMax);
@@ -1108,14 +1143,11 @@ struct Ilda : Module {
 		float vHalfSpan = 0.5f * (vMax - vMin);
 		float rgbMaxV = getRgbScaleVoltage();
 
-		bool syncConnected = inputs[SYNC_INPUT].isConnected();
+		bool frameSyncConnected = inputs[FRAME_SYNC_INPUT].isConnected();
+		bool freqSyncConnected = inputs[FREQ_SYNC_INPUT].isConnected();
 		bool fX = flipX.load(std::memory_order_relaxed);
 		bool fY = flipY.load(std::memory_order_relaxed);
-		int targetFps = std::max(1, fpsSetting.load(std::memory_order_relaxed));
 		int manFrame = manualFrame.load(std::memory_order_relaxed);
-
-		int totalFrames = (int)show.frames.size();
-		int totalPts = (int)show.points.size();
 
 		// Precompute 1-pole DC blocker coeff (~5 Hz) for AC audio output when show has < 7 channels
 		float dcR = clampf(1.f - (2.f * (float)M_PI * 5.f * args.sampleTime), 0.90f, 0.9999f);
@@ -1125,30 +1157,70 @@ struct Ilda : Module {
 			if (vs.curFrame >= totalFrames) vs.curFrame = 0;
 
 			float freqCvV = inputs[FREQ_CV_INPUT].getPolyVoltage(c);
-			float vOctMult = std::pow(2.f, clampf(freqCvV, -5.f, 8.f));
-			float voiceFreq = baseFreqHz * vOctMult;
+			float freqOct = clampf(freqCvV * freqTrim, -6.f, 8.f);
+			float voiceFreq = baseFreqHz * std::pow(2.f, freqOct);
 
-			// Handle Sync In (Reset File or Advance 1 Frame per trigger)
-			bool syncTriggered = false;
-			if (syncConnected) {
-				vs.timeSinceSync += args.sampleTime;
-				if (vs.syncTrigger.process(inputs[SYNC_INPUT].getPolyVoltage(c), 0.1f, 2.0f)) {
-					syncTriggered = true;
-					if (syncInMode == SYNC_STEP_FRAME && !show.isWav && totalFrames > 0) {
-						vs.curFrame = (vs.curFrame + 1) % totalFrames;
-						vs.scanPhase = 0.f;
-						vs.animTimer = 0.f;
-						vs.syncPeriod = 0.f;
-					} else {
-						if (vs.timeSinceSync > 0.0005f) {
-							vs.syncPeriod = vs.timeSinceSync;
-						}
-						vs.timeSinceSync = 0.f;
-						vs.scanPhase = 0.f;
-						vs.wavSamplePos = 0.f;
-						vs.curFrame = 0;
-						vs.animTimer = 0.f;
+			float fpsCvV = inputs[FPS_CV_INPUT].getPolyVoltage(c) / 5.f;
+			float voiceFps = clampf(frameRateParam + fpsCvV * fpsTrim * 60.f, 0.f, 120.f);
+
+			// Gate input toggles freezing the frame on rising edge
+			if (inputs[FREEZE_INPUT].isConnected()) {
+				if (vs.freezeTrigger.process(inputs[FREEZE_INPUT].getPolyVoltage(c), 0.1f, 2.0f)) {
+					vs.frozen = !vs.frozen;
+					if (vs.frozen) {
+						vs.wavFreezePos = vs.wavSamplePos;
 					}
+					if (c == 0) {
+						masterFrozen.store(vs.frozen, std::memory_order_relaxed);
+					}
+				}
+			}
+
+			// Reset trigger input
+			bool resetTrig = false;
+			if (inputs[RESET_INPUT].isConnected()) {
+				if (vs.resetTrigger.process(inputs[RESET_INPUT].getPolyVoltage(c), 0.1f, 2.0f)) {
+					vs.scanPhase = 0.f;
+					vs.wavSamplePos = 0.f;
+					vs.wavFreezePos = 0.f;
+					vs.curFrame = 0;
+					vs.animTimer = 0.f;
+					resetTrig = true;
+					vs.syncPulse.trigger(1e-4f);
+				}
+			}
+
+			// Frame Sync In (Row 1 Col 0): steps/restarts animation frames
+			bool frameSyncTrig = false;
+			if (frameSyncConnected) {
+				if (vs.frameSyncTrigger.process(inputs[FRAME_SYNC_INPUT].getPolyVoltage(c), 0.1f, 2.0f)) {
+					frameSyncTrig = true;
+					if (!vs.frozen) {
+						if (show.isWav) {
+							vs.wavSamplePos = 0.f;
+						} else if (totalFrames > 0) {
+							if (syncInMode == SYNC_STEP_FRAME) {
+								vs.curFrame = (vs.curFrame + 1) % totalFrames;
+							} else {
+								vs.curFrame = 0;
+							}
+							vs.animTimer = 0.f;
+						}
+					}
+				}
+			}
+
+			// Frequency Sync In (Row 2 Col 0): hard-syncs point scan phase & frequency
+			bool freqSyncTrig = false;
+			if (freqSyncConnected) {
+				vs.timeSinceSync += args.sampleTime;
+				if (vs.freqSyncTrigger.process(inputs[FREQ_SYNC_INPUT].getPolyVoltage(c), 0.1f, 2.0f)) {
+					if (vs.timeSinceSync > 0.0005f) {
+						vs.syncPeriod = vs.timeSinceSync;
+					}
+					vs.timeSinceSync = 0.f;
+					vs.scanPhase = 0.f;
+					freqSyncTrig = true;
 					vs.syncPulse.trigger(1e-4f);
 				}
 			} else {
@@ -1162,12 +1234,11 @@ struct Ilda : Module {
 			if (totalPts > 0 && totalFrames > 0) {
 				if (show.isWav) {
 					if (wavSpeedMode == WAV_SINGLE_CYCLE) {
-						float f0 = (syncConnected && syncInMode == SYNC_RESET_FILE && vs.syncPeriod > 0.f)
-								   ? (1.f / vs.syncPeriod) : voiceFreq;
+						float f0 = (freqSyncConnected && vs.syncPeriod > 0.f) ? (1.f / vs.syncPeriod) : voiceFreq;
 						vs.scanPhase += f0 * args.sampleTime;
 						if (vs.scanPhase >= 1.f) {
 							vs.scanPhase -= std::floor(vs.scanPhase);
-							if (!syncTriggered) vs.syncPulse.trigger(1e-4f);
+							if (!freqSyncTrig && !resetTrig) vs.syncPulse.trigger(1e-4f);
 						}
 						float pos = vs.scanPhase * (float)totalPts;
 						int i0 = (int)pos % totalPts;
@@ -1188,16 +1259,31 @@ struct Ilda : Module {
 					} else {
 						// V/Oct speed relative to native WAV sampleRate (1.0x when Freq = 0.5 in LFO range)
 						float rangeMult = (rangeMode == RANGE_VERY_SLOW) ? 0.1f : (rangeMode == RANGE_VCO ? 8.0f : 1.0f);
-						float speed = rangeMult * std::pow(2.f, (coarseParam - 0.5f) * 8.f + fineParam * 0.5f + freqCvV);
-						vs.wavSamplePos += speed * (float)show.sampleRate * args.sampleTime;
-						if (vs.wavSamplePos >= (float)totalPts) {
-							vs.wavSamplePos -= std::floor(vs.wavSamplePos / (float)totalPts) * (float)totalPts;
-							if (!syncTriggered) vs.syncPulse.trigger(1e-4f);
+						float speed = rangeMult * std::pow(2.f, (coarseParam - 0.5f) * 8.f + fineParam * 0.5f + freqOct);
+						float samplePosNow = 0.f;
+						if (vs.frozen) {
+							// Loop local frame window when Frozen on WAV so beam trace stays active
+							int sliceLen = std::min(1024, totalPts);
+							vs.scanPhase += voiceFreq * args.sampleTime;
+							if (vs.scanPhase >= 1.f) {
+								vs.scanPhase -= std::floor(vs.scanPhase);
+								if (!freqSyncTrig && !resetTrig) vs.syncPulse.trigger(1e-4f);
+							}
+							samplePosNow = std::fmod(vs.wavFreezePos + vs.scanPhase * (float)sliceLen, (float)totalPts);
+							activeScanPos = samplePosNow / (float)totalPts;
+						} else {
+							vs.wavSamplePos += speed * (float)show.sampleRate * args.sampleTime;
+							if (vs.wavSamplePos >= (float)totalPts) {
+								vs.wavSamplePos -= std::floor(vs.wavSamplePos / (float)totalPts) * (float)totalPts;
+								if (!freqSyncTrig && !resetTrig && !frameSyncTrig) vs.syncPulse.trigger(1e-4f);
+							}
+							if (vs.wavSamplePos < 0.f) vs.wavSamplePos = 0.f;
+							samplePosNow = vs.wavSamplePos;
+							activeScanPos = vs.wavSamplePos / (float)totalPts;
 						}
-						if (vs.wavSamplePos < 0.f) vs.wavSamplePos = 0.f;
-						int i0 = (int)vs.wavSamplePos % totalPts;
+						int i0 = (int)samplePosNow % totalPts;
 						int i1 = (i0 + 1) % totalPts;
-						float frac = (interpMode == INTERP_LINEAR) ? (vs.wavSamplePos - std::floor(vs.wavSamplePos)) : 0.f;
+						float frac = (interpMode == INTERP_LINEAR) ? (samplePosNow - std::floor(samplePosNow)) : 0.f;
 						const ShowPoint& p0 = show.points[i0];
 						const ShowPoint& p1 = show.points[i1];
 						sampled.x = p0.x + (p1.x - p0.x) * frac;
@@ -1209,19 +1295,17 @@ struct Ilda : Module {
 						sampled.al = p0.al + (p1.al - p0.al) * frac;
 						sampled.ar = p0.ar + (p1.ar - p0.ar) * frac;
 						sampled.blank = p0.blank;
-						activeScanPos = vs.wavSamplePos / (float)totalPts;
 					}
 				} else {
 					// ILDA Multi-Frame Show
-					float f0 = (syncConnected && syncInMode == SYNC_RESET_FILE && vs.syncPeriod > 0.f)
-							   ? (1.f / vs.syncPeriod) : voiceFreq;
+					float f0 = (freqSyncConnected && vs.syncPeriod > 0.f) ? (1.f / vs.syncPeriod) : voiceFreq;
 					vs.scanPhase += f0 * args.sampleTime;
 					if (vs.scanPhase >= 1.f) {
 						vs.scanPhase -= std::floor(vs.scanPhase);
-						if (!syncTriggered) vs.syncPulse.trigger(1e-4f);
+						if (!freqSyncTrig && !resetTrig) vs.syncPulse.trigger(1e-4f);
 					}
 
-					if (frameMode == FRAME_ALL_SEQ) {
+					if (frameMode == FRAME_ALL_SEQ && !vs.frozen) {
 						float globalPos = vs.scanPhase * (float)totalPts;
 						int i0 = (int)globalPos % totalPts;
 						int i1 = (i0 + 1) % totalPts;
@@ -1239,15 +1323,17 @@ struct Ilda : Module {
 						activeFrameIdx = clampf((float)(vs.scanPhase * totalFrames), 0.f, (float)(totalFrames - 1));
 						activeScanPos = vs.scanPhase;
 					} else {
-						if (frameMode == FRAME_MANUAL) {
-							vs.curFrame = manFrame % totalFrames;
-						} else if (syncInMode != SYNC_STEP_FRAME && totalFrames > 1) {
-							// Auto-advance frames at selected FPS
-							float frameDur = 1.f / (float)targetFps;
-							vs.animTimer += args.sampleTime;
-							while (vs.animTimer >= frameDur) {
-								vs.animTimer -= frameDur;
-								vs.curFrame = (vs.curFrame + 1) % totalFrames;
+						if (!vs.frozen) {
+							if (frameMode == FRAME_MANUAL) {
+								vs.curFrame = manFrame % totalFrames;
+							} else if (!frameSyncConnected && totalFrames > 1 && voiceFps > 0.01f) {
+								// Auto-advance frames using FRAME RATE knob + FPS CV
+								float frameDur = 1.f / voiceFps;
+								vs.animTimer += args.sampleTime;
+								while (vs.animTimer >= frameDur) {
+									vs.animTimer -= frameDur;
+									vs.curFrame = (vs.curFrame + 1) % totalFrames;
+								}
 							}
 						}
 						activeFrameIdx = vs.curFrame;
@@ -1276,17 +1362,11 @@ struct Ilda : Module {
 			if (c == 0) {
 				displayFrame.store(activeFrameIdx, std::memory_order_relaxed);
 				displayScanPos.store(activeScanPos, std::memory_order_relaxed);
+				lights[FREEZE_LIGHT].setBrightness(vs.frozen ? 1.f : 0.f);
 			}
 
-			// Modulated Scale & Rotate
-			float sxCv = inputs[SCALE_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float sc = clampf(scaleParam + sxCv * scaleTrim * 3.f, -3.f, 3.f);
-
-			float rotCv = inputs[ROTATE_CV_INPUT].getPolyVoltage(c) / 5.f;
-			float rotDeg = rotateParam + rotCv * rotateTrim * 180.f;
-
 			float tx = 0.f, ty = 0.f, tz = 0.f;
-			transformXYZ(sampled.x, sampled.y, sampled.z, sc, rotDeg, revDeg, fX, fY, tx, ty, tz);
+			transformXYZ(sampled.x, sampled.y, sampled.z, revDeg, fX, fY, tx, ty, tz);
 
 			// XYZ coordinate outputs (mapped through Generate voltage range, clamped ±12V)
 			outputs[X_OUTPUT].setVoltage(clampf(vMid + tx * vHalfSpan, -12.f, 12.f), c);
@@ -1340,7 +1420,7 @@ struct Ilda : Module {
 		json_object_set_new(rootJ, "showBlankedMoves", json_boolean(showBlankedMoves.load()));
 		json_object_set_new(rootJ, "flipX", json_boolean(flipX.load()));
 		json_object_set_new(rootJ, "flipY", json_boolean(flipY.load()));
-		json_object_set_new(rootJ, "fpsSetting", json_integer(fpsSetting.load()));
+		json_object_set_new(rootJ, "masterFrozen", json_boolean(masterFrozen.load()));
 		json_object_set_new(rootJ, "manualFrame", json_integer(manualFrame.load()));
 		{
 			std::lock_guard<std::mutex> lock(uiMutex);
@@ -1392,8 +1472,12 @@ struct Ilda : Module {
 		json_t* fyJ = json_object_get(rootJ, "flipY");
 		if (fyJ) flipY.store(json_boolean_value(fyJ));
 
-		json_t* fpsJ = json_object_get(rootJ, "fpsSetting");
-		if (fpsJ) fpsSetting.store((int)clampf((float)json_integer_value(fpsJ), 1.f, 120.f));
+		json_t* frzJ = json_object_get(rootJ, "masterFrozen");
+		if (frzJ) {
+			bool frz = json_boolean_value(frzJ);
+			masterFrozen.store(frz);
+			for (int i = 0; i < 16; ++i) voices[i].frozen = frz;
+		}
 
 		json_t* mfJ = json_object_get(rootJ, "manualFrame");
 		if (mfJ) manualFrame.store(std::max(0, (int)json_integer_value(mfJ)));
@@ -1484,6 +1568,51 @@ struct IldaRangeLightRing : ModuleLightWidget {
 	}
 };
 
+// ── Custom Illuminated Ring for Small Freeze Toggle Button ──
+struct IldaFreezeLightRing : ModuleLightWidget {
+	IldaFreezeLightRing() {
+		box.size = mm2px(Vec(9.0f, 9.0f));
+		this->addBaseColor(nvgRGBA(0x40, 0xb0, 0xa6, 0xff)); // Frozen: Active Teal
+	}
+
+	void drawBackground(const DrawArgs& args) override {
+		Vec c = box.size.div(2.f);
+		float r = mm2px(3.20f);
+		float w = mm2px(0.85f);
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, nvgRGBA(0x22, 0x22, 0x22, 0x99));
+		nvgStrokeWidth(args.vg, w);
+		nvgStroke(args.vg);
+	}
+
+	void drawLight(const DrawArgs& args) override {
+		if (color.a <= 0.0f) return;
+		Vec c = box.size.div(2.f);
+		float r = mm2px(3.20f);
+		float w = mm2px(0.85f);
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, color);
+		nvgStrokeWidth(args.vg, w);
+		nvgStroke(args.vg);
+	}
+
+	void drawHalo(const DrawArgs& args) override {
+		if (color.a <= 0.0f) return;
+		Vec c = box.size.div(2.f);
+		float r = mm2px(3.20f);
+		float haloW = mm2px(0.75f);
+		NVGcolor haloColor = color;
+		haloColor.a *= 0.175f;
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, c.x, c.y, r);
+		nvgStrokeColor(args.vg, haloColor);
+		nvgStrokeWidth(args.vg, mm2px(0.85f) + haloW);
+		nvgStroke(args.vg);
+	}
+};
+
 // ── Live Full-Color ILDA / WAV Laser Preview Display ──
 struct IldaDisplayWidget : widget::TransparentWidget {
 	Ilda* module = nullptr;
@@ -1500,11 +1629,10 @@ struct IldaDisplayWidget : widget::TransparentWidget {
 		float cy = h * 0.5f;
 		float radius = std::min(w, h) * 0.43f;
 
-		float scaleVal = 1.f;
-		float rotVal = 0.f;
 		float revDeg = 0.f;
 		bool showBlank = false;
 		bool fX = false, fY = false;
+		bool isFrozen = false;
 		int activeFrameIdx = 0;
 		float scanPos = 0.f;
 		std::string label = "default.ild";
@@ -1512,12 +1640,11 @@ struct IldaDisplayWidget : widget::TransparentWidget {
 		bool hasModule = (module != nullptr);
 
 		if (hasModule) {
-			scaleVal = module->params[Ilda::SCALE_PARAM].getValue();
-			rotVal = module->params[Ilda::ROTATE_PARAM].getValue();
 			revDeg = module->displayRevolveDeg.load(std::memory_order_relaxed);
 			showBlank = module->showBlankedMoves.load(std::memory_order_relaxed);
 			fX = module->flipX.load(std::memory_order_relaxed);
 			fY = module->flipY.load(std::memory_order_relaxed);
+			isFrozen = module->masterFrozen.load(std::memory_order_relaxed);
 			activeFrameIdx = module->displayFrame.load(std::memory_order_relaxed);
 			scanPos = module->displayScanPos.load(std::memory_order_relaxed);
 
@@ -1579,7 +1706,7 @@ struct IldaDisplayWidget : widget::TransparentWidget {
 				auto xform = [&](const Ilda::ShowPoint& p, float& sx, float& sy) {
 					float tx = p.x, ty = p.y, tz = p.z;
 					if (hasModule) {
-						module->transformXYZ(p.x, p.y, p.z, scaleVal, rotVal, revDeg, fX, fY, tx, ty, tz);
+						module->transformXYZ(p.x, p.y, p.z, revDeg, fX, fY, tx, ty, tz);
 					}
 					sx = cx + tx * radius;
 					sy = cy - ty * radius;
@@ -1656,16 +1783,24 @@ struct IldaDisplayWidget : widget::TransparentWidget {
 		nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_BOTTOM);
 		nvgText(args.vg, 4.f, h - 2.5f, label.c_str(), nullptr);
 
+		if (hasModule && isFrozen) {
+			nvgFillColor(args.vg, nvgRGBA(0x40, 0xb0, 0xa6, 0xdd));
+			nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
+			nvgText(args.vg, w - 4.f, 2.5f, "FROZEN", nullptr);
+		}
+
 		if (hasModule && localShow.frames.size() > 1) {
 			char frBuf[24];
 			std::snprintf(frBuf, sizeof(frBuf), "F%d/%d",
 						  (activeFrameIdx % (int)localShow.frames.size()) + 1,
 						  (int)localShow.frames.size());
+			nvgFillColor(args.vg, nvgRGBA(0xcc, 0xcc, 0xd4, 0xb0));
 			nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_BOTTOM);
 			nvgText(args.vg, w - 4.f, h - 2.5f, frBuf, nullptr);
 		} else if (hasModule && localShow.isWav) {
 			char chBuf[24];
 			std::snprintf(chBuf, sizeof(chBuf), "%dCH WAV", localShow.numChannels);
+			nvgFillColor(args.vg, nvgRGBA(0xcc, 0xcc, 0xd4, 0xb0));
 			nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_BOTTOM);
 			nvgText(args.vg, w - 4.f, h - 2.5f, chBuf, nullptr);
 		}
@@ -1716,8 +1851,9 @@ struct IldaWidget : ModuleWidget {
 		panel->setBackground(Svg::load(initPath));
 		setPanel(panel);
 
-		// 5-Column Grid on 14 HP (71.120 mm): [7.000, 21.280, 35.560, 49.840, 64.120]
-		const float col5_x[5] = {7.000f, 21.280f, 35.560f, 49.840f, 64.120f};
+		// 4-Column Row 1 Grid & 5-Column Lower Grid on 14 HP (71.120 mm)
+		const float col4_x[4] = {8.560f, 26.560f, 44.560f, 62.560f};
+		const float col5_x[5] = {8.560f, 22.060f, 35.560f, 49.060f, 62.560f};
 
 		// ── Large Top Laser Preview Display ──
 		auto* display = new IldaDisplayWidget(module);
@@ -1725,36 +1861,40 @@ struct IldaWidget : ModuleWidget {
 		addChild(display);
 
 		// ── Zone 2: Primary Knobs on One Line (Center Y = 52.000 mm) ──
-		addParam(createParamCentered<IldaKnob>(mm2px(Vec(col5_x[0], 52.000f)), module, Ilda::FREQ_PARAM));
-		addChild(createLightCentered<IldaRangeLightRing>(mm2px(Vec(col5_x[1], 52.000f)), module, Ilda::RANGE_LIGHT_YELLOW));
-		addParam(createParamCentered<IldaButton>(mm2px(Vec(col5_x[1], 52.000f)), module, Ilda::RANGE_PARAM));
-		addParam(createParamCentered<IldaKnob>(mm2px(Vec(col5_x[2], 52.000f)), module, Ilda::FINE_PARAM));
-		addParam(createParamCentered<IldaKnob>(mm2px(Vec(col5_x[3], 52.000f)), module, Ilda::SCALE_PARAM));
-		addParam(createParamCentered<IldaKnob>(mm2px(Vec(col5_x[4], 52.000f)), module, Ilda::ROTATE_PARAM));
+		addParam(createParamCentered<IldaKnob>(mm2px(Vec(col4_x[0], 52.000f)), module, Ilda::FREQ_PARAM));
+		addChild(createLightCentered<IldaRangeLightRing>(mm2px(Vec(col4_x[1], 52.000f)), module, Ilda::RANGE_LIGHT_YELLOW));
+		addParam(createParamCentered<IldaButton>(mm2px(Vec(col4_x[1], 52.000f)), module, Ilda::RANGE_PARAM));
+		addParam(createParamCentered<IldaKnob>(mm2px(Vec(col4_x[2], 52.000f)), module, Ilda::FINE_PARAM));
+		addParam(createParamCentered<IldaKnob>(mm2px(Vec(col4_x[3], 52.000f)), module, Ilda::FRAME_RATE_PARAM));
 
-		// ── Zone 3: CV Depth Attenuverters (Center Y = 73.000 mm, aligned over Scale & Rotate CV) ──
-		addParam(createParamCentered<IldaTrimpot>(mm2px(Vec(col5_x[3], 73.000f)), module, Ilda::SCALE_TRIM_PARAM));
-		addParam(createParamCentered<IldaTrimpot>(mm2px(Vec(col5_x[4], 73.000f)), module, Ilda::ROTATE_TRIM_PARAM));
+		// ── Zone 3: Attenuverters & Small Control Buttons (Center Y = 73.000 mm) ──
+		addParam(createParamCentered<IldaTrimpot>(mm2px(Vec(col5_x[1], 73.000f)), module, Ilda::FREQ_TRIM_PARAM));
+		addParam(createParamCentered<IldaButton>(mm2px(Vec(col5_x[2], 73.000f)), module, Ilda::RESET_BUTTON_PARAM));
+		addParam(createParamCentered<IldaTrimpot>(mm2px(Vec(col5_x[3], 73.000f)), module, Ilda::FPS_TRIM_PARAM));
+		addChild(createLightCentered<IldaFreezeLightRing>(mm2px(Vec(col5_x[4], 73.000f)), module, Ilda::FREEZE_LIGHT));
+		addParam(createParamCentered<IldaButton>(mm2px(Vec(col5_x[4], 73.000f)), module, Ilda::FREEZE_BUTTON_PARAM));
 
 		// ── Zone 4: 3-Row x 5-Column Jack Matrix ──
-		// Row 1 (Inputs, Center Y = 91.000 mm)
-		addInput(createInputCentered<IldaPort>(mm2px(Vec(col5_x[0], 91.000f)), module, Ilda::FREQ_CV_INPUT));
-		addInput(createInputCentered<IldaPort>(mm2px(Vec(col5_x[1], 91.000f)), module, Ilda::SYNC_INPUT));
-		addInput(createInputCentered<IldaPort>(mm2px(Vec(col5_x[3], 91.000f)), module, Ilda::SCALE_CV_INPUT));
-		addInput(createInputCentered<IldaPort>(mm2px(Vec(col5_x[4], 91.000f)), module, Ilda::ROTATE_CV_INPUT));
+		// Row 1 (Center Y = 91.000 mm): SYNC IN, FREQ, RESET, FPS, FREEZE
+		addInput(createInputCentered<IldaPort>(mm2px(Vec(col5_x[0], 91.000f)), module, Ilda::FRAME_SYNC_INPUT));
+		addInput(createInputCentered<IldaPort>(mm2px(Vec(col5_x[1], 91.000f)), module, Ilda::FREQ_CV_INPUT));
+		addInput(createInputCentered<IldaPort>(mm2px(Vec(col5_x[2], 91.000f)), module, Ilda::RESET_INPUT));
+		addInput(createInputCentered<IldaPort>(mm2px(Vec(col5_x[3], 91.000f)), module, Ilda::FPS_CV_INPUT));
+		addInput(createInputCentered<IldaPort>(mm2px(Vec(col5_x[4], 91.000f)), module, Ilda::FREEZE_INPUT));
 
-		// Row 2 (RGB + Audio L/R Outputs, Center Y = 104.000 mm)
-		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[0], 104.000f)), module, Ilda::R_OUTPUT));
-		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[1], 104.000f)), module, Ilda::G_OUTPUT));
-		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[2], 104.000f)), module, Ilda::B_OUTPUT));
-		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[3], 104.000f)), module, Ilda::AUDIO_L_OUTPUT));
-		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[4], 104.000f)), module, Ilda::AUDIO_R_OUTPUT));
+		// Row 2 (Center Y = 104.000 mm): (Freq) SYNC IN, X, Y, Z, AUDIO L
+		addInput(createInputCentered<IldaPort>(mm2px(Vec(col5_x[0], 104.000f)), module, Ilda::FREQ_SYNC_INPUT));
+		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[1], 104.000f)), module, Ilda::X_OUTPUT));
+		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[2], 104.000f)), module, Ilda::Y_OUTPUT));
+		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[3], 104.000f)), module, Ilda::Z_OUTPUT));
+		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[4], 104.000f)), module, Ilda::AUDIO_L_OUTPUT));
 
-		// Row 3 (XYZ + Sync Out, Center Y = 117.000 mm)
-		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[0], 117.000f)), module, Ilda::X_OUTPUT));
-		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[1], 117.000f)), module, Ilda::Y_OUTPUT));
-		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[2], 117.000f)), module, Ilda::Z_OUTPUT));
-		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[4], 117.000f)), module, Ilda::SYNC_OUTPUT));
+		// Row 3 (Center Y = 117.000 mm): R, G, B, SYNC OUT, AUDIO R
+		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[0], 117.000f)), module, Ilda::R_OUTPUT));
+		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[1], 117.000f)), module, Ilda::G_OUTPUT));
+		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[2], 117.000f)), module, Ilda::B_OUTPUT));
+		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[3], 117.000f)), module, Ilda::SYNC_OUTPUT));
+		addOutput(createOutputCentered<IldaPort>(mm2px(Vec(col5_x[4], 117.000f)), module, Ilda::AUDIO_R_OUTPUT));
 	}
 
 	void appendContextMenu(Menu* menu) override {
@@ -1849,7 +1989,7 @@ struct IldaWidget : ModuleWidget {
 		menu->addChild(createMenuLabel("Animation & Sync"));
 
 		menu->addChild(createSubmenuItem("Frame Playback Mode", "", [=](Menu* sub) {
-			sub->addChild(createCheckMenuItem("Auto Advance (FPS)", "",
+			sub->addChild(createCheckMenuItem("Auto Advance (Frame Rate Knob)", "",
 				[=]() { return mod->frameMode == Ilda::FRAME_AUTO_FPS; },
 				[=]() { mod->frameMode = Ilda::FRAME_AUTO_FPS; }
 			));
@@ -1861,16 +2001,6 @@ struct IldaWidget : ModuleWidget {
 				[=]() { return mod->frameMode == Ilda::FRAME_ALL_SEQ; },
 				[=]() { mod->frameMode = Ilda::FRAME_ALL_SEQ; }
 			));
-		}));
-
-		menu->addChild(createSubmenuItem("Frame Rate (FPS)", "", [=](Menu* sub) {
-			const int fpsChoices[] = {12, 24, 30, 60};
-			for (int f : fpsChoices) {
-				sub->addChild(createCheckMenuItem(std::to_string(f) + " fps", "",
-					[=]() { return mod->fpsSetting.load() == f; },
-					[=]() { mod->fpsSetting.store(f); }
-				));
-			}
 		}));
 
 		if (!isWav && totalFrames > 1) {
@@ -1899,14 +2029,14 @@ struct IldaWidget : ModuleWidget {
 			}));
 		}
 
-		menu->addChild(createSubmenuItem("Sync In Mode", "", [=](Menu* sub) {
-			sub->addChild(createCheckMenuItem("Reset File / Restart (Default)", "",
-				[=]() { return mod->syncInMode == Ilda::SYNC_RESET_FILE; },
-				[=]() { mod->syncInMode = Ilda::SYNC_RESET_FILE; }
-			));
-			sub->addChild(createCheckMenuItem("Advance 1 Frame per Trigger", "",
+		menu->addChild(createSubmenuItem("Frame Sync In Mode", "", [=](Menu* sub) {
+			sub->addChild(createCheckMenuItem("Advance 1 Frame per Trigger (Default)", "",
 				[=]() { return mod->syncInMode == Ilda::SYNC_STEP_FRAME; },
 				[=]() { mod->syncInMode = Ilda::SYNC_STEP_FRAME; }
+			));
+			sub->addChild(createCheckMenuItem("Restart to Frame 1", "",
+				[=]() { return mod->syncInMode == Ilda::SYNC_RESET_FILE; },
+				[=]() { mod->syncInMode = Ilda::SYNC_RESET_FILE; }
 			));
 		}));
 
