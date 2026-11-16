@@ -830,6 +830,17 @@
         "Visual",
         "Polyphonic"
       ]
+    },
+    {
+      "slug": "Ilda",
+      "name": "ILDA",
+      "description": "ILDA (.ild Formats 0/1/2/4/5) and multi-channel WAV (up to 8ch) laser frame/audio player with XYZ/RGB/Audio L-R/Sync outputs, V/Oct scan rate, and live full-color preview",
+      "tags": [
+        "Generate",
+        "Oscillator",
+        "Visual",
+        "Polyphonic"
+      ]
     }
   ]
 }

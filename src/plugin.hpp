@@ -82,3 +82,4 @@ extern Model* modelSerqet;
 extern Model* modelJoy;
 extern Model* modelHecate;
 extern Model* modelSilvia;
+extern Model* modelIlda;
