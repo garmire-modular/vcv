@@ -360,46 +360,7 @@ def main():
 
         emit_polyline(circle_pts, 0.0, circle_color)
 
-        # 2. Circuit Board Traces & Gold Pads (chase + pulse on white flash frame 6)
-        # Energized pad schedule across 8 frames: ping-pong chase + all-on flash on frame 6
-        active_map = {
-            0: {0},          # R1
-            1: {1, 3},       # R2 + L1
-            2: {2, 4},       # R3 + L2
-            3: {5},          # L3
-            4: {2, 4},       # R3 + L2
-            5: {1, 3},       # R2 + L1
-            6: {0, 1, 2, 3, 4, 5},  # All pads surge with G white pulse!
-            7: {0, 5},       # Top-right & bottom-left trail
-        }[f]
-
-        for p_idx, pdata in enumerate(pads_info):
-            energized = (p_idx in active_map)
-            # Trace color: emerald green normally -> electric cyan-white when energized
-            tr_col = (120, 255, 220) if energized else (0, 175, 80)
-            for ch in pdata['traces']:
-                emit_polyline(ch, -0.20, lambda k, t, x, y, c=tr_col: c)
-
-            # Pad ring color: warm PCB gold normally -> hot white-gold when energized
-            ring_col = (255, 250, 170) if energized else (210, 165, 42)
-            for ch in pdata['rings']:
-                emit_polyline(ch, -0.10, lambda k, t, x, y, c=ring_col: c)
-
-            # Animated inner spark diamond inside active pad (when clipped inside circle)
-            if energized:
-                pcx, pcy = pdata['center']
-                r_spark = 4.2
-                diamond = [
-                    (pcx + r_spark, pcy),
-                    (pcx, pcy + r_spark),
-                    (pcx - r_spark, pcy),
-                    (pcx, pcy - r_spark),
-                    (pcx + r_spark, pcy),
-                ]
-                for ch in clip_polyline_to_circle(diamond, CCX, CCY, RAD):
-                    emit_polyline(ch, -0.05, lambda k, t, x, y: (255, 255, 255))
-
-        # 3. Stylized G (stays emerald green, pulses to white cleanly at frames 5-7)
+        # 2. Stylized G (stays emerald green, pulses to white cleanly at frames 5-7)
         g_colors = {
             0: (0, 235, 96),
             1: (0, 235, 96),

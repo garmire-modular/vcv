@@ -21,7 +21,7 @@
 #endif
 
 // ─────────────────────────────────────────────────────────────────────
-//  ILDA — ILDA (.ild) & Multi-Channel WAV (.wav) Laser Player (14 HP, v1.0.2)
+//  ILDA — ILDA (.ild) & Multi-Channel WAV (.wav) Laser Player (14 HP, v1.0.3)
 //  Generate class module implementing ILDA Image Data Transfer Format
 //  (Rev 011 Formats 0, 1, 2, 4, 5) and 1–8 channel WAV playback:
 //    - 8-ch WAV: 1:X, 2:Y, 3:R, 4:G, 5:B, 6:Z/Blank, 7:Audio L, 8:Audio R
