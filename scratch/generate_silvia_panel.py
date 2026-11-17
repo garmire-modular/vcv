@@ -156,7 +156,7 @@ def generate_silvia_svg(skin):
         '',
         '  <!-- ZONE 1: HEADER & TITLE -->',
         render_text(ddin_bold, "SILVIA", mid_x, 8.000, s_title, title_color, "SILVIA"),
-        render_text(qs_reg_font, "v1.0.1", panel_w - 2.150, 8.000, s_version, version_color, "v1.0.1", align="right"),
+        render_text(qs_reg_font, "v1.1.0", panel_w - 2.150, 8.000, s_version, version_color, "v1.1.0", align="right"),
         '',
         '  <!-- SVG Trajectory Preview Bezel (Above Parameter Knobs: X = 7.40..43.40 mm, Y = 11.00..35.00 mm) -->',
         f'  <rect x="7.400" y="11.000" width="36.000" height="24.000" rx="1.500" fill="#121216" stroke="{ring_color}" stroke-width="0.350"/>',

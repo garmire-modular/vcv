@@ -24,7 +24,7 @@ namespace silvia_nsvg {
 #endif
 
 // ─────────────────────────────────────────────────────────────────────
-//  Silvia — SVG-to-XY Vector Trajectory Generator (10 HP, v1.0.1)
+//  Silvia — SVG-to-XY Vector Trajectory Generator (10 HP, v1.1.0)
 //  Generate class module opening any SVG file (defaulting to garmire.svg)
 //  and outputting real-time X/Y deflection voltages and Sync pulses.
 //  Features:
@@ -33,6 +33,7 @@ namespace silvia_nsvg {
 //    - Zone 3: Scale X, Scale Y, Rotate, Revolve CV attenuverters
 //    - Zone 4: Scale X/Y/Rotate/Revolve CV inputs, Sync In, X/Y/Sync Out
 //    - Context menu: Load SVG, Reset to Default, Invert SVG (B/W),
+//      Layer Occlusion (Painter's All Fills / Visible / Union / Off),
 //      Subpath Traversal (Slewed / Direct Jump), Revolve Mode (3D / Ortho),
 //      Oscillator Range, 6 Voltage Ranges, and Triple Skin Theme.
 // ─────────────────────────────────────────────────────────────────────
@@ -212,6 +213,14 @@ struct Silvia : Module {
 		REVOLVE_ORTHOGRAPHIC = 1   // Option B: linear orthographic yaw rotation
 	};
 	RevolveMode revolveMode = REVOLVE_PERSPECTIVE;
+
+	enum OcclusionMode {
+		OCCLUSION_PAINTERS_ALL = 0,     // Default: later filled shapes (incl. knockouts) occlude lower layers
+		OCCLUSION_PAINTERS_VISIBLE = 1, // Only same-polarity visible filled shapes occlude lower layers
+		OCCLUSION_UNION_OUTLINE = 2,    // Outer union silhouette across all visible filled shapes
+		OCCLUSION_OFF = 3               // Wireframe X-ray: draw all layers unclipped
+	};
+	OcclusionMode occlusionMode = OCCLUSION_PAINTERS_ALL;
 
 	enum ParamId {
 		// Row 1: Standard Freq, Time-scale (Range), Fine
@@ -604,9 +613,22 @@ struct Silvia : Module {
 
 		bool filterByPolarity = (darkCount > 0 && lightCount > 0);
 
-		// 2. Collect flattened polylines per subpath
+		// 2. Collect flattened shapes (for both visible output and layer occlusion)
 		struct RawPt { float x, y; };
-		std::vector<std::vector<RawPt>> subpaths;
+		struct PolyRing {
+			std::vector<RawPt> pts;
+			float minX = 1e30f, minY = 1e30f, maxX = -1e30f, maxY = -1e30f;
+			bool closed = false;
+		};
+		struct ParsedShape {
+			std::vector<PolyRing> rings;
+			bool hasFill = false;
+			bool visibleOut = false;
+			char fillRule = 0; // 0 = nonzero, 1 = evenodd
+			float minX = 1e30f, minY = 1e30f, maxX = -1e30f, maxY = -1e30f;
+		};
+		std::vector<ParsedShape> parsedShapes;
+		float artMinX = 1e30f, artMinY = 1e30f, artMaxX = -1e30f, artMaxY = -1e30f;
 
 		for (NSVGshape* shape = image->shapes; shape != nullptr; shape = shape->next) {
 			if (!(shape->flags & NSVG_FLAGS_VISIBLE) || !shape->paths) continue;
@@ -617,15 +639,22 @@ struct Silvia : Module {
 			if (!hasStroke && !hasFill) continue;
 			float luma = hasStroke ? lumaStroke : lumaFill;
 
+			bool isVisibleOut = true;
 			if (filterByPolarity) {
 				bool isLight = (luma >= 0.5f);
-				if (invertSvg != isLight) continue;
+				isVisibleOut = (invertSvg == isLight);
 			}
+
+			ParsedShape ps;
+			ps.hasFill = hasFill && (shape->opacity > 0.01f);
+			ps.visibleOut = isVisibleOut;
+			ps.fillRule = shape->fillRule;
 
 			for (NSVGpath* path = shape->paths; path != nullptr; path = path->next) {
 				if (path->npts < 2 || !path->pts) continue;
-				std::vector<RawPt> sub;
-				sub.push_back({path->pts[0], path->pts[1]});
+				PolyRing ring;
+				ring.closed = (path->closed != 0);
+				ring.pts.push_back({path->pts[0], path->pts[1]});
 
 				for (int i = 0; i < path->npts - 1; i += 3) {
 					float* p = &path->pts[i * 2];
@@ -647,20 +676,242 @@ struct Silvia : Module {
 						float ttt = tt * t;
 						float bx = uuu * x0 + 3.f * uu * t * x1 + 3.f * u * tt * x2 + ttt * x3;
 						float by = uuu * y0 + 3.f * uu * t * y1 + 3.f * u * tt * y2 + ttt * y3;
-						sub.push_back({bx, by});
+						ring.pts.push_back({bx, by});
 					}
 				}
 
-				if (path->closed && sub.size() >= 2) {
-					float dx = sub.front().x - sub.back().x;
-					float dy = sub.front().y - sub.back().y;
+				if (path->closed && ring.pts.size() >= 2) {
+					float dx = ring.pts.front().x - ring.pts.back().x;
+					float dy = ring.pts.front().y - ring.pts.back().y;
 					if (dx * dx + dy * dy > 1e-6f) {
-						sub.push_back(sub.front());
+						ring.pts.push_back(ring.pts.front());
 					}
 				}
 
-				if (sub.size() >= 2) {
-					subpaths.push_back(std::move(sub));
+				if (ring.pts.size() >= 2) {
+					for (const auto& rp : ring.pts) {
+						if (rp.x < ring.minX) ring.minX = rp.x;
+						if (rp.y < ring.minY) ring.minY = rp.y;
+						if (rp.x > ring.maxX) ring.maxX = rp.x;
+						if (rp.y > ring.maxY) ring.maxY = rp.y;
+					}
+					if (ring.minX < ps.minX) ps.minX = ring.minX;
+					if (ring.minY < ps.minY) ps.minY = ring.minY;
+					if (ring.maxX > ps.maxX) ps.maxX = ring.maxX;
+					if (ring.maxY > ps.maxY) ps.maxY = ring.maxY;
+					if (ring.minX < artMinX) artMinX = ring.minX;
+					if (ring.minY < artMinY) artMinY = ring.minY;
+					if (ring.maxX > artMaxX) artMaxX = ring.maxX;
+					if (ring.maxY > artMaxY) artMaxY = ring.maxY;
+					ps.rings.push_back(std::move(ring));
+				}
+			}
+
+			if (!ps.rings.empty()) {
+				parsedShapes.push_back(std::move(ps));
+			}
+		}
+
+		float artDiag = (artMaxX > artMinX || artMaxY > artMinY)
+						? std::max(1.f, std::hypot(artMaxX - artMinX, artMaxY - artMinY))
+						: 1.f;
+		float boundaryEps = artDiag * 2e-4f;
+		float boundaryEpsSq = boundaryEps * boundaryEps;
+		float stitchGapSq = (artDiag * 1e-3f) * (artDiag * 1e-3f);
+
+		auto isPointStrictlyInsideShape = [&](float px, float py, const ParsedShape& occ) -> bool {
+			if (px < occ.minX || px > occ.maxX || py < occ.minY || py > occ.maxY) return false;
+
+			// Boundary proximity check so shared edges / self-touching seams stay intact
+			float minDistSq = 1e30f;
+			for (const auto& ring : occ.rings) {
+				if (ring.pts.size() < 2) continue;
+				if (px < ring.minX - boundaryEps || px > ring.maxX + boundaryEps ||
+					py < ring.minY - boundaryEps || py > ring.maxY + boundaryEps) {
+					continue;
+				}
+				for (size_t k = 0; k + 1 < ring.pts.size(); ++k) {
+					float ax = ring.pts[k].x, ay = ring.pts[k].y;
+					float bx = ring.pts[k + 1].x, by = ring.pts[k + 1].y;
+					float vx = bx - ax, vy = by - ay;
+					float lenSq = vx * vx + vy * vy;
+					float t = (lenSq > 1e-12f) ? clampf(((px - ax) * vx + (py - ay) * vy) / lenSq, 0.f, 1.f) : 0.f;
+					float dx = px - (ax + t * vx);
+					float dy = py - (ay + t * vy);
+					float dSq = dx * dx + dy * dy;
+					if (dSq < minDistSq) minDistSq = dSq;
+				}
+			}
+			if (minDistSq <= boundaryEpsSq) return false;
+
+			if (occ.fillRule == 1) { // NSVG_FILLRULE_EVENODD
+				bool inside = false;
+				for (const auto& ring : occ.rings) {
+					if (ring.pts.size() < 3) continue;
+					for (size_t k = 0; k + 1 < ring.pts.size(); ++k) {
+						float x1 = ring.pts[k].x, y1 = ring.pts[k].y;
+						float x2 = ring.pts[k + 1].x, y2 = ring.pts[k + 1].y;
+						if (((y1 > py) != (y2 > py)) &&
+							(px < (x2 - x1) * (py - y1) / (y2 - y1) + x1)) {
+							inside = !inside;
+						}
+					}
+				}
+				return inside;
+			} else { // NSVG_FILLRULE_NONZERO
+				int winding = 0;
+				for (const auto& ring : occ.rings) {
+					if (ring.pts.size() < 3) continue;
+					for (size_t k = 0; k + 1 < ring.pts.size(); ++k) {
+						float x1 = ring.pts[k].x, y1 = ring.pts[k].y;
+						float x2 = ring.pts[k + 1].x, y2 = ring.pts[k + 1].y;
+						if (y1 <= py) {
+							if (y2 > py && ((x2 - x1) * (py - y1) - (px - x1) * (y2 - y1)) > 0.f) winding++;
+						} else {
+							if (y2 <= py && ((x2 - x1) * (py - y1) - (px - x1) * (y2 - y1)) < 0.f) winding--;
+						}
+					}
+				}
+				return winding != 0;
+			}
+		};
+
+		// 2b. Build final visible subpaths (applying selected Layer Occlusion)
+		std::vector<std::vector<RawPt>> subpaths;
+		std::vector<float> splitTs;
+
+		for (size_t i = 0; i < parsedShapes.size(); ++i) {
+			const ParsedShape& shapeI = parsedShapes[i];
+			if (!shapeI.visibleOut) continue;
+
+			if (occlusionMode == OCCLUSION_OFF) {
+				for (const auto& ring : shapeI.rings) {
+					subpaths.push_back(ring.pts);
+				}
+				continue;
+			}
+
+			// Collect active occluder shape indices for shape i
+			std::vector<size_t> occluders;
+			for (size_t j = 0; j < parsedShapes.size(); ++j) {
+				if (j == i) continue;
+				const ParsedShape& shapeJ = parsedShapes[j];
+				if (!shapeJ.hasFill) continue;
+				if (shapeJ.maxX < shapeI.minX || shapeJ.minX > shapeI.maxX ||
+					shapeJ.maxY < shapeI.minY || shapeJ.minY > shapeI.maxY) {
+					continue;
+				}
+				if (occlusionMode == OCCLUSION_PAINTERS_ALL) {
+					if (j > i) occluders.push_back(j);
+				} else if (occlusionMode == OCCLUSION_PAINTERS_VISIBLE) {
+					if (j > i && shapeJ.visibleOut) occluders.push_back(j);
+				} else if (occlusionMode == OCCLUSION_UNION_OUTLINE) {
+					if (shapeJ.visibleOut) occluders.push_back(j);
+				}
+			}
+
+			if (occluders.empty()) {
+				for (const auto& ring : shapeI.rings) {
+					subpaths.push_back(ring.pts);
+				}
+				continue;
+			}
+
+			for (const auto& ring : shapeI.rings) {
+				if (ring.pts.size() < 2) continue;
+				std::vector<std::vector<RawPt>> ringChains;
+
+				auto appendVisibleSegment = [&](float ax, float ay, float bx, float by) {
+					if (std::hypot(bx - ax, by - ay) < 1e-6f) return;
+					if (!ringChains.empty()) {
+						auto& tail = ringChains.back().back();
+						float dx = ax - tail.x;
+						float dy = ay - tail.y;
+						if (dx * dx + dy * dy <= stitchGapSq) {
+							ringChains.back().push_back({bx, by});
+							return;
+						}
+					}
+					ringChains.push_back({{ax, ay}, {bx, by}});
+				};
+
+				for (size_t k = 0; k + 1 < ring.pts.size(); ++k) {
+					float ax = ring.pts[k].x, ay = ring.pts[k].y;
+					float bx = ring.pts[k + 1].x, by = ring.pts[k + 1].y;
+					float segMinX = std::min(ax, bx), segMaxX = std::max(ax, bx);
+					float segMinY = std::min(ay, by), segMaxY = std::max(ay, by);
+					float rx = bx - ax, ry = by - ay;
+
+					splitTs.clear();
+					splitTs.push_back(0.f);
+					splitTs.push_back(1.f);
+
+					for (size_t j : occluders) {
+						const ParsedShape& occ = parsedShapes[j];
+						if (segMaxX < occ.minX || segMinX > occ.maxX ||
+							segMaxY < occ.minY || segMinY > occ.maxY) {
+							continue;
+						}
+						for (const auto& oRing : occ.rings) {
+							if (segMaxX < oRing.minX || segMinX > oRing.maxX ||
+								segMaxY < oRing.minY || segMinY > oRing.maxY) {
+								continue;
+							}
+							for (size_t m = 0; m + 1 < oRing.pts.size(); ++m) {
+								float cx = oRing.pts[m].x, cy = oRing.pts[m].y;
+								float dx = oRing.pts[m + 1].x, dy = oRing.pts[m + 1].y;
+								float sx = dx - cx, sy = dy - cy;
+								float denom = rx * sy - ry * sx;
+								if (std::abs(denom) <= 1e-9f) continue;
+								float qpx = cx - ax, qpy = cy - ay;
+								float t = (qpx * sy - qpy * sx) / denom;
+								float u = (qpx * ry - qpy * rx) / denom;
+								if (t > 1e-5f && t < 1.f - 1e-5f && u >= -1e-5f && u <= 1.f + 1e-5f) {
+									splitTs.push_back(t);
+								}
+							}
+						}
+					}
+
+					std::sort(splitTs.begin(), splitTs.end());
+					for (size_t s = 0; s + 1 < splitTs.size(); ++s) {
+						float t0 = splitTs[s];
+						float t1 = splitTs[s + 1];
+						if (t1 - t0 <= 1e-4f) continue;
+						float tm = 0.5f * (t0 + t1);
+						float mx = ax + tm * rx;
+						float my = ay + tm * ry;
+
+						bool occluded = false;
+						for (size_t j : occluders) {
+							if (isPointStrictlyInsideShape(mx, my, parsedShapes[j])) {
+								occluded = true;
+								break;
+							}
+						}
+						if (!occluded) {
+							appendVisibleSegment(ax + t0 * rx, ay + t0 * ry, ax + t1 * rx, ay + t1 * ry);
+						}
+					}
+				}
+
+				// Seamlessly join wrap-around piece on closed rings when clipped across index 0
+				if (ring.closed && ringChains.size() > 1) {
+					auto& first = ringChains.front();
+					auto& last = ringChains.back();
+					float dx = last.back().x - first.front().x;
+					float dy = last.back().y - first.front().y;
+					if (dx * dx + dy * dy <= stitchGapSq) {
+						last.insert(last.end(), first.begin() + 1, first.end());
+						first = std::move(last);
+						ringChains.pop_back();
+					}
+				}
+
+				for (auto& ch : ringChains) {
+					if (ch.size() >= 2) {
+						subpaths.push_back(std::move(ch));
+					}
 				}
 			}
 		}
@@ -842,6 +1093,12 @@ struct Silvia : Module {
 	void setTraversalMode(TraversalMode mode) {
 		std::lock_guard<std::mutex> lock(uiMutex);
 		traversalMode = mode;
+		rebuildTrajectoryLocked();
+	}
+
+	void setOcclusionMode(OcclusionMode mode) {
+		std::lock_guard<std::mutex> lock(uiMutex);
+		occlusionMode = mode;
 		rebuildTrajectoryLocked();
 	}
 
@@ -1036,6 +1293,7 @@ struct Silvia : Module {
 		json_object_set_new(rootJ, "skinTheme", json_integer((int)skinTheme));
 		json_object_set_new(rootJ, "traversalMode", json_integer((int)traversalMode));
 		json_object_set_new(rootJ, "revolveMode", json_integer((int)revolveMode));
+		json_object_set_new(rootJ, "occlusionMode", json_integer((int)occlusionMode));
 		{
 			std::lock_guard<std::mutex> lock(uiMutex);
 			json_object_set_new(rootJ, "invertSvg", json_boolean(invertSvg));
@@ -1059,6 +1317,9 @@ struct Silvia : Module {
 
 		json_t* revJ = json_object_get(rootJ, "revolveMode");
 		if (revJ) revolveMode = (RevolveMode)clampf((float)json_integer_value(revJ), 0.f, 1.f);
+
+		json_t* occJ = json_object_get(rootJ, "occlusionMode");
+		if (occJ) occlusionMode = (OcclusionMode)clampf((float)json_integer_value(occJ), 0.f, 3.f);
 
 		json_t* invJ = json_object_get(rootJ, "invertSvg");
 		bool newInv = invJ ? json_boolean_value(invJ) : false;
@@ -1434,6 +1695,25 @@ struct SilviaWidget : ModuleWidget {
 			[=]() { return mod->invertSvg; },
 			[=]() { mod->setInvertSvg(!mod->invertSvg); }
 		));
+
+		menu->addChild(createSubmenuItem("Layer Occlusion", "", [=](Menu* sub) {
+			sub->addChild(createCheckMenuItem("Painter's Order (All Fills / Knockouts)", "",
+				[=]() { return mod->occlusionMode == Silvia::OCCLUSION_PAINTERS_ALL; },
+				[=]() { mod->setOcclusionMode(Silvia::OCCLUSION_PAINTERS_ALL); }
+			));
+			sub->addChild(createCheckMenuItem("Painter's Order (Visible Layers Only)", "",
+				[=]() { return mod->occlusionMode == Silvia::OCCLUSION_PAINTERS_VISIBLE; },
+				[=]() { mod->setOcclusionMode(Silvia::OCCLUSION_PAINTERS_VISIBLE); }
+			));
+			sub->addChild(createCheckMenuItem("Union Silhouette (Merge Overlaps)", "",
+				[=]() { return mod->occlusionMode == Silvia::OCCLUSION_UNION_OUTLINE; },
+				[=]() { mod->setOcclusionMode(Silvia::OCCLUSION_UNION_OUTLINE); }
+			));
+			sub->addChild(createCheckMenuItem("Off (Wireframe X-Ray)", "",
+				[=]() { return mod->occlusionMode == Silvia::OCCLUSION_OFF; },
+				[=]() { mod->setOcclusionMode(Silvia::OCCLUSION_OFF); }
+			));
+		}));
 
 		// ── Subpath Traversal Mode ──
 		menu->addChild(new MenuSeparator());
