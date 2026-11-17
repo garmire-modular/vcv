@@ -155,7 +155,7 @@ def generate_ilda_svg(skin):
         '',
         '  <!-- ZONE 1: HEADER & TITLE -->',
         render_text(ddin_bold, "ILDA", mid_x, 8.000, s_title, title_color, "ILDA"),
-        render_text(qs_reg_font, "v1.0.1", panel_w - 2.150, 8.000, s_version, version_color, "v1.0.1", align="right"),
+        render_text(qs_reg_font, "v1.0.2", panel_w - 2.150, 8.000, s_version, version_color, "v1.0.2", align="right"),
         '',
         '  <!-- Large Live Laser Preview Bezel (X = 7.40..63.72 mm, Y = 11.00..41.00 mm) -->',
         f'  <rect x="7.400" y="11.000" width="56.320" height="30.000" rx="1.500" fill="#101014" stroke="{ring_color}" stroke-width="0.350"/>',

@@ -1,4 +1,5 @@
 #include "plugin.hpp"
+#include "garmire_default_ilda.hpp"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -20,7 +21,7 @@
 #endif
 
 // ─────────────────────────────────────────────────────────────────────
-//  ILDA — ILDA (.ild) & Multi-Channel WAV (.wav) Laser Player (14 HP, v1.0.1)
+//  ILDA — ILDA (.ild) & Multi-Channel WAV (.wav) Laser Player (14 HP, v1.0.2)
 //  Generate class module implementing ILDA Image Data Transfer Format
 //  (Rev 011 Formats 0, 1, 2, 4, 5) and 1–8 channel WAV playback:
 //    - 8-ch WAV: 1:X, 2:Y, 3:R, 4:G, 5:B, 6:Z/Blank, 7:Audio L, 8:Audio R
@@ -73,15 +74,6 @@ inline uint16_t readU16BE(const uint8_t* p) {
 
 inline int16_t readI16BE(const uint8_t* p) {
 	return (int16_t)readU16BE(p);
-}
-
-inline void writeU16BE(std::vector<uint8_t>& dst, uint16_t v) {
-	dst.push_back((uint8_t)((v >> 8) & 0xff));
-	dst.push_back((uint8_t)(v & 0xff));
-}
-
-inline void writeI16BE(std::vector<uint8_t>& dst, int16_t v) {
-	writeU16BE(dst, (uint16_t)v);
 }
 
 // Little-endian integer helpers for RIFF/WAV
@@ -138,112 +130,9 @@ static std::array<uint8_t, 768> makeInitialPalette() {
 	return pal;
 }
 
-// Programmatically builds a valid multi-frame ILDA Format 4 (3D True Color) binary stream
-// showcasing 3D coordinates, full RGB hues, and blanking transitions out of the box.
+// Returns the embedded 8-frame Garmire emblem ILDA Format 4 sequence generated from scratch/garmire-to-animate.svg
 static std::vector<uint8_t> buildDefaultIldaBinary() {
-	std::vector<uint8_t> bin;
-	const uint16_t numFrames = 36;
-	bin.reserve(numFrames * 400);
-
-	auto appendHeader = [&](uint8_t fmt, const char* name8, uint16_t numRec, uint16_t frameNum, uint16_t totalFrames) {
-		bin.push_back('I'); bin.push_back('L'); bin.push_back('D'); bin.push_back('A');
-		bin.push_back(0); bin.push_back(0); bin.push_back(0);
-		bin.push_back(fmt);
-		for (int i = 0; i < 8; ++i) bin.push_back((uint8_t)name8[i]);
-		const char comp[9] = "GARMIRE ";
-		for (int i = 0; i < 8; ++i) bin.push_back((uint8_t)comp[i]);
-		writeU16BE(bin, numRec);
-		writeU16BE(bin, frameNum);
-		writeU16BE(bin, totalFrames);
-		bin.push_back(0); // Projector 0
-		bin.push_back(0); // Reserved
-	};
-
-	struct Pt {
-		float x, y, z;
-		uint8_t r, g, b;
-		bool blank;
-	};
-
-	auto pushLinePts = [&](std::vector<Pt>& pts, float x0, float y0, float z0, float x1, float y1, float z1,
-						   uint8_t r, uint8_t g, uint8_t b, int steps, bool moveFromPrev) {
-		if (moveFromPrev) {
-			pts.push_back({x0, y0, z0, 0, 0, 0, true});
-			pts.push_back({x0, y0, z0, r, g, b, false});
-		}
-		for (int s = 1; s <= steps; ++s) {
-			float t = (float)s / (float)steps;
-			pts.push_back({x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, z0 + (z1 - z0) * t, r, g, b, false});
-		}
-	};
-
-	// Stylized geometric G emblem outer vertices
-	const float gVerts[7][2] = {
-		{ 0.50f,  0.56f},
-		{-0.22f,  0.76f},
-		{-0.76f,  0.22f},
-		{-0.76f, -0.44f},
-		{-0.22f, -0.76f},
-		{ 0.62f, -0.76f},
-		{ 0.62f, -0.04f}
-	};
-
-	for (uint16_t f = 0; f < numFrames; ++f) {
-		float ang = 2.f * (float)M_PI * ((float)f / (float)numFrames);
-		float ca = std::cos(ang);
-		float sa = std::sin(ang);
-
-		std::vector<Pt> pts;
-		pts.reserve(160);
-
-		// Subpath 1: Colorful octagonal G frame with slight 3D wave
-		for (int i = 0; i < 6; ++i) {
-			float z0 = 0.25f * std::sin(ang + (float)i * 0.8f);
-			float z1 = 0.25f * std::sin(ang + (float)(i + 1) * 0.8f);
-			uint8_t idx = (uint8_t)(((i * 9 + f * 2) % 48));
-			uint8_t r = ILDA_DEFAULT_PALETTE_64[idx][0];
-			uint8_t g = ILDA_DEFAULT_PALETTE_64[idx][1];
-			uint8_t b = ILDA_DEFAULT_PALETTE_64[idx][2];
-			pushLinePts(pts, gVerts[i][0], gVerts[i][1], z0, gVerts[i + 1][0], gVerts[i + 1][1], z1, r, g, b, 6, i == 0);
-		}
-		// G horizontal crossbar inward
-		pushLinePts(pts, gVerts[6][0], gVerts[6][1], 0.2f * std::sin(ang), 0.04f, -0.04f, 0.2f * std::cos(ang),
-					64, 176, 166, 6, false);
-
-		// Subpath 2: Rotating 3D inner diamond prism (blanked travel from crossbar)
-		float dia[4][3] = {
-			{0.0f * ca - 0.0f * sa,  0.34f, 0.34f * sa},
-			{0.34f * ca,             0.0f,  0.34f * sa},
-			{0.0f,                  -0.34f, -0.34f * sa},
-			{-0.34f * ca,            0.0f, -0.34f * sa}
-		};
-		for (int i = 0; i < 4; ++i) {
-			int ni = (i + 1) % 4;
-			pushLinePts(pts, dia[i][0], dia[i][1], dia[i][2], dia[ni][0], dia[ni][1], dia[ni][2],
-						255, 224, 64, 5, i == 0);
-		}
-
-		appendHeader(4, "GARMIRE ", (uint16_t)pts.size(), f, numFrames);
-		for (size_t i = 0; i < pts.size(); ++i) {
-			const Pt& p = pts[i];
-			int16_t ix = (int16_t)clampf(p.x * 32767.f, -32768.f, 32767.f);
-			int16_t iy = (int16_t)clampf(p.y * 32767.f, -32768.f, 32767.f);
-			int16_t iz = (int16_t)clampf(p.z * 32767.f, -32768.f, 32767.f);
-			uint8_t status = (uint8_t)((p.blank ? 0x40 : 0x00) | ((i + 1 == pts.size()) ? 0x80 : 0x00));
-			writeI16BE(bin, ix);
-			writeI16BE(bin, iy);
-			writeI16BE(bin, iz);
-			bin.push_back(status);
-			// Format 4 order per Spec Fig 6: Status, Blue, Green, Red
-			bin.push_back(p.b);
-			bin.push_back(p.g);
-			bin.push_back(p.r);
-		}
-	}
-
-	// EOF Header (Number of Records = 0 per Spec §3.1 & §4.2.6)
-	appendHeader(4, "EOF     ", 0, 0, numFrames);
-	return bin;
+	return std::vector<uint8_t>(DEFAULT_GARMIRE_ILDA, DEFAULT_GARMIRE_ILDA + sizeof(DEFAULT_GARMIRE_ILDA));
 }
 
 } // namespace
